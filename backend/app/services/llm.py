@@ -1,0 +1,167 @@
+from __future__ import annotations
+
+import asyncio
+import html
+import hashlib
+import json
+import re
+import ssl
+from datetime import datetime, timezone
+from html.parser import HTMLParser
+from ipaddress import ip_address
+from urllib.parse import parse_qs, quote_plus, urlparse
+
+import httpx
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from ..config import settings
+from ..models import EncryptedCredential
+from ..security import decrypt_secret
+
+
+class ExternalServiceError(RuntimeError):
+    pass
+
+
+def user_api_key(db: Session, user_id: int) -> str | None:
+    row = db.scalar(select(EncryptedCredential).where(EncryptedCredential.user_id == user_id, EncryptedCredential.kind == "llm_api_key"))
+    return decrypt_secret(row.ciphertext) if row else settings.llm_api_key
+
+
+class LlmService:
+    async def list_models(self, api_key: str, search: str = "") -> list[dict]:
+        headers = {"Authorization": f"Bearer {api_key}"}
+        try:
+            async with httpx.AsyncClient(timeout=20, follow_redirects=True) as client:
+                response = await client.get(settings.model_catalog_url, headers=headers)
+        except (httpx.HTTPError, OSError) as exc:
+            raise ExternalServiceError(f"模型目录网络失败：{type(exc).__name__}") from exc
+        if response.status_code >= 400:
+            raise ExternalServiceError(f"模型目录请求失败：HTTP {response.status_code}")
+        payload = response.json()
+        raw = payload.get("data", payload if isinstance(payload, list) else [])
+        models = [{"id": str(item.get("id", "")), "owned_by": item.get("owned_by"), "available": True} for item in raw if isinstance(item, dict) and item.get("id")]
+        if search:
+            needle = search.casefold()
+            models = [item for item in models if needle in item["id"].casefold()]
+        return sorted(models, key=lambda item: item["id"])
+
+    async def complete(self, api_key: str, model: str, system: str, user: str, temperature: float = 0.2, timeout_seconds: int = 120) -> str:
+        payload = {"model": model, "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}], "temperature": temperature}
+        headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+        try:
+            async with httpx.AsyncClient(timeout=timeout_seconds, follow_redirects=True) as client:
+                response = await client.post(f"{settings.llm_base_url}/chat/completions", json=payload, headers=headers)
+        except (httpx.HTTPError, OSError) as exc:
+            raise ExternalServiceError(f"模型网络调用失败：{type(exc).__name__}") from exc
+        if response.status_code >= 400:
+            raise ExternalServiceError(f"模型调用失败：HTTP {response.status_code}")
+        try:
+            return response.json()["choices"][0]["message"]["content"]
+        except (KeyError, IndexError, TypeError) as exc:
+            raise ExternalServiceError("模型响应结构不兼容") from exc
+
+
+class WebResearchService:
+    class _TextExtractor(HTMLParser):
+        def __init__(self) -> None:
+            super().__init__()
+            self.parts: list[str] = []
+            self.ignored = 0
+
+        def handle_starttag(self, tag: str, attrs) -> None:
+            if tag in {"script", "style", "svg", "noscript"}:
+                self.ignored += 1
+
+        def handle_endtag(self, tag: str) -> None:
+            if tag in {"script", "style", "svg", "noscript"} and self.ignored:
+                self.ignored -= 1
+
+        def handle_data(self, data: str) -> None:
+            if not self.ignored:
+                value = " ".join(data.split())
+                if len(value) >= 20:
+                    self.parts.append(value)
+
+    @staticmethod
+    def _safe_url(url: str) -> bool:
+        parsed = urlparse(url)
+        if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+            return False
+        if parsed.hostname.casefold() in {"localhost", "localhost.localdomain"}:
+            return False
+        try:
+            address = ip_address(parsed.hostname)
+        except ValueError:
+            return True
+        return not (address.is_private or address.is_loopback or address.is_link_local or address.is_reserved)
+
+    async def _fetch_page(self, client: httpx.AsyncClient, item: dict) -> dict:
+        if not self._safe_url(item["url"]):
+            return {**item, "fetch_status": "blocked_url", "excerpt": ""}
+        try:
+            response = await client.get(item["url"])
+            response.raise_for_status()
+            content_type = response.headers.get("content-type", "")
+            if "html" not in content_type and "text/plain" not in content_type:
+                return {**item, "fetch_status": "unsupported_content", "excerpt": "", "content_type": content_type}
+            extractor = self._TextExtractor()
+            extractor.feed(response.text)
+            text = "\n".join(extractor.parts)
+            excerpt = text[:settings.evidence_chars_per_page]
+            return {
+                **item,
+                "fetch_status": "ok" if excerpt else "empty",
+                "excerpt": excerpt,
+                "content_type": content_type,
+                "retrieved_at": datetime.now(timezone.utc).isoformat(),
+                "content_sha256": hashlib.sha256(response.content).hexdigest(),
+            }
+        except (httpx.HTTPError, OSError, ssl.SSLError, UnicodeError, ValueError) as exc:
+            return {**item, "fetch_status": "failed", "excerpt": "", "error": type(exc).__name__}
+
+    async def search(self, query: str, limit: int | None = None) -> list[dict]:
+        limit = limit or settings.research_result_limit
+        headers = {"User-Agent": "Mozilla/5.0 SEMI-KB-Research/1.0"}
+        providers = [
+            (f"https://html.duckduckgo.com/html/?q={quote_plus(query)}", r'<a[^>]+class="[^"]*result__a[^"]*"[^>]+href="([^"]+)"[^>]*>(.*?)</a>'),
+            (f"https://www.bing.com/search?q={quote_plus(query)}", r'<li[^>]+class="[^"]*b_algo[^"]*".*?<h2[^>]*>\s*<a[^>]+href="([^"]+)"[^>]*>(.*?)</a>'),
+        ]
+        anchors = []
+        failures = []
+        async with httpx.AsyncClient(timeout=20, follow_redirects=True, headers=headers) as client:
+            for url, pattern in providers:
+                try:
+                    response = await client.get(url)
+                    response.raise_for_status()
+                    anchors = re.findall(pattern, response.text, re.I | re.S)
+                except (httpx.HTTPError, OSError, ssl.SSLError) as exc:
+                    failures.append(f"{urlparse(url).hostname}:{type(exc).__name__}")
+                    continue
+                if anchors:
+                    break
+        if not anchors:
+            raise ExternalServiceError("搜索服务均不可用或页面结构无法解析：" + "、".join(failures or ["no_results"]))
+        results: list[dict] = []
+        for href, title_html in anchors:
+            href = html.unescape(href)
+            parsed = urlparse(href)
+            if "uddg" in parse_qs(parsed.query):
+                href = parse_qs(parsed.query)["uddg"][0]
+            title = re.sub(r"<[^>]+>", "", html.unescape(title_html)).strip()
+            if href.startswith("http") and not any(item["url"] == href for item in results):
+                results.append({"title": title, "url": href, "source_type": "web"})
+            if len(results) >= limit:
+                break
+        if not results:
+            raise ExternalServiceError("搜索没有返回可解析结果")
+        async with httpx.AsyncClient(timeout=25, follow_redirects=True, headers=headers, max_redirects=5) as client:
+            enriched = await asyncio.gather(*(self._fetch_page(client, item) for item in results))
+        if not any(item.get("fetch_status") == "ok" for item in enriched):
+            raise ExternalServiceError("搜索结果页面均无法提取正文证据")
+        return enriched
+
+
+llm_service = LlmService()
+web_research = WebResearchService()

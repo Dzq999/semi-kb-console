@@ -1,0 +1,379 @@
+from __future__ import annotations
+
+import asyncio
+import json
+import os
+import re
+import shutil
+import sys
+import time
+from datetime import datetime, timezone
+from pathlib import Path
+from zoneinfo import ZoneInfo
+
+import yaml
+from rdflib import Graph, RDF, RDFS
+from rdflib.namespace import OWL
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from ..config import settings
+from ..models import Run, RunRound
+
+
+class SemiKbError(RuntimeError):
+    pass
+
+
+class SemiKbAdapter:
+    _candidate_lock = asyncio.Lock()
+    def __init__(self, root: Path | None = None):
+        self.root = root or settings.semi_kb_root
+        self._base_metrics_cache: tuple[float, dict] | None = None
+
+    def invalidate_cache(self) -> None:
+        self._base_metrics_cache = None
+
+    def _ensure_root(self) -> None:
+        if not (self.root / "scripts" / "kb.py").is_file():
+            raise SemiKbError(f"semi-kb 路径无效：{self.root}")
+
+    async def command(self, *args: str, timeout: int = 1800) -> dict:
+        self._ensure_root()
+        started = time.monotonic()
+        process = await asyncio.create_subprocess_exec(
+            sys.executable,
+            str(self.root / "scripts" / args[0]),
+            *args[1:],
+            cwd=str(self.root),
+            env={**os.environ, "PYTHONIOENCODING": "utf-8"},
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        try:
+            stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=timeout)
+        except asyncio.TimeoutError:
+            process.kill()
+            await process.communicate()
+            raise SemiKbError(f"命令超时：{' '.join(args)}") from None
+        except asyncio.CancelledError:
+            process.kill()
+            await process.communicate()
+            raise
+        output = (stdout + stderr).decode("utf-8", "replace")
+        return {"exit_code": process.returncode, "duration_seconds": round(time.monotonic() - started, 3), "output": output}
+
+    async def status(self) -> dict:
+        result = await self.command("kb.py", "status", "--json", timeout=120)
+        if result["exit_code"]:
+            raise SemiKbError(result["output"].strip() or "无法读取 semi-kb 状态")
+        try:
+            return json.loads(result["output"])
+        except json.JSONDecodeError as exc:
+            raise SemiKbError("semi-kb 状态不是合法 JSON") from exc
+
+    async def validate(self, full: bool = True) -> dict:
+        args = ["kb.py", "check"] if full else ["kb.py", "check", "--quick"]
+        result = await self.command(*args)
+        result["passed"] = result["exit_code"] == 0
+        return result
+
+    def ontology_context(self, limit: int = 500) -> dict:
+        schema = Graph()
+        for path in sorted((self.root / "ontology" / "modules").glob("*.ttl")):
+            schema.parse(path, format="turtle")
+        items = []
+        for rdf_type, kind in ((OWL.Class, "class"), (OWL.ObjectProperty, "object_property"), (OWL.DatatypeProperty, "datatype_property")):
+            for subject in schema.subjects(RDF.type, rdf_type):
+                label = next(schema.objects(subject, RDFS.label), None)
+                items.append({"iri": str(subject), "label": str(label) if label else str(subject), "kind": kind})
+        return {"terms": sorted(items, key=lambda item: (item["kind"], item["iri"]))[:limit], "total": len(items)}
+
+    def business_context(self) -> dict:
+        models = []
+        for path in sorted((self.root / "business" / "models").glob("*.yaml")):
+            try:
+                document = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+            except (OSError, yaml.YAMLError):
+                continue
+            models.append({"path": path.relative_to(self.root).as_posix(), "document": document})
+        scenarios = []
+        for path in sorted((self.root / "simulation" / "scenarios").glob("*.yaml")):
+            try:
+                document = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+            except (OSError, yaml.YAMLError):
+                continue
+            scenarios.append({"path": path.relative_to(self.root).as_posix(), "document": document})
+        return {"models": models, "existing_scenario_examples": scenarios[:6]}
+
+    async def cross_validate(self) -> dict:
+        checks = {}
+        for name, script, args in (
+            ("source_alignment", "align_sources.py", ("--check",)),
+            ("capability", "capability_validate.py", ()),
+        ):
+            result = await self.command(script, *args, timeout=300)
+            checks[name] = {"passed": result["exit_code"] == 0, "duration_seconds": result["duration_seconds"], "output": result["output"][-4000:]}
+        checks["passed"] = all(item.get("passed") for item in checks.values() if isinstance(item, dict))
+        return checks
+
+    def candidate_alignment(self, semantic_sources: list[Path]) -> dict:
+        feature_catalog_path = self.root / "build" / "source" / "feature-model-catalog.json"
+        entity_map_path = self.root / "mappings" / "feature-model" / "entity-map.json"
+        property_map_path = self.root / "mappings" / "feature-model" / "property-map.json"
+        vfab_path = self.root / "build" / "source" / "vfab-catalog.json"
+        feature_catalog = json.loads(feature_catalog_path.read_text(encoding="utf-8")) if feature_catalog_path.is_file() else {}
+        entity_map = json.loads(entity_map_path.read_text(encoding="utf-8")) if entity_map_path.is_file() else {}
+        property_map = json.loads(property_map_path.read_text(encoding="utf-8")) if property_map_path.is_file() else {}
+        vfab = json.loads(vfab_path.read_text(encoding="utf-8")) if vfab_path.is_file() else {"status": "awaiting_source", "datasets": []}
+        internal_targets = {str(item.get("target_class")) for item in entity_map.get("mappings") or [] if item.get("target_class")}
+        internal_targets.update(str(item.get("target_property")) for item in property_map.get("mappings") or [] if item.get("target_property"))
+        source_terms = {str(item.get("name") or "").casefold() for item in feature_catalog.get("entities") or []}
+        source_terms.update(str(item.get("code") or "").casefold() for item in feature_catalog.get("entities") or [])
+        vfab_targets = {str(item.get("target_class")) for item in vfab.get("datasets") or [] if item.get("target_class")}
+        rows = []
+        for path in semantic_sources:
+            document = json.loads(path.read_text(encoding="utf-8"))
+            additions = document.get("additions") or {}
+            for section in ("classes", "object_properties", "datatype_properties"):
+                for item in additions.get(section) or []:
+                    iri, label = str(item.get("iri") or ""), str(item.get("label_zh") or "")
+                    token = iri.rsplit(":", 1)[-1].casefold()
+                    internal_state = "mapped" if iri in internal_targets else ("lexical_match" if token in source_terms or label.casefold() in source_terms else "not_found")
+                    rows.append({"iri": iri, "label": label, "kind": section, "internal_feature_state": internal_state, "vfab_state": "matched" if iri in vfab_targets else vfab.get("status", "awaiting_source")})
+        return {
+            "passed": True,
+            "internal_feature_source": feature_catalog.get("source_id", "missing"),
+            "vfab_state": vfab.get("status", "awaiting_source"),
+            "terms_checked": len(rows),
+            "internal_supported": sum(row["internal_feature_state"] != "not_found" for row in rows),
+            "rows": rows,
+            "note": "not_found 表示内部特征未覆盖，不等于外部证据无效；vFab 未提供时始终保持 awaiting_source。",
+        }
+
+    @staticmethod
+    def _safe_stem(value: str) -> str:
+        return re.sub(r"[^a-zA-Z0-9._-]+", "-", value).strip("-.")[:120] or "candidate"
+
+    async def process_candidates(self, candidates: dict[str, list[Path]], publish: bool) -> dict:
+        """Stage candidates under the engine lock, run all gates, and optionally publish.
+
+        Semantic publication is delegated to semi-kb's atomic merger. Simulation files are
+        staged first so the same full-chain validation sees them, and removed on any failure.
+        """
+        self._ensure_root()
+        semantic_sources = [path for path in candidates.get("semantic", []) if path.is_file()]
+        business_sources = [path for path in candidates.get("business", []) if path.is_file()]
+        simulation_sources = [path for path in candidates.get("simulation", []) if path.is_file()]
+        article_sources = [path for path in candidates.get("articles", []) if path.is_file()]
+        result: dict = {"published": False, "semantic_candidates": len(semantic_sources), "business_candidates": len(business_sources), "simulation_candidates": len(simulation_sources), "checks": {}}
+        if not semantic_sources and not business_sources and not simulation_sources:
+            result["checks"] = await self.cross_validate()
+            result["checks"]["candidate_precheck"] = {"passed": True, "output": "本轮没有非空语义或仿真候选"}
+            baseline = await self.validate(full=publish)
+            result["checks"]["full_publish_gate" if publish else "baseline_gate"] = {"passed": baseline["passed"], "duration_seconds": baseline["duration_seconds"], "output": baseline["output"][-8000:]}
+            if not baseline["passed"]:
+                raise SemiKbError("现有知识工程全链门禁失败")
+            if publish and article_sources:
+                article_dir = self.root / "knowledge" / "articles" / "agent-rounds"
+                article_dir.mkdir(parents=True, exist_ok=True)
+                published_articles = []
+                for index, source in enumerate(article_sources, 1):
+                    round_name = source.parents[2].name if len(source.parents) > 2 else "round"
+                    target = article_dir / f"{self._safe_stem(round_name)}-{self._safe_stem(source.parent.name)}-{index}.md"
+                    if not target.exists(): await asyncio.to_thread(shutil.copy2, source, target)
+                    published_articles.append(target.relative_to(self.root).as_posix())
+                result["published"] = True
+                result["published_articles"] = published_articles
+                self.invalidate_cache()
+            return result
+        async with self._candidate_lock:
+            pending = self.root / "semantic_changesets" / "pending"
+            business_dir = self.root / "business" / "models"
+            simulation_dir = self.root / "simulation" / "scenarios"
+            pending.mkdir(parents=True, exist_ok=True)
+            business_dir.mkdir(parents=True, exist_ok=True)
+            simulation_dir.mkdir(parents=True, exist_ok=True)
+            staged_semantic: list[Path] = []
+            staged_business: list[Path] = []
+            staged_simulation: list[Path] = []
+            semantic_applied = False
+            try:
+                for index, source in enumerate(semantic_sources, 1):
+                    target = pending / f"console-{self._safe_stem(source.parent.name)}-{self._safe_stem(source.stem)}-{index}.json"
+                    if target.exists():
+                        raise SemiKbError(f"语义暂存文件冲突：{target.name}")
+                    await asyncio.to_thread(shutil.copy2, source, target)
+                    staged_semantic.append(target)
+                for index, source in enumerate(business_sources, 1):
+                    doc = yaml.safe_load(source.read_text(encoding="utf-8")) or {}
+                    model_id = str((doc.get("model") or {}).get("id") or f"candidate-{index}")
+                    target = business_dir / f"{self._safe_stem(model_id)}.yaml"
+                    if target.exists(): raise SemiKbError(f"经营模型候选 ID 已存在：{model_id}")
+                    await asyncio.to_thread(shutil.copy2, source, target)
+                    staged_business.append(target)
+                for index, source in enumerate(simulation_sources, 1):
+                    doc = yaml.safe_load(source.read_text(encoding="utf-8")) or {}
+                    scenario_id = str((doc.get("scenario") or {}).get("id") or f"candidate-{index}")
+                    target = simulation_dir / f"{self._safe_stem(scenario_id)}.yaml"
+                    if target.exists():
+                        raise SemiKbError(f"仿真候选 ID 已存在：{scenario_id}")
+                    await asyncio.to_thread(shutil.copy2, source, target)
+                    staged_simulation.append(target)
+
+                cross = await self.cross_validate()
+                result["checks"].update(cross)
+                if not cross["passed"]:
+                    raise SemiKbError("内部特征/vFab 或能力问题交叉验证失败")
+                result["checks"]["candidate_source_alignment"] = self.candidate_alignment(semantic_sources)
+                if staged_semantic:
+                    check = await self.command("apply_semantic_changeset.py", "--check", timeout=600)
+                    result["checks"]["semantic_precheck"] = {"passed": check["exit_code"] == 0, "duration_seconds": check["duration_seconds"], "output": check["output"][-5000:]}
+                    if check["exit_code"]:
+                        raise SemiKbError("语义变更集预检失败：" + check["output"][-3000:])
+                simulation = await self.command("simulate_check.py", timeout=600)
+                result["checks"]["business_simulation"] = {"passed": simulation["exit_code"] == 0, "duration_seconds": simulation["duration_seconds"], "output": simulation["output"][-5000:]}
+                if simulation["exit_code"]:
+                    raise SemiKbError("经营模型或仿真候选校验失败：" + simulation["output"][-3000:])
+
+                simulation_runs = []
+                for path in staged_simulation:
+                    run = await self.command("simulate.py", str(path.relative_to(self.root)), timeout=300)
+                    simulation_runs.append({"path": path.relative_to(self.root).as_posix(), "passed": run["exit_code"] == 0, "output": run["output"][-8000:]})
+                    if run["exit_code"]:
+                        raise SemiKbError(f"仿真执行失败：{path.name}")
+                result["simulation_runs"] = simulation_runs
+
+                if publish:
+                    if staged_semantic:
+                        applied = await self.command("apply_semantic_changeset.py", timeout=1800)
+                        result["checks"]["full_publish_gate"] = {"passed": applied["exit_code"] == 0, "duration_seconds": applied["duration_seconds"], "output": applied["output"][-8000:]}
+                        if applied["exit_code"]:
+                            raise SemiKbError("全链发布门禁失败，语义数据已由引擎回滚")
+                        semantic_applied = True
+                    else:
+                        full = await self.validate(full=True)
+                        result["checks"]["full_publish_gate"] = {"passed": full["passed"], "duration_seconds": full["duration_seconds"], "output": full["output"][-8000:]}
+                        if not full["passed"]:
+                            raise SemiKbError("仿真发布全链门禁失败")
+                    article_dir = self.root / "knowledge" / "articles" / "agent-rounds"
+                    article_dir.mkdir(parents=True, exist_ok=True)
+                    published_articles = []
+                    for index, source in enumerate(article_sources, 1):
+                        round_name = source.parents[2].name if len(source.parents) > 2 else "round"
+                        target = article_dir / f"{self._safe_stem(round_name)}-{self._safe_stem(source.parent.name)}-{index}.md"
+                        if not target.exists():
+                            await asyncio.to_thread(shutil.copy2, source, target)
+                        published_articles.append(target.relative_to(self.root).as_posix())
+                    result["published"] = True
+                    result["published_articles"] = published_articles
+                    result["published_business_models"] = [path.relative_to(self.root).as_posix() for path in staged_business]
+                    result["published_simulations"] = [path.relative_to(self.root).as_posix() for path in staged_simulation]
+                    self.invalidate_cache()
+                else:
+                    result["checks"]["publish_policy"] = {"passed": True, "output": "用户未开启自动发布；候选仅保存在控制台产物目录"}
+                return result
+            except BaseException:
+                for path in staged_business:
+                    path.unlink(missing_ok=True)
+                for path in staged_simulation:
+                    path.unlink(missing_ok=True)
+                raise
+            finally:
+                if not publish or not semantic_applied:
+                    for path in staged_semantic:
+                        path.unlink(missing_ok=True)
+                if not publish:
+                    for path in staged_business:
+                        path.unlink(missing_ok=True)
+                    for path in staged_simulation:
+                        path.unlink(missing_ok=True)
+
+    def semantic_counts(self) -> dict[str, int]:
+        self._ensure_root()
+        schema = Graph()
+        data = Graph()
+        for path in sorted((self.root / "ontology" / "modules").glob("*.ttl")):
+            schema.parse(path, format="turtle")
+        semantic_path = self.root / "knowledge" / "semantic" / "current.ttl"
+        if semantic_path.is_file():
+            data.parse(semantic_path, format="turtle")
+        classes = set(schema.subjects(RDF.type, OWL.Class))
+        object_properties = set(schema.subjects(RDF.type, OWL.ObjectProperty))
+        datatype_properties = set(schema.subjects(RDF.type, OWL.DatatypeProperty))
+        individuals = {s for s, _, o in data.triples((None, RDF.type, None)) if o not in {OWL.Class, OWL.ObjectProperty, OWL.DatatypeProperty}}
+        axiom_predicates = {OWL.equivalentClass, OWL.disjointWith, OWL.inverseOf, OWL.onProperty, OWL.cardinality, OWL.qualifiedCardinality, OWL.minQualifiedCardinality, OWL.maxQualifiedCardinality}
+        axioms = sum(1 for _, predicate, _ in schema if predicate in axiom_predicates)
+        rules_path = self.root / "ontology" / "rules" / "registry.json"
+        rules = 0
+        if rules_path.is_file():
+            doc = json.loads(rules_path.read_text(encoding="utf-8"))
+            rules = len(doc if isinstance(doc, list) else (doc.get("rules") or []))
+        return {
+            "classes": len(classes),
+            "properties": len(object_properties) + len(datatype_properties),
+            "object_properties": len(object_properties),
+            "datatype_properties": len(datatype_properties),
+            "individuals": len(individuals),
+            "axioms": axioms,
+            "rules": rules,
+            "semantic_triples": len(schema) + len(data),
+        }
+
+    def artifact_counts(self) -> dict[str, int | str]:
+        scenario_path = self.root / "knowledge" / "scenarios" / "current.json"
+        scenario_count = 0
+        if scenario_path.is_file():
+            scenario_count = int(json.loads(scenario_path.read_text(encoding="utf-8")).get("scenario_count", 0))
+        business_models = list((self.root / "business" / "models").glob("*.yaml"))
+        business_relations = 0
+        for path in business_models:
+            try:
+                doc = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+                model = doc.get("model") or doc
+                business_relations += len(model.get("outputs") or [])
+            except (OSError, yaml.YAMLError):
+                continue
+        simulations = len(list((self.root / "simulation" / "scenarios").glob("*.yaml")))
+        vfab_state = "awaiting_source"
+        report = self.root / "build" / "reports" / "source-alignment.json"
+        if report.is_file():
+            try:
+                vfab_state = (json.loads(report.read_text(encoding="utf-8")).get("vfab") or {}).get("state", vfab_state)
+            except json.JSONDecodeError:
+                pass
+        agent_articles = len(list((self.root / "knowledge" / "articles" / "agent-rounds").glob("*.md")))
+        return {"business_models": len(business_models), "business_relations": business_relations, "simulation_scenarios": simulations, "scenario_articles": scenario_count + agent_articles, "vfab_state": vfab_state}
+
+    async def metrics(self, db: Session | None = None, user_id: int | None = None) -> dict:
+        if self._base_metrics_cache and time.monotonic() - self._base_metrics_cache[0] < 5:
+            cached = self._base_metrics_cache[1]
+            legacy, totals = cached["legacy"], dict(cached["totals"])
+        else:
+            legacy = await self.status()
+            totals = {**self.semantic_counts(), **self.artifact_counts()}
+            totals.update({"legacy_entities": legacy.get("entities", 0), "knowledge_entries": legacy.get("kb_cases", 0), "relations": legacy.get("edges", 0), "anomaly_total": legacy.get("anomaly_total", 0), "anomaly_covered": legacy.get("anomaly_covered", 0)})
+            self._base_metrics_cache = (time.monotonic(), {"legacy": legacy, "totals": dict(totals)})
+        totals["coverage_percent"] = round(100 * totals["anomaly_covered"] / totals["anomaly_total"], 1) if totals["anomaly_total"] else 0
+        today = {key: 0 for key in ("classes", "properties", "relations", "individuals", "axioms", "rules", "knowledge_entries", "business_relations", "simulation_scenarios", "scenario_articles")}
+        if db is not None and user_id is not None:
+            zone = ZoneInfo(settings.timezone)
+            today_text = datetime.now(zone).date().isoformat()
+            rounds = db.scalars(select(RunRound).join(Run, Run.id == RunRound.run_id).where(Run.user_id == user_id, RunRound.status == "completed")).all()
+            for item in rounds:
+                if item.completed_at and item.completed_at.replace(tzinfo=item.completed_at.tzinfo or timezone.utc).astimezone(zone).date().isoformat() == today_text:
+                    before = json.loads(item.metrics_before_json or "{}")
+                    after = json.loads(item.metrics_after_json or "{}")
+                    for key in today:
+                        today[key] += max(0, int(after.get(key, 0)) - int(before.get(key, 0)))
+        return {"totals": totals, "today_added": today, "source_distribution": legacy.get("source_type", {}), "confidence_distribution": legacy.get("confidence", {}), "uncovered": legacy.get("uncovered", [])}
+
+    def article_text(self) -> str:
+        path = self.root / "knowledge" / "articles" / "current-scenarios.md"
+        parts = [path.read_text(encoding="utf-8")] if path.is_file() else []
+        generated = sorted((self.root / "knowledge" / "articles" / "agent-rounds").glob("*.md"), key=lambda item: item.stat().st_mtime, reverse=True)[:5]
+        parts.extend(item.read_text(encoding="utf-8") for item in generated)
+        return "\n\n---\n\n".join(parts)
+
+
+semi_kb = SemiKbAdapter()

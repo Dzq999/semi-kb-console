@@ -1,0 +1,274 @@
+import { useEffect, useMemo, useState } from 'react'
+import type React from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { NavLink, Navigate, Route, Routes, useNavigate } from 'react-router-dom'
+import {
+  Bot, CheckCircle2, CircleStop, Cpu,
+  Database, Download, FileText, Gauge, History, LayoutDashboard, LockKeyhole,
+  Mail, Network, Newspaper, Pause, Play, RefreshCw, Save, Search, Send,
+  Settings, ShieldCheck, Sparkles, Workflow
+} from 'lucide-react'
+import { api, type AgentConfig, type RunInfo, type SourceMode } from './api'
+import { useAppStore } from './store'
+
+type User = { id: number; username: string; preferences: { default_model_id?: string; default_agent_count: number; timezone: string } }
+type DashboardData = {
+  metrics: {
+    totals: Record<string, number | string>
+    today_added: Record<string, number>
+    source_distribution: Record<string, number>
+    uncovered: Array<{ id: string; name_zh: string; severity: string; domain: string }>
+  }
+  latest_run: RunInfo | null
+}
+
+const nav = [
+  ['/', '总览', LayoutDashboard],
+  ['/orchestrator', '任务编排', Bot],
+  ['/ontology', '本体中心', Network],
+  ['/knowledge', '知识库', Database],
+  ['/business', '经营模型', Gauge],
+  ['/simulation', '仿真引擎', Cpu],
+  ['/scenarios', '业务场景', FileText],
+  ['/reports', '日报中心', Newspaper],
+  ['/history', '运行历史', History],
+  ['/settings', '系统设置', Settings]
+] as const
+
+function Button({ children, primary, danger, className = '', ...props }: React.ButtonHTMLAttributes<HTMLButtonElement> & { primary?: boolean; danger?: boolean }) {
+  return <button className={`button ${primary ? 'button-primary' : ''} ${danger ? 'button-danger' : ''} ${className}`} {...props}>{children}</button>
+}
+
+function Panel({ title, meta, children, className = '' }: { title: string; meta?: string; children: React.ReactNode; className?: string }) {
+  return <section className={`panel ${className}`}><header className="panel-head"><h3>{title}</h3>{meta && <span>{meta}</span>}</header>{children}</section>
+}
+
+function Loading({ text = '正在加载真实数据…' }: { text?: string }) {
+  return <div className="loading"><RefreshCw className="spin" size={18} />{text}</div>
+}
+
+function ErrorBox({ error }: { error: unknown }) {
+  return <div className="error-box">{error instanceof Error ? error.message : String(error)}</div>
+}
+
+function AuthScreen({ setupRequired, onAuthenticated }: { setupRequired: boolean; onAuthenticated: (user: User) => void }) {
+  const [username, setUsername] = useState('admin')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault(); setBusy(true); setError('')
+    try {
+      await api(setupRequired ? '/api/auth/setup' : '/api/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) })
+      onAuthenticated(await api<User>('/api/users/me'))
+    } catch (exc) { setError(exc instanceof Error ? exc.message : String(exc)) } finally { setBusy(false) }
+  }
+  return <div className="auth-page"><form className="auth-box" onSubmit={submit}>
+    <div className="auth-mark"><Workflow /></div>
+    <h1>SEMI KB</h1><p>{setupRequired ? '首次初始化管理员账户' : '登录半导体本体智能控制台'}</p>
+    <label>用户名<input value={username} onChange={(e) => setUsername(e.target.value)} minLength={3} required /></label>
+    <label>密码<input type="password" value={password} onChange={(e) => setPassword(e.target.value)} minLength={10} required /></label>
+    {error && <ErrorBox error={error} />}
+    <Button primary disabled={busy}>{busy ? '处理中…' : setupRequired ? '初始化并登录' : '登录'}</Button>
+  </form></div>
+}
+
+function Layout({ user, onLogout }: { user: User; onLogout: () => void }) {
+  const notice = useAppStore((state) => state.notice)
+  return <div className="app-shell">
+    <aside className="sidebar">
+      <div className="brand"><span className="brand-mark"><Workflow size={18} /></span><span><strong>SEMI KB</strong><small>Ontology Studio</small></span></div>
+      <div className="nav-label">工作台</div>
+      <nav>{nav.map(([path, label, Icon]) => <NavLink key={path} to={path} end={path === '/'}><Icon size={16} /><span>{label}</span></NavLink>)}</nav>
+      <div className="sidebar-foot"><span className="online-dot" />服务在线<small>{user.username}</small></div>
+    </aside>
+    <main className="main"><header className="topbar"><div><h1>半导体本体智能控制台</h1><p>Fab · FAC · EQP 领域知识持续演进</p></div><div className="top-actions"><span className="connection"><CheckCircle2 size={15} />semi-kb 已连接</span><Button onClick={onLogout}>退出</Button></div></header>
+      {notice && <div className="global-notice">{notice}</div>}
+      <Routes>
+        <Route path="/" element={<Dashboard />} />
+        <Route path="/orchestrator" element={<Orchestrator user={user} />} />
+        <Route path="/ontology" element={<Ontology />} />
+        <Route path="/knowledge" element={<Knowledge />} />
+        <Route path="/business" element={<Business />} />
+        <Route path="/simulation" element={<Simulation />} />
+        <Route path="/scenarios" element={<Scenarios />} />
+        <Route path="/reports" element={<Reports user={user} />} />
+        <Route path="/history" element={<RunHistory />} />
+        <Route path="/settings" element={<SettingsPage user={user} />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </main>
+  </div>
+}
+
+function MetricCard({ label, value, delta }: { label: string; value: number | string; delta?: number }) {
+  return <div className="metric-card"><span>{label}</span><strong>{typeof value === 'number' ? value.toLocaleString() : value}</strong><small>{delta !== undefined ? `今日 +${delta.toLocaleString()}` : '当前正式总量'}</small></div>
+}
+
+const stageLabels: Record<string, string> = {
+  gap_analysis: '缺口分析', parallel_research: '并行研究', evidence_extraction: '证据提取', semantic_modeling: '语义建模', cross_validation: '交叉验证', owl_shacl_reasoning: 'OWL / SHACL', business_simulation: '经营仿真', scenario_article: '场景沉淀', between_rounds: '轮次间隔', round_failed: '轮次失败', completed: '完成'
+}
+
+function Dashboard() {
+  const queryClient = useQueryClient()
+  const { data, error, isLoading } = useQuery<DashboardData>({ queryKey: ['dashboard'], queryFn: () => api('/api/dashboard'), refetchInterval: 3000 })
+  const [events, setEvents] = useState<Array<{ message: string; level: string; created_at: string }>>([])
+  const latest = data?.latest_run
+  useEffect(() => {
+    if (!latest?.id || !['pending', 'running', 'paused', 'between_rounds', 'stopping_after_round', 'cancelling'].includes(latest.status)) return
+    const stream = new EventSource(`/api/runs/${latest.id}/events`)
+    const handler = (event: MessageEvent) => {
+      const item = JSON.parse(event.data)
+      setEvents((items) => [item, ...items].slice(0, 30))
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+    }
+    ;['run_started', 'round_started', 'stage_started', 'agent_started', 'agent_retry', 'agent_completed', 'agent_failed', 'evidence_ready', 'candidates_ready', 'cross_validation', 'articles_ready', 'round_completed', 'round_failed', 'round_wait', 'attention_required', 'run_completed', 'run_failed', 'run_cancelled'].forEach((name) => stream.addEventListener(name, handler as EventListener))
+    return () => stream.close()
+  }, [latest?.id, latest?.status, queryClient])
+  const action = useMutation({ mutationFn: ({ name }: { name: string }) => api(`/api/runs/${latest?.id}/${name}`, { method: 'POST' }), onSuccess: () => queryClient.invalidateQueries({ queryKey: ['dashboard'] }) })
+  if (isLoading) return <div className="page"><Loading /></div>
+  if (error || !data) return <div className="page"><ErrorBox error={error || '无数据'} /></div>
+  const t = data.metrics.totals; const d = data.metrics.today_added
+  const metrics = [
+    ['OWL 类', t.classes ?? 0, d.classes], ['属性', t.properties ?? 0, d.properties], ['关系', t.relations ?? 0, d.relations], ['实例', t.individuals ?? 0, d.individuals], ['知识条目', t.knowledge_entries ?? 0, d.knowledge_entries], ['问题域覆盖率', `${t.coverage_percent ?? 0}%`, undefined]
+  ] as Array<[string, number | string, number | undefined]>
+  const currentIndex = Object.keys(stageLabels).indexOf(latest?.current_stage || '')
+  return <div className="page">
+    <section className="loop-banner"><div className="loop-state"><span className="pulse-icon"><RefreshCw size={17} /></span><div><strong>{latest ? `持续任务 ${latest.status} · 第 ${latest.current_round || 1} 轮` : 'Loop 空闲'}</strong><span>{latest ? `${latest.id} · ${stageLabels[latest.current_stage] || latest.current_stage}${latest.stop_after_round ? ` · 将在第 ${latest.stop_after_round} 轮结束` : ''}` : '从任务编排启动后，N个Agent会逐轮持续工作'}</span></div></div><div className="actions">{latest && ['running', 'paused', 'between_rounds', 'stopping_after_round', 'needs_attention'].includes(latest.status) && <><Button onClick={() => action.mutate({ name: latest.status === 'paused' || latest.status === 'needs_attention' ? 'resume' : 'pause' })}>{latest.status === 'paused' || latest.status === 'needs_attention' ? <Play size={15} /> : <Pause size={15} />}{latest.status === 'paused' || latest.status === 'needs_attention' ? '恢复' : '暂停'}</Button>{latest.status !== 'needs_attention' && !latest.stop_after_round && <Button onClick={() => action.mutate({ name: 'stop-after-current-round' })}>本轮结束后停止</Button>}{latest.status !== 'needs_attention' && !latest.stop_after_round && <Button onClick={() => action.mutate({ name: 'stop-after-next-round' })}>再运行一轮后停止</Button>}<Button danger onClick={() => action.mutate({ name: 'cancel' })}><CircleStop size={15} />立即停止</Button></>}</div></section>
+    <div className="metrics-grid">{metrics.map(([label, value, delta]) => <MetricCard key={label} label={label} value={value} delta={delta} />)}</div>
+    <div className="dashboard-grid"><Panel title="完整执行链路" meta={latest ? `已完成 ${latest.rounds_completed} 轮 · ${latest.publish_changes ? '门禁后自动发布' : '仅生成候选'}` : '尚无运行'}><div className="pipeline">{Object.entries(stageLabels).slice(0, 8).map(([key, label], index) => <div key={key} className={`stage ${latest?.current_stage === key ? 'active' : ''} ${currentIndex > index || latest?.status === 'completed' ? 'done' : ''}`}><span>{currentIndex > index || latest?.status === 'completed' ? '✓' : index + 1}</span><small>{label}</small></div>)}</div><div className="progress"><i style={{ width: `${latest?.progress || 0}%` }} /></div><div className="progress-copy"><span>第 {latest?.current_round || 0} 轮 · {stageLabels[latest?.current_stage || ''] || '等待任务'}</span><strong>{latest?.progress || 0}%</strong></div></Panel>
+      <Panel title="实时日志" meta="LIVE"><div className="logs">{events.length ? events.map((event, index) => <div className={`log ${event.level}`} key={`${event.created_at}-${index}`}><time>{new Date(event.created_at).toLocaleTimeString()}</time><span />{event.message}</div>) : <div className="empty">运行后将在此显示实时事件</div>}</div></Panel></div>
+    <Panel title="质量与交叉验证" meta="真实基线"><div className="validation-row"><span><ShieldCheck size={16} />内部特征已接入</span><span className="warning">vFab：{String(t.vfab_state || 'awaiting_source')}</span><span>经营模型 {t.business_models || 0}</span><span>仿真场景 {t.simulation_scenarios || 0}</span><span>未覆盖问题 {data.metrics.uncovered.length}</span></div></Panel>
+  </div>
+}
+
+const agentTemplates = [
+  ['Fab 研究', '工厂层级、产能、周期与WIP', 'fab', 'web'],
+  ['FAC 研究', '厂务系统、能源与约束', 'fac', 'hybrid'],
+  ['EQP 研究', '设备能力、状态与故障', 'eqp', 'web'],
+  ['语义建模', '类、属性、关系、公理与规则', 'core', 'model_prior'],
+  ['质量校验', '内部特征、OWL、SHACL与推理', 'validation', 'model_prior'],
+  ['场景沉淀', '客户痛点、经营影响与文章', 'scenario', 'hybrid'],
+  ['扩展研究', '补充高价值问题域', 'fab', 'web'], ['扩展研究', '补充高价值问题域', 'fac', 'web'], ['扩展研究', '补充高价值问题域', 'eqp', 'hybrid'], ['质量审查', '审查证据与发布门禁', 'validation', 'model_prior']
+] as const
+
+function Orchestrator({ user }: { user: User }) {
+  const navigate = useNavigate(); const setLatestRun = useAppStore((state) => state.setLatestRun); const setNotice = useAppStore((state) => state.setNotice)
+  const [count, setCount] = useState(user.preferences.default_agent_count || 6)
+  const [modelSearch, setModelSearch] = useState(user.preferences.default_model_id || '')
+  const [selectedModel, setSelectedModel] = useState(user.preferences.default_model_id || '')
+  const [publishChanges, setPublishChanges] = useState(true)
+  const [continuous, setContinuous] = useState(true)
+  const [roundInterval, setRoundInterval] = useState(5)
+  const [autoStart, setAutoStart] = useState(false)
+  const [autoStartInterval, setAutoStartInterval] = useState(1440)
+  const [agents, setAgents] = useState<AgentConfig[]>(() => agentTemplates.map(([role, objective, domain, source]) => ({ name: role, role, domain, objective, source_mode: source as SourceMode, timeout_seconds: 300, max_retries: 2 })))
+  const models = useQuery<{ items: Array<{ id: string }>; total: number; default_model_id?: string; fetched_at: string }>({ queryKey: ['models'], queryFn: () => api('/api/models?refresh=true') })
+  const loop = useQuery<{ enabled: boolean; interval_minutes: number }>({ queryKey: ['loop'], queryFn: () => api('/api/loop') })
+  useEffect(() => { if (!selectedModel && models.data?.default_model_id) setSelectedModel(models.data.default_model_id) }, [models.data?.default_model_id, selectedModel])
+  useEffect(() => { if (loop.data) { setAutoStart(loop.data.enabled); setAutoStartInterval(loop.data.interval_minutes) } }, [loop.data])
+  const filtered = useMemo(() => (models.data?.items || []).filter((item) => item.id.toLowerCase().includes(modelSearch.toLowerCase())).slice(0, 30), [models.data?.items, modelSearch])
+  const config = () => ({ model_id: selectedModel, agents: agents.slice(0, count), publish_changes: publishChanges, continuous, round_interval_seconds: roundInterval, max_consecutive_round_failures: 3 })
+  const start = useMutation({ mutationFn: () => api<RunInfo>('/api/runs', { method: 'POST', body: JSON.stringify(config()) }), onSuccess: (run) => { setLatestRun(run); setNotice(`持续任务 ${run.id} 已启动`); navigate('/') } })
+  const saveLoop = useMutation({ mutationFn: () => api('/api/loop', { method: 'PUT', body: JSON.stringify({ enabled: autoStart, interval_minutes: autoStartInterval, run_config: config() }) }), onSuccess: () => { setNotice(autoStart ? '自动启动配置已保存' : '自动启动已关闭'); loop.refetch() } })
+  const saveDefault = useMutation({ mutationFn: () => api('/api/users/me/preferences/default-model', { method: 'PATCH', body: JSON.stringify({ model_id: selectedModel }) }), onSuccess: () => setNotice(`默认模型已设为 ${selectedModel}`) })
+  const updateSource = (index: number, source_mode: SourceMode) => setAgents((items) => items.map((item, itemIndex) => itemIndex === index ? { ...item, source_mode } : item))
+  return <div className="page"><div className="page-head"><div><h2>任务编排</h2><p>同一组子 Agent 按轮持续执行，直到用户要求在轮次边界停止。</p></div><Button primary disabled={!selectedModel || start.isPending} onClick={() => start.mutate()}><Play size={15} />{start.isPending ? '启动中…' : `启动 ${count} 个 Agent 持续循环`}</Button></div>
+    {(models.error || loop.error || start.error || saveLoop.error || saveDefault.error) && <ErrorBox error={models.error || loop.error || start.error || saveLoop.error || saveDefault.error} />}
+    <div className="compose-grid"><Panel title="模型与并发" meta={models.data ? `已同步 ${models.data.total} 个模型` : '等待同步'}><div className="config-grid"><label>搜索并选择模型<div className="search-input"><Search size={15} /><input value={modelSearch} onChange={(e) => setModelSearch(e.target.value)} placeholder="输入模型名称或ID" /></div><select value={selectedModel} onChange={(e) => setSelectedModel(e.target.value)}><option value="">请选择模型</option>{filtered.map((item) => <option key={item.id}>{item.id}</option>)}</select></label><div className="agent-count"><span>并行子 Agent</span><strong>{count} / 10</strong><input type="range" min="1" max="10" value={count} onChange={(e) => setCount(Number(e.target.value))} /></div></div><div className="model-actions"><Button onClick={() => models.refetch()}><RefreshCw size={14} />刷新模型</Button><Button onClick={() => saveDefault.mutate()} disabled={!selectedModel}><Save size={14} />设为默认模型</Button><small>启动任务前后端会再次刷新并校验模型可用性</small></div></Panel>
+      <Panel title="来源策略摘要" meta="逐个生效"><div className="source-summary">{(['web', 'model_prior', 'hybrid'] as SourceMode[]).map((mode) => <div key={mode}><strong>{agents.slice(0, count).filter((item) => item.source_mode === mode).length}</strong><span>{mode === 'web' ? '自行搜索资料' : mode === 'model_prior' ? '预训练知识' : '混合模式'}</span></div>)}</div><p className="info-note"><ShieldCheck size={15} />联网结果保存正文、URL、时间与哈希；模型先验不会伪装成外部证据。</p></Panel></div>
+    <Panel title="持续循环、发布与自动启动" meta="轮次级安全控制"><div className="loop-config"><label className="switch-line"><span>持续进入下一轮</span><input type="checkbox" checked={continuous} onChange={(e) => setContinuous(e.target.checked)} /></label><label className="switch-line"><span>全部门禁通过后自动发布本体、知识库和仿真</span><input type="checkbox" checked={publishChanges} onChange={(e) => setPublishChanges(e.target.checked)} /></label><label>轮次间隔（秒）<input type="number" min="0" max="86400" value={roundInterval} onChange={(e) => setRoundInterval(Number(e.target.value))} /></label><label className="switch-line"><span>后端启动后按计划自动拉起持续任务</span><input type="checkbox" checked={autoStart} onChange={(e) => setAutoStart(e.target.checked)} /></label><label>自动拉起检查间隔（分钟）<input type="number" min="5" max="43200" value={autoStartInterval} onChange={(e) => setAutoStartInterval(Number(e.target.value))} /></label><Button onClick={() => saveLoop.mutate()} disabled={!selectedModel || saveLoop.isPending}><Save size={14} />保存自动启动配置</Button></div><div className="warning-box loop-warning">自动发布仅在 JSON Schema、来源、内部特征/vFab、能力问题、OWL、SHACL、推理、经营模型和仿真全部通过后执行；失败候选不会写入正式库。</div></Panel>
+    <Panel title="Agent 分工与知识来源" meta="每行单独配置"><div className="table-wrap"><table><thead><tr><th>子 Agent</th><th>职责</th><th>问题域</th><th>知识来源</th><th>模型</th></tr></thead><tbody>{agents.slice(0, count).map((agent, index) => <tr key={index}><td><span className="agent-index">{String(index + 1).padStart(2, '0')}</span>{agent.name}</td><td><input value={agent.objective} onChange={(e) => setAgents((items) => items.map((item, i) => i === index ? { ...item, objective: e.target.value } : item))} /></td><td><input className="short-input" value={agent.domain} onChange={(e) => setAgents((items) => items.map((item, i) => i === index ? { ...item, domain: e.target.value } : item))} /></td><td><select value={agent.source_mode} onChange={(e) => updateSource(index, e.target.value as SourceMode)}><option value="web">自行搜索资料</option><option value="model_prior">预训练知识</option><option value="hybrid">混合模式</option></select></td><td><span className="inherit">继承 {selectedModel || '任务模型'}</span></td></tr>)}</tbody></table></div></Panel>
+  </div>
+}
+
+function ExportButton({ kind }: { kind: string }) {
+  const setNotice = useAppStore((state) => state.setNotice)
+  const mutation = useMutation({ mutationFn: () => api<{ id: string }>('/api/exports', { method: 'POST', body: JSON.stringify({ kind }) }), onSuccess: ({ id }) => setNotice(`导出任务 ${id} 已创建，可在完成后下载`) })
+  return <Button onClick={() => mutation.mutate()} disabled={mutation.isPending}><Download size={15} />导出</Button>
+}
+
+function Ontology() {
+  const metrics = useQuery<DashboardData['metrics']>({ queryKey: ['ontology-metrics'], queryFn: () => api('/api/ontology/metrics') })
+  const [search, setSearch] = useState('')
+  const entities = useQuery<{ items: Array<{ iri: string; label: string; kind: string }>; total: number }>({ queryKey: ['entities', search], queryFn: () => api(`/api/ontology/entities?search=${encodeURIComponent(search)}&limit=200`) })
+  if (metrics.isLoading) return <div className="page"><Loading /></div>
+  if (metrics.error) return <div className="page"><ErrorBox error={metrics.error} /></div>
+  const t = metrics.data!.totals; const d = metrics.data!.today_added
+  return <div className="page"><div className="page-head"><div><h2>本体中心</h2><p>标准OWL语义、SHACL约束和可执行推理规则。</p></div><ExportButton kind="ontology" /></div><div className="metrics-grid six"><MetricCard label="类 Class" value={t.classes || 0} delta={d.classes} /><MetricCard label="属性 Property" value={t.properties || 0} delta={d.properties} /><MetricCard label="关系 Relation" value={t.relations || 0} delta={d.relations} /><MetricCard label="实例 Individual" value={t.individuals || 0} delta={d.individuals} /><MetricCard label="公理 Axiom" value={t.axioms || 0} delta={d.axioms} /><MetricCard label="推理规则" value={t.rules || 0} delta={d.rules} /></div><Panel title="本体实体" meta={`${entities.data?.total || 0} 项`}><div className="filter-bar"><div className="search-input"><Search size={15} /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="搜索标签或IRI" /></div></div>{entities.isLoading ? <Loading /> : entities.error ? <ErrorBox error={entities.error} /> : <div className="table-wrap"><table><thead><tr><th>类型</th><th>名称</th><th>IRI</th></tr></thead><tbody>{entities.data?.items.map((item) => <tr key={`${item.kind}-${item.iri}`}><td><span className="type-tag">{item.kind}</span></td><td>{item.label}</td><td><code>{item.iri}</code></td></tr>)}</tbody></table></div>}</Panel></div>
+}
+
+function Knowledge() {
+  const query = useQuery<{ items: Array<{ path: string; name: string; document: unknown }> }>({ queryKey: ['knowledge'], queryFn: () => api('/api/knowledge/facts') })
+  return <CatalogPage title="知识库" subtitle="事实、实例、证据与来源可追溯。" icon={<Database />} exportKind="knowledge" query={query} />
+}
+
+function Business() {
+  const query = useQuery<{ items: Array<{ path: string; name: string; document: unknown }> }>({ queryKey: ['business'], queryFn: () => api('/api/business-models') })
+  return <CatalogPage title="经营模型" subtitle="成本、产能、周期与风险的可计算关系。" icon={<Gauge />} exportKind="business" query={query} />
+}
+
+function Simulation() {
+  const query = useQuery<{ items: Array<{ path: string; name: string; document: unknown }> }>({ queryKey: ['simulations'], queryFn: () => api('/api/simulations') })
+  return <CatalogPage title="仿真引擎" subtitle="真实场景参数、经营结果与自动校验。" icon={<Cpu />} exportKind="simulation" query={query} />
+}
+
+function CatalogPage({ title, subtitle, icon, exportKind, query }: { title: string; subtitle: string; icon: React.ReactNode; exportKind: string; query: { isLoading: boolean; error: unknown; data?: { items: Array<{ path: string; name: string; document: unknown }> } } }) {
+  return <div className="page"><div className="page-head"><div><h2>{title}</h2><p>{subtitle}</p></div><ExportButton kind={exportKind} /></div>{query.isLoading ? <Loading /> : query.error ? <ErrorBox error={query.error} /> : <div className="catalog-grid">{query.data?.items.map((item) => <article className="catalog-card" key={item.path}><span>{icon}</span><div><strong>{item.name}</strong><small>{item.path}</small></div><pre>{JSON.stringify(item.document, null, 2).slice(0, 1000)}</pre></article>)}</div>}</div>
+}
+
+function Scenarios() {
+  const query = useQuery<{ content: string; path: string }>({ queryKey: ['scenarios'], queryFn: () => api('/api/scenario-articles') })
+  return <div className="page"><div className="page-head"><div><h2>业务场景与客户痛点</h2><p>从本体、知识、经营模型和仿真结果生成正文。</p></div><ExportButton kind="scenarios" /></div>{query.isLoading ? <Loading /> : query.error ? <ErrorBox error={query.error} /> : <Panel title="当前场景文章" meta={query.data?.path}><pre className="article-content">{query.data?.content || '尚无场景文章'}</pre></Panel>}</div>
+}
+
+function Reports({ user }: { user: User }) {
+  const queryClient = useQueryClient(); const date = new Date().toLocaleDateString('sv-SE')
+  const report = useQuery<{ id: number; status: string; approval_required: boolean; content: string; validation: { passed: boolean; errors: string[] } }>({ queryKey: ['report', date], queryFn: () => api(`/api/reports/daily/${date}`), retry: false })
+  const settingsQuery = useQuery<{ enabled: boolean; generate_time: string; approval_required: boolean; reminder_timeout_minutes: number; email_sender?: string; email_recipient?: string }>({ queryKey: ['report-settings'], queryFn: () => api('/api/report-settings') })
+  const [content, setContent] = useState(''); const [settingsState, setSettingsState] = useState(settingsQuery.data)
+  useEffect(() => { if (report.data?.content) setContent(report.data.content) }, [report.data?.content])
+  useEffect(() => { if (settingsQuery.data) setSettingsState(settingsQuery.data) }, [settingsQuery.data])
+  const refresh = () => queryClient.invalidateQueries({ queryKey: ['report', date] })
+  const generate = useMutation({ mutationFn: () => api(`/api/reports/daily/${date}/generate`, { method: 'POST' }), onSuccess: () => { refresh(); setTimeout(refresh, 2500) } })
+  const save = useMutation({ mutationFn: () => api(`/api/reports/daily/${date}`, { method: 'PATCH', body: JSON.stringify({ content }) }), onSuccess: refresh })
+  const approve = useMutation({ mutationFn: () => api(`/api/reports/daily/${date}/approve`, { method: 'POST' }), onSuccess: refresh })
+  const send = useMutation({ mutationFn: () => api(`/api/reports/daily/${date}/send`, { method: 'POST' }), onSuccess: refresh })
+  const updateSettings = useMutation({ mutationFn: () => api('/api/report-settings', { method: 'PUT', body: JSON.stringify(settingsState) }), onSuccess: () => queryClient.invalidateQueries({ queryKey: ['report-settings'] }) })
+  const error = generate.error || save.error || approve.error || send.error || updateSettings.error
+  return <div className="page"><div className="page-head"><div><h2>日报中心</h2><p>展示今日新增与当前总量，并沉淀场景正文和客户痛点。</p></div><div className="actions"><Button onClick={() => generate.mutate()} disabled={generate.isPending}><Sparkles size={15} />写日报</Button><Button onClick={() => save.mutate()} disabled={!content}><Save size={15} />保存</Button>{report.data?.approval_required && <Button onClick={() => approve.mutate()} disabled={!report.data || report.data.status === 'approved'}><ShieldCheck size={15} />审核通过</Button>}<Button primary onClick={() => send.mutate()} disabled={!report.data}><Send size={15} />发送企微</Button></div></div>
+    {error && <ErrorBox error={error} />}<div className="report-grid"><Panel title={`${date} 日报`} meta={report.data?.status || '尚未生成'}>{report.isLoading ? <Loading /> : <textarea className="report-editor" value={content} onChange={(e) => setContent(e.target.value)} placeholder="点击“写日报”生成Markdown草稿" />}</Panel><Panel title="定时、审核与提醒" meta={user.preferences.timezone}><div className="settings-form">{settingsState ? <><label className="switch-line"><span>自动生成日报</span><input type="checkbox" checked={settingsState.enabled} onChange={(e) => setSettingsState({ ...settingsState, enabled: e.target.checked })} /></label><label>生成时间<input type="time" value={settingsState.generate_time} onChange={(e) => setSettingsState({ ...settingsState, generate_time: e.target.value })} /></label><label className="switch-line"><span>需要审核人审核（默认开启）</span><input type="checkbox" checked={settingsState.approval_required} onChange={(e) => setSettingsState({ ...settingsState, approval_required: e.target.checked })} /></label>{!settingsState.approval_required && <div className="warning-box">关闭后，模型写完并通过自动校验会直接发送企业微信，无需再次点击。</div>}<label>未发送提醒（分钟）<input type="number" min="1" value={settingsState.reminder_timeout_minutes} onChange={(e) => setSettingsState({ ...settingsState, reminder_timeout_minutes: Number(e.target.value) })} /></label><label>QQ发件邮箱<input value={settingsState.email_sender || ''} onChange={(e) => setSettingsState({ ...settingsState, email_sender: e.target.value })} /></label><label>提醒收件邮箱<input value={settingsState.email_recipient || ''} onChange={(e) => setSettingsState({ ...settingsState, email_recipient: e.target.value })} /></label><Button primary onClick={() => updateSettings.mutate()}>保存日报设置</Button></> : <Loading />}</div></Panel></div>
+  </div>
+}
+
+function RunHistory() {
+  const [selected, setSelected] = useState<string | null>(null)
+  const query = useQuery<{ items: RunInfo[] }>({ queryKey: ['runs'], queryFn: () => api('/api/runs') })
+  const rounds = useQuery<{ items: Array<{ round_number: number; status: string; current_stage: string; duration_seconds?: number; error?: string; metrics_before: Record<string, number>; metrics_after: Record<string, number>; artifacts: { evidence_pages?: number; scenario_articles?: number } }> }>({ queryKey: ['run-rounds', selected], queryFn: () => api(`/api/runs/${selected}/rounds`), enabled: Boolean(selected), refetchInterval: selected ? 3000 : false })
+  const retry = useMutation({ mutationFn: (id: string) => api(`/api/runs/${id}/retry`, { method: 'POST' }), onSuccess: () => query.refetch() })
+  return <div className="page"><div className="page-head"><div><h2>运行历史</h2><p>每个持续任务包含多轮记录，每轮和每个Agent的产物均独立保存。</p></div></div><Panel title="持续任务" meta={`${query.data?.items.length || 0} 条`}>{query.isLoading ? <Loading /> : query.error ? <ErrorBox error={query.error} /> : <div className="table-wrap"><table><thead><tr><th>运行ID</th><th>状态</th><th>当前/完成轮次</th><th>模型</th><th>阶段</th><th>Agent</th><th>发布</th><th>时间</th><th /></tr></thead><tbody>{query.data?.items.map((run) => <tr key={run.id}><td><button className="link-button" onClick={() => setSelected(run.id)}>{run.id}</button></td><td><span className={`status-tag ${run.status}`}>{run.status}</span></td><td>{run.current_round} / {run.rounds_completed}</td><td>{run.model_id}</td><td>{stageLabels[run.current_stage] || run.current_stage}</td><td>{run.agents.length}</td><td>{run.publish_changes ? '自动发布' : '仅候选'}</td><td>{new Date(run.created_at).toLocaleString()}</td><td><Button onClick={() => retry.mutate(run.id)}>重新启动</Button></td></tr>)}</tbody></table></div>}</Panel>{selected && <Panel title={`${selected} · 轮次明细`} meta={`${rounds.data?.items.length || 0} 轮`}>{rounds.isLoading ? <Loading /> : rounds.error ? <ErrorBox error={rounds.error} /> : <div className="table-wrap"><table><thead><tr><th>轮次</th><th>状态</th><th>阶段</th><th>网页证据</th><th>场景文章</th><th>新增类</th><th>新增实例</th><th>耗时</th><th>错误</th></tr></thead><tbody>{rounds.data?.items.map((round) => <tr key={round.round_number}><td>第 {round.round_number} 轮</td><td><span className={`status-tag ${round.status}`}>{round.status}</span></td><td>{stageLabels[round.current_stage] || round.current_stage}</td><td>{round.artifacts.evidence_pages || 0}</td><td>{round.artifacts.scenario_articles || 0}</td><td>{(round.metrics_after.classes || 0) - (round.metrics_before.classes || 0)}</td><td>{(round.metrics_after.individuals || 0) - (round.metrics_before.individuals || 0)}</td><td>{round.duration_seconds ? `${round.duration_seconds}s` : '-'}</td><td>{round.error || '-'}</td></tr>)}</tbody></table></div>}</Panel>}</div>
+}
+
+function SettingsPage({ user }: { user: User }) {
+  const queryClient = useQueryClient(); const [values, setValues] = useState<Record<string, string>>({ llm_api_key: '', wecom_webhook_key: '', qq_smtp_auth_code: '' })
+  const credentials = useQuery<{ items: Array<{ kind: string; configured: boolean; masked_hint: string }> }>({ queryKey: ['credentials'], queryFn: () => api('/api/credentials') })
+  const save = useMutation({ mutationFn: ({ kind, value }: { kind: string; value: string }) => api('/api/credentials', { method: 'PUT', body: JSON.stringify({ kind, value }) }), onSuccess: (_, variables) => { setValues((items) => ({ ...items, [variables.kind]: '' })); queryClient.invalidateQueries({ queryKey: ['credentials'] }); queryClient.invalidateQueries({ queryKey: ['models'] }) } })
+  const remove = useMutation({ mutationFn: (kind: string) => api(`/api/credentials/${kind}`, { method: 'DELETE' }), onSuccess: () => queryClient.invalidateQueries({ queryKey: ['credentials'] }) })
+  const testWecom = useMutation({ mutationFn: () => api('/api/report-settings/test-wecom', { method: 'POST' }) })
+  const testEmail = useMutation({ mutationFn: () => api('/api/report-settings/test-email', { method: 'POST' }) })
+  const labels: Record<string, string> = { llm_api_key: '4SAPI API Key', wecom_webhook_key: '企业微信 Webhook Key', qq_smtp_auth_code: 'QQ SMTP 授权码' }
+  return <div className="page"><div className="page-head"><div><h2>系统设置</h2><p>密钥只提交到后端加密保存，浏览器不保存明文。</p></div></div><div className="settings-grid"><Panel title="模型与账户" meta={user.username}><div className="setting-copy"><p>当前默认模型</p><strong>{user.preferences.default_model_id || '尚未设置'}</strong><small>请在任务编排页面搜索并设为默认模型。</small></div></Panel><Panel title="安全说明" meta="后端加密"><div className="security-note"><LockKeyhole size={20} /><p>凭据读取接口只返回掩码。日志、SSE、日报和导出包均不得出现明文密钥。</p></div></Panel></div>
+    <Panel title="外部服务凭据" meta="支持更换与清除"><div className="credential-list">{Object.keys(labels).map((kind) => { const configured = credentials.data?.items.find((item) => item.kind === kind); return <div className="credential-row" key={kind}><div><strong>{labels[kind]}</strong><small>{configured ? configured.masked_hint : '未配置'}</small></div><input type="password" autoComplete="new-password" value={values[kind]} onChange={(e) => setValues((items) => ({ ...items, [kind]: e.target.value }))} placeholder="输入新值，保存后清空" /><Button primary disabled={!values[kind]} onClick={() => save.mutate({ kind, value: values[kind] })}>保存</Button>{configured && <Button danger onClick={() => remove.mutate(kind)}>清除</Button>}</div> })}</div><div className="test-actions"><Button onClick={() => testWecom.mutate()}><Send size={14} />测试企业微信</Button><Button onClick={() => testEmail.mutate()}><Mail size={14} />测试QQ邮箱</Button></div>{(save.error || remove.error || testWecom.error || testEmail.error) && <ErrorBox error={save.error || remove.error || testWecom.error || testEmail.error} />}</Panel>
+  </div>
+}
+
+export default function App() {
+  const [statusData, setStatusData] = useState<{ setup_required: boolean } | null>(null)
+  const [user, setUser] = useState<User | null>(null)
+  const [checked, setChecked] = useState(false)
+  useEffect(() => { api<{ setup_required: boolean }>('/api/auth/status').then(async (status) => { setStatusData(status); if (!status.setup_required) { try { setUser(await api<User>('/api/users/me')) } catch { /* login required */ } } }).finally(() => setChecked(true)) }, [])
+  const logout = async () => { await api('/api/auth/logout', { method: 'POST' }); setUser(null); setStatusData({ setup_required: false }) }
+  if (!checked) return <Loading text="正在连接控制台…" />
+  if (!user) return <AuthScreen setupRequired={Boolean(statusData?.setup_required)} onAuthenticated={setUser} />
+  return <Layout user={user} onLogout={logout} />
+}
