@@ -1,10 +1,17 @@
 from __future__ import annotations
 
 import os
+import asyncio
 from dataclasses import dataclass
 from pathlib import Path
+from urllib.parse import quote_plus
 
 from dotenv import load_dotenv
+
+
+if os.name == "nt":
+    # psycopg async connections require a selector loop on Windows.
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -26,10 +33,30 @@ class Settings:
     evidence_chars_per_page: int = min(20_000, max(1_000, int(os.getenv("EVIDENCE_CHARS_PER_PAGE", "6000"))))
     timezone: str = os.getenv("SEMI_KB_TIMEZONE", "Asia/Shanghai")
     frontend_origin: str = os.getenv("FRONTEND_ORIGIN", "http://127.0.0.1:5173")
+    orchestrator_engine: str = os.getenv("ORCHESTRATOR_ENGINE", "langgraph").casefold()
+    auto_resume_runs: bool = os.getenv("AUTO_RESUME_RUNS", "true").casefold() in {"1", "true", "yes", "on"}
+    graph_repair_attempts: int = min(3, max(0, int(os.getenv("GRAPH_REPAIR_ATTEMPTS", "1"))))
+    worker_heartbeat_seconds: int = min(300, max(5, int(os.getenv("WORKER_HEARTBEAT_SECONDS", "15"))))
 
     @property
     def database_url(self) -> str:
-        return os.getenv("DATABASE_URL", f"sqlite:///{(self.data_dir / 'console.db').as_posix()}")
+        explicit = os.getenv("DATABASE_URL")
+        if explicit:
+            return explicit
+        password = os.getenv("SEMI_KB_DB_PASSWORD")
+        if password:
+            user = quote_plus(os.getenv("SEMI_KB_DB_USER", "semi_kb_console"))
+            password = quote_plus(password)
+            host = os.getenv("SEMI_KB_DB_HOST", "127.0.0.1")
+            port = int(os.getenv("SEMI_KB_DB_PORT", "5432"))
+            name = quote_plus(os.getenv("SEMI_KB_DB_NAME", "semi_kb_console"))
+            return f"postgresql+psycopg://{user}:{password}@{host}:{port}/{name}"
+        return f"sqlite:///{(self.data_dir / 'console.db').as_posix()}"
+
+    @property
+    def checkpoint_database_url(self) -> str | None:
+        value = os.getenv("LANGGRAPH_DATABASE_URL") or (self.database_url if self.database_url.startswith("postgresql") else "")
+        return value.replace("postgresql+psycopg://", "postgresql://", 1) if value else None
 
     @property
     def llm_api_key(self) -> str | None:

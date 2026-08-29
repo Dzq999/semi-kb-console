@@ -6,7 +6,7 @@ import pytest
 from sqlalchemy import select
 
 from app.db import SessionLocal
-from app.main import create_run
+from app.main import create_run, prepare_recoverable_runs
 from app.models import Run, RunRound, User
 from app.schemas import RunCreate
 from app.services.orchestrator import orchestrator
@@ -104,3 +104,49 @@ def test_stop_after_next_round_endpoint(authenticated, monkeypatch):
     stopped = authenticated.post(f"/api/runs/{run_id}/stop-after-next-round")
     assert stopped.status_code == 200
     assert stopped.json()["stop_after_round"] == 4
+    with SessionLocal() as db:
+        run = db.get(Run, run_id)
+        assert run.stop_after_round == 4
+        assert run.status == "stopping_after_round"
+
+
+def test_control_requests_are_persisted_in_database(authenticated):
+    payload = RunCreate.model_validate({
+        "model_id": "gpt-test", "continuous": True,
+        "agents": [{"name": "Fab", "role": "research", "domain": "fab", "objective": "coverage", "source_mode": "model_prior"}],
+    })
+    with SessionLocal() as db:
+        user = db.scalar(select(User)); run = create_run(db, user.id, payload); run.status = "running"; db.commit(); run_id = run.id
+    orchestrator.pause(run_id)
+    with SessionLocal() as db:
+        run = db.get(Run, run_id); assert run.pause_requested is True and run.status == "paused"
+    orchestrator.resume(run_id)
+    with SessionLocal() as db:
+        run = db.get(Run, run_id); assert run.pause_requested is False and run.cancel_requested is False
+    orchestrator.request_stop_after(run_id, 1, 1)
+    with SessionLocal() as db:
+        run = db.get(Run, run_id); assert run.stop_after_round == 2
+    orchestrator.cancel(run_id)
+    with SessionLocal() as db:
+        run = db.get(Run, run_id); assert run.cancel_requested is True and run.status == "cancelling"
+    orchestrator.cancelled.discard(run_id); orchestrator.stop_after_rounds.pop(run_id, None)
+
+
+def test_restart_recovery_preserves_pause_and_only_resumes_langgraph(authenticated):
+    payload = RunCreate.model_validate({
+        "model_id": "gpt-test", "continuous": True,
+        "agents": [{"name": "Fab", "role": "research", "domain": "fab", "objective": "coverage", "source_mode": "model_prior"}],
+    })
+    with SessionLocal() as db:
+        user = db.scalar(select(User))
+        recovering = create_run(db, user.id, payload); recovering.status = "running"
+        paused = create_run(db, user.id, payload); paused.status = "paused"; paused.pause_requested = True
+        legacy = create_run(db, user.id, payload); legacy.status = "running"; legacy.orchestrator_engine = "legacy"
+        db.commit(); recovering_id, paused_id, legacy_id = recovering.id, paused.id, legacy.id
+        ids = prepare_recoverable_runs(db)
+        assert recovering_id in ids
+        assert db.get(Run, recovering_id).status == "recovering"
+        assert db.get(Run, recovering_id).recovery_count == 1
+        assert db.get(Run, paused_id).status == "paused"
+        assert db.get(Run, paused_id).worker_id is None
+        assert db.get(Run, legacy_id).status == "interrupted"

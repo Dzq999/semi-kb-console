@@ -50,5 +50,12 @@ export interface RunInfo {
   publish_changes: boolean
   round_interval_seconds: number
   stop_after_round?: number | null
+  orchestrator_engine: 'legacy' | 'langgraph' | string
+  checkpoint_backend: 'memory' | 'postgres' | string
+  checkpoint_thread_id?: string | null
+  heartbeat_at?: string | null
+  recovery_count: number
+  pause_requested: boolean
+  cancel_requested: boolean
   agents: Array<{ id: string; name: string; role: string; domain: string; source_mode: SourceMode; status: string; duration_seconds?: number; error?: string }>
 }

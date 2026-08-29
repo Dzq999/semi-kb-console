@@ -22,6 +22,7 @@ from sqlalchemy.orm import Session
 
 from .config import settings
 from .db import Base, SessionLocal, engine, get_db
+from .migrations import upgrade_database
 from .models import AgentIteration, AgentRun, DailyReport, DailyReportRevision, EncryptedCredential, ExportJob, LoopSetting, NotificationRecord, ReportSetting, Run, RunEvent, RunRound, User, UserPreference
 from .schemas import CredentialUpdate, DefaultModelUpdate, ExportCreate, LoginRequest, LoopUpdate, ReportContentUpdate, ReportSettingsUpdate, RunCreate, SetupRequest
 from .security import encrypt_secret, hash_password, new_session_token, verify_password
@@ -29,26 +30,47 @@ from .services.exports import create_export
 from .services.llm import ExternalServiceError, llm_service, user_api_key
 from .services.notifications import NotificationError, send_email_reminder, send_wecom
 from .services.orchestrator import orchestrator
+from .services.checkpoints import checkpoint_runtime
 from .services.reports import generate_report, send_report, validate_report
 from .services.semi_kb import SemiKbError, semi_kb
 
 
+def prepare_recoverable_runs(db: Session) -> list[str]:
+    recover_ids: list[str] = []
+    interrupted = db.scalars(select(Run).where(Run.status.in_(["running", "recovering", "paused", "between_rounds", "stopping_after_round", "cancelling"]))).all()
+    for run in interrupted:
+        if run.orchestrator_engine != "langgraph" or not settings.auto_resume_runs:
+            run.status = "interrupted"
+            run.error = "后端重启导致 legacy 运行中断，可从运行历史重新启动"
+        elif run.pause_requested:
+            run.status = "paused"
+            run.worker_id = None
+        else:
+            run.status = "recovering"
+            run.recovery_count = int(run.recovery_count or 0) + 1
+            run.worker_id = None
+            recover_ids.append(run.id)
+    db.commit()
+    return recover_ids
+
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
+    upgrade_database()
     Base.metadata.create_all(engine)
+    await checkpoint_runtime.startup()
     with SessionLocal() as db:
-        interrupted = db.scalars(select(Run).where(Run.status.in_(["running", "paused", "between_rounds", "stopping_after_round", "cancelling"]))).all()
-        for run in interrupted:
-            run.status = "interrupted"
-            run.error = "后端重启导致运行中断，可从运行历史重新启动"
-        db.commit()
+        recover_ids = prepare_recoverable_runs(db)
     scheduler.add_job(scheduler_tick, "interval", seconds=60, id="scheduler-tick", max_instances=1, coalesce=True, replace_existing=True)
     scheduler.start()
+    for run_id in recover_ids:
+        orchestrator.start(run_id)
     try:
         yield
     finally:
         if scheduler.running:
             scheduler.shutdown(wait=False)
+        await checkpoint_runtime.shutdown()
 
 
 app = FastAPI(title=settings.app_name, version="1.0.0", lifespan=lifespan)
@@ -83,14 +105,27 @@ def run_payload(run: Run) -> dict:
         "rounds_completed": sum(item.status == "completed" for item in run.rounds),
         "continuous": config.get("continuous", True), "publish_changes": config.get("publish_changes", False),
         "round_interval_seconds": config.get("round_interval_seconds", 5),
-        "stop_after_round": orchestrator.stop_after_rounds.get(run.id),
+        "stop_after_round": run.stop_after_round,
+        "orchestrator_engine": run.orchestrator_engine,
+        "checkpoint_backend": checkpoint_runtime.backend,
+        "checkpoint_thread_id": run.checkpoint_thread_id,
+        "heartbeat_at": run.heartbeat_at,
+        "recovery_count": run.recovery_count,
+        "pause_requested": run.pause_requested,
+        "cancel_requested": run.cancel_requested,
         "agents": [{"id": a.id, "name": a.name, "role": a.role, "domain": a.domain, "source_mode": a.source_mode, "model_id": a.model_id, "status": a.status, "duration_seconds": a.duration_seconds, "error": a.error, "output": json_load(a.output_json, {})} for a in run.agents],
     }
 
 
 def create_run(db: Session, user_id: int, request: RunCreate) -> Run:
     run_id = "run-" + uuid.uuid4().hex[:16]
-    run = Run(id=run_id, user_id=user_id, model_id=request.model_id, config_json=request.model_dump_json())
+    config = request.model_dump()
+    config["orchestrator_engine"] = settings.orchestrator_engine
+    run = Run(
+        id=run_id, user_id=user_id, model_id=request.model_id,
+        config_json=json.dumps(config, ensure_ascii=False), orchestrator_engine=settings.orchestrator_engine,
+        checkpoint_thread_id=f"{run_id}:round:1",
+    )
     db.add(run)
     for index, agent in enumerate(request.agents, 1):
         db.add(AgentRun(id=f"{run_id}-a{index:02d}", run_id=run_id, name=agent.name, role=agent.role, domain=agent.domain, objective=agent.objective, source_mode=agent.source_mode, model_id=agent.model_override or request.model_id))
@@ -135,7 +170,7 @@ async def scheduler_tick() -> None:
                     pass
         for loop in db.scalars(select(LoopSetting).where(LoopSetting.enabled.is_(True))).all():
             due = loop.next_run_at is None or loop.next_run_at <= datetime.now(timezone.utc)
-            active = db.scalar(select(func.count(Run.id)).where(Run.user_id == loop.user_id, Run.status.in_(["pending", "running", "paused", "between_rounds", "stopping_after_round", "cancelling"])))
+            active = db.scalar(select(func.count(Run.id)).where(Run.user_id == loop.user_id, Run.status.in_(["pending", "running", "recovering", "paused", "between_rounds", "stopping_after_round", "cancelling"])))
             if due and not active:
                 try:
                     request = RunCreate.model_validate(json_load(loop.run_config_json, {}))
@@ -151,7 +186,11 @@ async def scheduler_tick() -> None:
 
 @app.get("/api/health")
 def health() -> dict:
-    return {"status": "ok", "app": settings.app_name, "semi_kb_root": str(settings.semi_kb_root), "max_agents": settings.max_agent_count}
+    return {
+        "status": "ok", "app": settings.app_name, "semi_kb_root": str(settings.semi_kb_root),
+        "max_agents": settings.max_agent_count, "database": engine.dialect.name,
+        "orchestrator_engine": settings.orchestrator_engine, "checkpoint_backend": checkpoint_runtime.backend,
+    }
 
 
 @app.get("/api/auth/status")
@@ -283,7 +322,7 @@ async def dashboard(user: User = Depends(current_user), db: Session = Depends(ge
 async def start_run(payload: RunCreate, user: User = Depends(current_user), db: Session = Depends(get_db)) -> dict:
     if len(payload.agents) > settings.max_agent_count:
         raise HTTPException(status_code=422, detail=f"最多 {settings.max_agent_count} 个子 Agent")
-    active = db.scalar(select(Run).where(Run.user_id == user.id, Run.status.in_(["pending", "running", "paused", "between_rounds", "stopping_after_round", "cancelling"])))
+    active = db.scalar(select(Run).where(Run.user_id == user.id, Run.status.in_(["pending", "running", "recovering", "paused", "between_rounds", "stopping_after_round", "cancelling"])))
     if active:
         raise HTTPException(status_code=409, detail=f"已有持续任务 {active.id} 正在运行，请先停止后再启动新任务")
     api_key = user_api_key(db, user.id)
@@ -321,7 +360,7 @@ def pause_run(run_id: str, user: User = Depends(current_user), db: Session = Dep
     run = db.get(Run, run_id)
     if not run or run.user_id != user.id:
         raise HTTPException(status_code=404, detail="任务不存在")
-    if run.status not in {"running", "between_rounds", "stopping_after_round"}:
+    if run.status not in {"running", "recovering", "between_rounds", "stopping_after_round"}:
         raise HTTPException(status_code=409, detail="当前状态不能暂停")
     orchestrator.pause(run_id)
     run.status = "paused"
@@ -335,7 +374,7 @@ def resume_run(run_id: str, user: User = Depends(current_user), db: Session = De
     if not run or run.user_id != user.id:
         raise HTTPException(status_code=404, detail="任务不存在")
     if run.status == "needs_attention":
-        run.status = "pending"; run.error = None; db.commit(); orchestrator.start(run_id)
+        run.status = "pending"; run.error = None; run.pause_requested = False; run.cancel_requested = False; db.commit(); orchestrator.start(run_id)
         return {"status": "pending"}
     if run.status != "paused":
         raise HTTPException(status_code=409, detail="当前状态不能恢复")
@@ -357,7 +396,7 @@ def cancel_run(run_id: str, user: User = Depends(current_user), db: Session = De
 
 def _request_round_stop(run: Run, db: Session, additional_rounds: int) -> dict:
     current = db.scalar(select(func.max(RunRound.round_number)).where(RunRound.run_id == run.id)) or 0
-    if run.status not in {"pending", "running", "paused", "between_rounds", "stopping_after_round"}:
+    if run.status not in {"pending", "running", "recovering", "paused", "between_rounds", "stopping_after_round"}:
         raise HTTPException(status_code=409, detail="任务当前不在持续运行状态")
     target = orchestrator.request_stop_after(run.id, int(current) or 1, additional_rounds)
     run.status = "stopping_after_round"
@@ -395,7 +434,13 @@ def run_rounds(run_id: str, limit: int = Query(default=100, ge=1, le=1000), user
             "started_at": row.started_at, "completed_at": row.completed_at, "duration_seconds": row.duration_seconds,
             "metrics_before": json_load(row.metrics_before_json, {}), "metrics_after": json_load(row.metrics_after_json, {}),
             "validation": json_load(row.validation_json, {}), "artifacts": json_load(row.artifacts_json, {}), "error": row.error,
-            "agents": [{"agent_id": item.agent_id, "status": item.status, "duration_seconds": item.duration_seconds, "evidence": json_load(item.evidence_json, []), "output": json_load(item.output_json, {}), "error": item.error} for item in iterations],
+            "checkpoint_id": row.checkpoint_id, "resumed_count": row.resumed_count,
+            "node_attempts": json_load(row.node_attempts_json, {}), "quarantined_files": json_load(row.quarantined_files_json, []),
+            "agents": [{
+                "agent_id": item.agent_id, "status": item.status, "duration_seconds": item.duration_seconds,
+                "attempt_count": item.attempt_count, "checkpoint_id": item.checkpoint_id, "input_hash": item.input_hash,
+                "evidence": json_load(item.evidence_json, []), "output": json_load(item.output_json, {}), "error": item.error,
+            } for item in iterations],
         })
     return {"items": items, "total": len(run.rounds)}
 

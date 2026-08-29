@@ -73,7 +73,7 @@ function AuthScreen({ setupRequired, onAuthenticated }: { setupRequired: boolean
   </form></div>
 }
 
-function Layout({ user, onLogout }: { user: User; onLogout: () => void }) {
+function Layout({ user, onLogout, onUserChange }: { user: User; onLogout: () => void; onUserChange: (user: User) => void }) {
   const notice = useAppStore((state) => state.notice)
   return <div className="app-shell">
     <aside className="sidebar">
@@ -86,7 +86,7 @@ function Layout({ user, onLogout }: { user: User; onLogout: () => void }) {
       {notice && <div className="global-notice">{notice}</div>}
       <Routes>
         <Route path="/" element={<Dashboard />} />
-        <Route path="/orchestrator" element={<Orchestrator user={user} />} />
+        <Route path="/orchestrator" element={<Orchestrator user={user} onUserChange={onUserChange} />} />
         <Route path="/ontology" element={<Ontology />} />
         <Route path="/knowledge" element={<Knowledge />} />
         <Route path="/business" element={<Business />} />
@@ -106,7 +106,7 @@ function MetricCard({ label, value, delta }: { label: string; value: number | st
 }
 
 const stageLabels: Record<string, string> = {
-  gap_analysis: '缺口分析', parallel_research: '并行研究', evidence_extraction: '证据提取', semantic_modeling: '语义建模', cross_validation: '交叉验证', owl_shacl_reasoning: 'OWL / SHACL', business_simulation: '经营仿真', scenario_article: '场景沉淀', between_rounds: '轮次间隔', round_failed: '轮次失败', completed: '完成'
+  gap_analysis: '缺口分析', parallel_research: '并行研究', evidence_extraction: '证据提取', semantic_modeling: '语义建模', cross_validation: '交叉验证', candidate_repair: '候选修复', owl_shacl_reasoning: 'OWL / SHACL', business_simulation: '经营仿真', scenario_article: '场景沉淀', finalize_round: '轮次归档', between_rounds: '轮次间隔', recovering: '断点恢复', round_failed: '轮次失败', completed: '完成'
 }
 
 function Dashboard() {
@@ -115,14 +115,14 @@ function Dashboard() {
   const [events, setEvents] = useState<Array<{ message: string; level: string; created_at: string }>>([])
   const latest = data?.latest_run
   useEffect(() => {
-    if (!latest?.id || !['pending', 'running', 'paused', 'between_rounds', 'stopping_after_round', 'cancelling'].includes(latest.status)) return
+    if (!latest?.id || !['pending', 'running', 'recovering', 'paused', 'between_rounds', 'stopping_after_round', 'cancelling'].includes(latest.status)) return
     const stream = new EventSource(`/api/runs/${latest.id}/events`)
     const handler = (event: MessageEvent) => {
       const item = JSON.parse(event.data)
       setEvents((items) => [item, ...items].slice(0, 30))
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
     }
-    ;['run_started', 'round_started', 'stage_started', 'agent_started', 'agent_retry', 'agent_completed', 'agent_failed', 'evidence_ready', 'candidates_ready', 'cross_validation', 'articles_ready', 'round_completed', 'round_failed', 'round_wait', 'attention_required', 'run_completed', 'run_failed', 'run_cancelled'].forEach((name) => stream.addEventListener(name, handler as EventListener))
+    ;['run_started', 'round_started', 'round_resumed', 'stage_started', 'graph_node_started', 'agent_started', 'agent_retry', 'agent_cache_hit', 'model_response_reused', 'agent_completed', 'agent_failed', 'evidence_ready', 'candidates_ready', 'cross_validation', 'gate_failed', 'candidate_quarantined', 'articles_ready', 'round_completed', 'round_failed', 'round_wait', 'attention_required', 'run_completed', 'run_failed', 'run_cancelled'].forEach((name) => stream.addEventListener(name, handler as EventListener))
     return () => stream.close()
   }, [latest?.id, latest?.status, queryClient])
   const action = useMutation({ mutationFn: ({ name }: { name: string }) => api(`/api/runs/${latest?.id}/${name}`, { method: 'POST' }), onSuccess: () => queryClient.invalidateQueries({ queryKey: ['dashboard'] }) })
@@ -134,7 +134,7 @@ function Dashboard() {
   ] as Array<[string, number | string, number | undefined]>
   const currentIndex = Object.keys(stageLabels).indexOf(latest?.current_stage || '')
   return <div className="page">
-    <section className="loop-banner"><div className="loop-state"><span className="pulse-icon"><RefreshCw size={17} /></span><div><strong>{latest ? `持续任务 ${latest.status} · 第 ${latest.current_round || 1} 轮` : 'Loop 空闲'}</strong><span>{latest ? `${latest.id} · ${stageLabels[latest.current_stage] || latest.current_stage}${latest.stop_after_round ? ` · 将在第 ${latest.stop_after_round} 轮结束` : ''}` : '从任务编排启动后，N个Agent会逐轮持续工作'}</span></div></div><div className="actions">{latest && ['running', 'paused', 'between_rounds', 'stopping_after_round', 'needs_attention'].includes(latest.status) && <><Button onClick={() => action.mutate({ name: latest.status === 'paused' || latest.status === 'needs_attention' ? 'resume' : 'pause' })}>{latest.status === 'paused' || latest.status === 'needs_attention' ? <Play size={15} /> : <Pause size={15} />}{latest.status === 'paused' || latest.status === 'needs_attention' ? '恢复' : '暂停'}</Button>{latest.status !== 'needs_attention' && !latest.stop_after_round && <Button onClick={() => action.mutate({ name: 'stop-after-current-round' })}>本轮结束后停止</Button>}{latest.status !== 'needs_attention' && !latest.stop_after_round && <Button onClick={() => action.mutate({ name: 'stop-after-next-round' })}>再运行一轮后停止</Button>}<Button danger onClick={() => action.mutate({ name: 'cancel' })}><CircleStop size={15} />立即停止</Button></>}</div></section>
+    <section className="loop-banner"><div className="loop-state"><span className="pulse-icon"><RefreshCw size={17} /></span><div><strong>{latest ? `持续任务 ${latest.status} · 第 ${latest.current_round || 1} 轮` : 'Loop 空闲'}</strong><span>{latest ? `${latest.id} · ${stageLabels[latest.current_stage] || latest.current_stage}${latest.stop_after_round ? ` · 将在第 ${latest.stop_after_round} 轮结束` : ''}` : '从任务编排启动后，N个Agent会逐轮持续工作'}</span>{latest && <span className="runtime-meta">{latest.orchestrator_engine} · checkpoint {latest.checkpoint_backend} · 恢复 {latest.recovery_count || 0} 次</span>}</div></div><div className="actions">{latest && ['running', 'recovering', 'paused', 'between_rounds', 'stopping_after_round', 'needs_attention'].includes(latest.status) && <><Button onClick={() => action.mutate({ name: latest.status === 'paused' || latest.status === 'needs_attention' ? 'resume' : 'pause' })}>{latest.status === 'paused' || latest.status === 'needs_attention' ? <Play size={15} /> : <Pause size={15} />}{latest.status === 'paused' || latest.status === 'needs_attention' ? '恢复' : '暂停'}</Button>{latest.status !== 'needs_attention' && !latest.stop_after_round && <Button onClick={() => action.mutate({ name: 'stop-after-current-round' })}>本轮结束后停止</Button>}{latest.status !== 'needs_attention' && !latest.stop_after_round && <Button onClick={() => action.mutate({ name: 'stop-after-next-round' })}>再运行一轮后停止</Button>}<Button danger onClick={() => action.mutate({ name: 'cancel' })}><CircleStop size={15} />立即停止</Button></>}</div></section>
     <div className="metrics-grid">{metrics.map(([label, value, delta]) => <MetricCard key={label} label={label} value={value} delta={delta} />)}</div>
     <div className="dashboard-grid"><Panel title="完整执行链路" meta={latest ? `已完成 ${latest.rounds_completed} 轮 · ${latest.publish_changes ? '门禁后自动发布' : '仅生成候选'}` : '尚无运行'}><div className="pipeline">{Object.entries(stageLabels).slice(0, 8).map(([key, label], index) => <div key={key} className={`stage ${latest?.current_stage === key ? 'active' : ''} ${currentIndex > index || latest?.status === 'completed' ? 'done' : ''}`}><span>{currentIndex > index || latest?.status === 'completed' ? '✓' : index + 1}</span><small>{label}</small></div>)}</div><div className="progress"><i style={{ width: `${latest?.progress || 0}%` }} /></div><div className="progress-copy"><span>第 {latest?.current_round || 0} 轮 · {stageLabels[latest?.current_stage || ''] || '等待任务'}</span><strong>{latest?.progress || 0}%</strong></div></Panel>
       <Panel title="实时日志" meta="LIVE"><div className="logs">{events.length ? events.map((event, index) => <div className={`log ${event.level}`} key={`${event.created_at}-${index}`}><time>{new Date(event.created_at).toLocaleTimeString()}</time><span />{event.message}</div>) : <div className="empty">运行后将在此显示实时事件</div>}</div></Panel></div>
@@ -152,7 +152,7 @@ const agentTemplates = [
   ['扩展研究', '补充高价值问题域', 'fab', 'web'], ['扩展研究', '补充高价值问题域', 'fac', 'web'], ['扩展研究', '补充高价值问题域', 'eqp', 'hybrid'], ['质量审查', '审查证据与发布门禁', 'validation', 'model_prior']
 ] as const
 
-function Orchestrator({ user }: { user: User }) {
+function Orchestrator({ user, onUserChange }: { user: User; onUserChange: (user: User) => void }) {
   const navigate = useNavigate(); const setLatestRun = useAppStore((state) => state.setLatestRun); const setNotice = useAppStore((state) => state.setNotice)
   const [count, setCount] = useState(user.preferences.default_agent_count || 6)
   const [modelSearch, setModelSearch] = useState(user.preferences.default_model_id || '')
@@ -171,7 +171,13 @@ function Orchestrator({ user }: { user: User }) {
   const config = () => ({ model_id: selectedModel, agents: agents.slice(0, count), publish_changes: publishChanges, continuous, round_interval_seconds: roundInterval, max_consecutive_round_failures: 3 })
   const start = useMutation({ mutationFn: () => api<RunInfo>('/api/runs', { method: 'POST', body: JSON.stringify(config()) }), onSuccess: (run) => { setLatestRun(run); setNotice(`持续任务 ${run.id} 已启动`); navigate('/') } })
   const saveLoop = useMutation({ mutationFn: () => api('/api/loop', { method: 'PUT', body: JSON.stringify({ enabled: autoStart, interval_minutes: autoStartInterval, run_config: config() }) }), onSuccess: () => { setNotice(autoStart ? '自动启动配置已保存' : '自动启动已关闭'); loop.refetch() } })
-  const saveDefault = useMutation({ mutationFn: () => api('/api/users/me/preferences/default-model', { method: 'PATCH', body: JSON.stringify({ model_id: selectedModel }) }), onSuccess: () => setNotice(`默认模型已设为 ${selectedModel}`) })
+  const saveDefault = useMutation({
+    mutationFn: () => api('/api/users/me/preferences/default-model', { method: 'PATCH', body: JSON.stringify({ model_id: selectedModel }) }),
+    onSuccess: () => {
+      onUserChange({ ...user, preferences: { ...user.preferences, default_model_id: selectedModel } })
+      setNotice(`默认模型已设为 ${selectedModel}`)
+    }
+  })
   const updateSource = (index: number, source_mode: SourceMode) => setAgents((items) => items.map((item, itemIndex) => itemIndex === index ? { ...item, source_mode } : item))
   return <div className="page"><div className="page-head"><div><h2>任务编排</h2><p>同一组子 Agent 按轮持续执行，直到用户要求在轮次边界停止。</p></div><Button primary disabled={!selectedModel || start.isPending} onClick={() => start.mutate()}><Play size={15} />{start.isPending ? '启动中…' : `启动 ${count} 个 Agent 持续循环`}</Button></div>
     {(models.error || loop.error || start.error || saveLoop.error || saveDefault.error) && <ErrorBox error={models.error || loop.error || start.error || saveLoop.error || saveDefault.error} />}
@@ -244,9 +250,9 @@ function Reports({ user }: { user: User }) {
 function RunHistory() {
   const [selected, setSelected] = useState<string | null>(null)
   const query = useQuery<{ items: RunInfo[] }>({ queryKey: ['runs'], queryFn: () => api('/api/runs') })
-  const rounds = useQuery<{ items: Array<{ round_number: number; status: string; current_stage: string; duration_seconds?: number; error?: string; metrics_before: Record<string, number>; metrics_after: Record<string, number>; artifacts: { evidence_pages?: number; scenario_articles?: number } }> }>({ queryKey: ['run-rounds', selected], queryFn: () => api(`/api/runs/${selected}/rounds`), enabled: Boolean(selected), refetchInterval: selected ? 3000 : false })
+  const rounds = useQuery<{ items: Array<{ round_number: number; status: string; current_stage: string; duration_seconds?: number; error?: string; checkpoint_id?: string; resumed_count: number; node_attempts: Record<string, number>; quarantined_files: string[]; metrics_before: Record<string, number>; metrics_after: Record<string, number>; artifacts: { evidence_pages?: number; scenario_articles?: number } }> }>({ queryKey: ['run-rounds', selected], queryFn: () => api(`/api/runs/${selected}/rounds`), enabled: Boolean(selected), refetchInterval: selected ? 3000 : false })
   const retry = useMutation({ mutationFn: (id: string) => api(`/api/runs/${id}/retry`, { method: 'POST' }), onSuccess: () => query.refetch() })
-  return <div className="page"><div className="page-head"><div><h2>运行历史</h2><p>每个持续任务包含多轮记录，每轮和每个Agent的产物均独立保存。</p></div></div><Panel title="持续任务" meta={`${query.data?.items.length || 0} 条`}>{query.isLoading ? <Loading /> : query.error ? <ErrorBox error={query.error} /> : <div className="table-wrap"><table><thead><tr><th>运行ID</th><th>状态</th><th>当前/完成轮次</th><th>模型</th><th>阶段</th><th>Agent</th><th>发布</th><th>时间</th><th /></tr></thead><tbody>{query.data?.items.map((run) => <tr key={run.id}><td><button className="link-button" onClick={() => setSelected(run.id)}>{run.id}</button></td><td><span className={`status-tag ${run.status}`}>{run.status}</span></td><td>{run.current_round} / {run.rounds_completed}</td><td>{run.model_id}</td><td>{stageLabels[run.current_stage] || run.current_stage}</td><td>{run.agents.length}</td><td>{run.publish_changes ? '自动发布' : '仅候选'}</td><td>{new Date(run.created_at).toLocaleString()}</td><td><Button onClick={() => retry.mutate(run.id)}>重新启动</Button></td></tr>)}</tbody></table></div>}</Panel>{selected && <Panel title={`${selected} · 轮次明细`} meta={`${rounds.data?.items.length || 0} 轮`}>{rounds.isLoading ? <Loading /> : rounds.error ? <ErrorBox error={rounds.error} /> : <div className="table-wrap"><table><thead><tr><th>轮次</th><th>状态</th><th>阶段</th><th>网页证据</th><th>场景文章</th><th>新增类</th><th>新增实例</th><th>耗时</th><th>错误</th></tr></thead><tbody>{rounds.data?.items.map((round) => <tr key={round.round_number}><td>第 {round.round_number} 轮</td><td><span className={`status-tag ${round.status}`}>{round.status}</span></td><td>{stageLabels[round.current_stage] || round.current_stage}</td><td>{round.artifacts.evidence_pages || 0}</td><td>{round.artifacts.scenario_articles || 0}</td><td>{(round.metrics_after.classes || 0) - (round.metrics_before.classes || 0)}</td><td>{(round.metrics_after.individuals || 0) - (round.metrics_before.individuals || 0)}</td><td>{round.duration_seconds ? `${round.duration_seconds}s` : '-'}</td><td>{round.error || '-'}</td></tr>)}</tbody></table></div>}</Panel>}</div>
+  return <div className="page"><div className="page-head"><div><h2>运行历史</h2><p>每个持续任务包含多轮记录，每轮、节点 checkpoint 和每个 Agent 产物均独立保存。</p></div></div><Panel title="持续任务" meta={`${query.data?.items.length || 0} 条`}>{query.isLoading ? <Loading /> : query.error ? <ErrorBox error={query.error} /> : <div className="table-wrap"><table><thead><tr><th>运行ID</th><th>状态</th><th>当前/完成轮次</th><th>编排器</th><th>模型</th><th>阶段</th><th>Agent</th><th>发布</th><th>时间</th><th /></tr></thead><tbody>{query.data?.items.map((run) => <tr key={run.id}><td><button className="link-button" onClick={() => setSelected(run.id)}>{run.id}</button></td><td><span className={`status-tag ${run.status}`}>{run.status}</span></td><td>{run.current_round} / {run.rounds_completed}</td><td><span className="engine-tag">{run.orchestrator_engine}/{run.checkpoint_backend}</span></td><td>{run.model_id}</td><td>{stageLabels[run.current_stage] || run.current_stage}</td><td>{run.agents.length}</td><td>{run.publish_changes ? '自动发布' : '仅候选'}</td><td>{new Date(run.created_at).toLocaleString()}</td><td><Button onClick={() => retry.mutate(run.id)}>重新启动</Button></td></tr>)}</tbody></table></div>}</Panel>{selected && <Panel title={`${selected} · 轮次明细`} meta={`${rounds.data?.items.length || 0} 轮`}>{rounds.isLoading ? <Loading /> : rounds.error ? <ErrorBox error={rounds.error} /> : <div className="table-wrap"><table><thead><tr><th>轮次</th><th>状态</th><th>阶段</th><th>Checkpoint</th><th>恢复</th><th>节点执行</th><th>隔离</th><th>网页证据</th><th>场景文章</th><th>耗时</th><th>错误</th></tr></thead><tbody>{rounds.data?.items.map((round) => <tr key={round.round_number}><td>第 {round.round_number} 轮</td><td><span className={`status-tag ${round.status}`}>{round.status}</span></td><td>{stageLabels[round.current_stage] || round.current_stage}</td><td><code>{round.checkpoint_id?.slice(0, 12) || '-'}</code></td><td>{round.resumed_count || 0}</td><td>{Object.values(round.node_attempts || {}).reduce((sum, value) => sum + value, 0)}</td><td>{round.quarantined_files?.length || 0}</td><td>{round.artifacts.evidence_pages || 0}</td><td>{round.artifacts.scenario_articles || 0}</td><td>{round.duration_seconds ? `${round.duration_seconds}s` : '-'}</td><td>{round.error || '-'}</td></tr>)}</tbody></table></div>}</Panel>}</div>
 }
 
 function SettingsPage({ user }: { user: User }) {
@@ -270,5 +276,5 @@ export default function App() {
   const logout = async () => { await api('/api/auth/logout', { method: 'POST' }); setUser(null); setStatusData({ setup_required: false }) }
   if (!checked) return <Loading text="正在连接控制台…" />
   if (!user) return <AuthScreen setupRequired={Boolean(statusData?.setup_required)} onAuthenticated={setUser} />
-  return <Layout user={user} onLogout={logout} />
+  return <Layout user={user} onLogout={logout} onUserChange={setUser} />
 }

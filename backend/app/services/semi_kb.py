@@ -5,6 +5,7 @@ import json
 import os
 import re
 import shutil
+import subprocess
 import sys
 import time
 from datetime import datetime, timezone
@@ -41,12 +42,40 @@ class SemiKbAdapter:
     async def command(self, *args: str, timeout: int = 1800) -> dict:
         self._ensure_root()
         started = time.monotonic()
+        command = [sys.executable, str(self.root / "scripts" / args[0]), *args[1:]]
+        child_env = {**os.environ, "PYTHONIOENCODING": "utf-8"}
+        if os.name == "nt":
+            holder: dict[str, subprocess.Popen] = {}
+
+            def run_windows() -> tuple[int, bytes, bytes]:
+                process = subprocess.Popen(
+                    command, cwd=str(self.root), env=child_env,
+                    stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                )
+                holder["process"] = process
+                try:
+                    stdout, stderr = process.communicate(timeout=timeout)
+                except subprocess.TimeoutExpired:
+                    process.kill(); stdout, stderr = process.communicate()
+                    raise SemiKbError(f"命令超时：{' '.join(args)}") from None
+                return process.returncode, stdout, stderr
+
+            task = asyncio.create_task(asyncio.to_thread(run_windows))
+            try:
+                exit_code, stdout, stderr = await task
+            except asyncio.CancelledError:
+                process = holder.get("process")
+                if process and process.poll() is None:
+                    process.kill()
+                try: await task
+                except (Exception, asyncio.CancelledError): pass
+                raise
+            output = (stdout + stderr).decode("utf-8", "replace")
+            return {"exit_code": exit_code, "duration_seconds": round(time.monotonic() - started, 3), "output": output}
         process = await asyncio.create_subprocess_exec(
-            sys.executable,
-            str(self.root / "scripts" / args[0]),
-            *args[1:],
+            *command,
             cwd=str(self.root),
-            env={**os.environ, "PYTHONIOENCODING": "utf-8"},
+            env=child_env,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )

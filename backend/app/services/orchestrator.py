@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
+import os
 import re
+import socket
 import time
 from datetime import datetime, timezone
 
@@ -60,6 +63,7 @@ class RunOrchestrator:
         self.paused: set[str] = set()
         self.stop_after_rounds: dict[str, int] = {}
         self.provider_semaphore = asyncio.Semaphore(settings.max_provider_concurrency)
+        self.worker_id = f"{socket.gethostname()}:{os.getpid()}"
 
     def emit(self, db: Session, run_id: str, event_type: str, message: str, payload: dict | None = None, level: str = "info") -> None:
         db.add(RunEvent(run_id=run_id, event_type=event_type, level=level, message=message, payload_json=json.dumps(payload or {}, ensure_ascii=False)))
@@ -76,22 +80,45 @@ class RunOrchestrator:
 
     def cancel(self, run_id: str) -> None:
         self.cancelled.add(run_id)
+        with SessionLocal() as db:
+            run = db.get(Run, run_id)
+            if run:
+                run.cancel_requested = True; run.status = "cancelling"; db.commit()
 
     def pause(self, run_id: str) -> None:
         self.paused.add(run_id)
+        with SessionLocal() as db:
+            run = db.get(Run, run_id)
+            if run:
+                run.pause_requested = True; run.status = "paused"; db.commit()
 
     def resume(self, run_id: str) -> None:
         self.paused.discard(run_id)
+        with SessionLocal() as db:
+            run = db.get(Run, run_id)
+            if run:
+                run.pause_requested = False; run.cancel_requested = False; run.status = "running"; db.commit()
 
     def request_stop_after(self, run_id: str, current_round: int, additional_rounds: int = 0) -> int:
         target = max(1, current_round + additional_rounds)
         self.stop_after_rounds[run_id] = target
+        with SessionLocal() as db:
+            run = db.get(Run, run_id)
+            if run:
+                run.stop_after_round = target; run.status = "stopping_after_round"; db.commit()
         return target
 
     async def _pause_point(self, run_id: str) -> None:
-        while run_id in self.paused:
-            if run_id in self.cancelled:
-                raise asyncio.CancelledError
+        while True:
+            with SessionLocal() as db:
+                run = db.get(Run, run_id)
+                if not run: raise asyncio.CancelledError
+                run.heartbeat_at = datetime.now(timezone.utc)
+                db.commit()
+                cancel_requested = run.cancel_requested or run_id in self.cancelled
+                pause_requested = run.pause_requested or run_id in self.paused
+            if cancel_requested: raise asyncio.CancelledError
+            if not pause_requested: return
             await asyncio.sleep(0.25)
 
     async def _wait_between_rounds(self, run_id: str, seconds: int) -> None:
@@ -100,7 +127,9 @@ class RunOrchestrator:
             await self._pause_point(run_id)
             if run_id in self.cancelled:
                 raise asyncio.CancelledError
-            stop_target = self.stop_after_rounds.get(run_id)
+            with SessionLocal() as db:
+                run = db.get(Run, run_id)
+                stop_target = run.stop_after_round if run else self.stop_after_rounds.get(run_id)
             if stop_target is not None:
                 with SessionLocal() as db:
                     current = db.scalar(select(func.max(RunRound.round_number)).where(RunRound.run_id == run_id)) or 0
@@ -108,13 +137,37 @@ class RunOrchestrator:
                     return
             await asyncio.sleep(min(0.5, max(0.01, deadline - time.monotonic())))
 
+    async def _heartbeat_loop(self, run_id: str) -> None:
+        try:
+            while True:
+                with SessionLocal() as db:
+                    run = db.get(Run, run_id)
+                    if not run or run.completed_at:
+                        return
+                    run.worker_id = self.worker_id
+                    run.heartbeat_at = datetime.now(timezone.utc)
+                    db.commit()
+                await asyncio.sleep(settings.worker_heartbeat_seconds)
+        except asyncio.CancelledError:
+            return
+
     async def execute_agent(self, run_id: str, agent_id: str, round_number: int, api_key: str, gap: dict, agent_config: dict) -> dict | None:
         with SessionLocal() as db:
             agent = db.get(AgentRun, agent_id)
             if not agent:
                 return None
-            iteration = AgentIteration(run_id=run_id, agent_id=agent_id, round_number=round_number, status="running", started_at=datetime.now(timezone.utc))
-            db.add(iteration)
+            input_hash = str(agent_config.get("input_hash") or hashlib.sha256(json.dumps({"run": run_id, "round": round_number, "agent": agent_id, "gap": gap}, ensure_ascii=False, sort_keys=True).encode()).hexdigest())
+            iteration = db.scalar(select(AgentIteration).where(AgentIteration.agent_id == agent_id, AgentIteration.round_number == round_number))
+            previous_input_hash = iteration.input_hash if iteration else None
+            if iteration and iteration.status == "completed" and iteration.input_hash == input_hash:
+                self.emit(db, run_id, "agent_cache_hit", f"第 {round_number} 轮 · {agent.name} 使用已完成的幂等结果", {"agent_id": agent.id, "round": round_number, "input_hash": input_hash})
+                return json.loads(iteration.output_json or "{}")
+            if iteration:
+                iteration.status = "running"; iteration.started_at = datetime.now(timezone.utc); iteration.completed_at = None; iteration.error = None
+                iteration.attempt_count = int(iteration.attempt_count or 0) + 1; iteration.input_hash = input_hash
+            else:
+                iteration = AgentIteration(run_id=run_id, agent_id=agent_id, round_number=round_number, status="running", started_at=datetime.now(timezone.utc), attempt_count=1, input_hash=input_hash)
+                db.add(iteration)
             agent.status = "running"; agent.started_at = iteration.started_at; agent.error = None
             db.commit(); db.refresh(iteration)
             self.emit(db, run_id, "agent_started", f"第 {round_number} 轮 · {agent.name} 开始（{agent.source_mode}）", {"agent_id": agent.id, "round": round_number})
@@ -131,6 +184,7 @@ class RunOrchestrator:
                         if agent.source_mode == "web":
                             raise
                         self.emit(db, run_id, "research_warning", f"{agent.name} Web 检索失败，Hybrid 本轮退化为模型先验：{exc}", {"agent_id": agent.id, "round": round_number}, "warning")
+                iteration.evidence_json = json.dumps(evidence, ensure_ascii=False); db.commit()
                 ontology = semi_kb.ontology_context(limit=350)
                 business = semi_kb.business_context()
                 previous = _compact_previous_output(json.loads(agent.output_json or "{}"))
@@ -158,11 +212,16 @@ class RunOrchestrator:
                 }, ensure_ascii=False)
                 for attempt in range(max_retries + 1):
                     try:
-                        async with self.provider_semaphore:
-                            text = await llm_service.complete(api_key, agent.model_id, system, prompt, timeout_seconds=int(agent_config.get("timeout_seconds", 300)))
                         attempt_dir = round_directory(run_id, round_number) / "agents" / agent.id
                         attempt_dir.mkdir(parents=True, exist_ok=True)
-                        (attempt_dir / f"raw-attempt-{attempt + 1:02d}.txt").write_text(text, encoding="utf-8")
+                        raw_path = attempt_dir / f"raw-attempt-{attempt + 1:02d}.txt"
+                        if previous_input_hash == input_hash and raw_path.is_file():
+                            text = raw_path.read_text(encoding="utf-8")
+                            self.emit(db, run_id, "model_response_reused", f"{agent.name} 复用崩溃前已保存的模型响应", {"agent_id": agent.id, "round": round_number, "attempt": attempt + 1})
+                        else:
+                            async with self.provider_semaphore:
+                                text = await llm_service.complete(api_key, agent.model_id, system, prompt, timeout_seconds=int(agent_config.get("timeout_seconds", 300)))
+                            raw_path.write_text(text, encoding="utf-8")
                         parsed = _json_object(text)
                         output = validate_and_store_agent_output(
                             parsed, run_id=run_id, round_number=round_number, agent_id=agent.id,
@@ -193,6 +252,16 @@ class RunOrchestrator:
                     self.emit(db, run_id, "agent_completed", f"第 {round_number} 轮 · {agent.name} 完成", {"agent_id": agent.id, "round": round_number, "duration_seconds": duration})
 
     async def execute_round(self, run_id: str, round_number: int, config: dict, api_key: str) -> bool:
+        engine_name = str(config.get("orchestrator_engine") or settings.orchestrator_engine).casefold()
+        if engine_name == "langgraph":
+            from .langgraph_runtime import RoundGraphEngine
+            with SessionLocal() as db:
+                row = db.scalar(select(RunRound).where(RunRound.run_id == run_id, RunRound.round_number == round_number))
+                resume = bool(row and row.status in {"running", "paused", "recovering"})
+            return await RoundGraphEngine(self).execute(run_id, round_number, config, resume=resume)
+        return await self.execute_round_legacy(run_id, round_number, config, api_key)
+
+    async def execute_round_legacy(self, run_id: str, round_number: int, config: dict, api_key: str) -> bool:
         started = time.monotonic()
         with SessionLocal() as db:
             run = db.get(Run, run_id)
@@ -261,21 +330,33 @@ class RunOrchestrator:
             return False
 
     async def execute(self, run_id: str) -> None:
+        heartbeat_task: asyncio.Task | None = None
         try:
             with SessionLocal() as db:
                 run = db.get(Run, run_id)
                 if not run: return
+                if run.worker_id and run.worker_id != self.worker_id and run.heartbeat_at:
+                    heartbeat = run.heartbeat_at
+                    if heartbeat.tzinfo is None: heartbeat = heartbeat.replace(tzinfo=timezone.utc)
+                    if (datetime.now(timezone.utc) - heartbeat).total_seconds() < settings.worker_heartbeat_seconds * 3:
+                        self.emit(db, run_id, "worker_lease_rejected", f"任务已由工作进程 {run.worker_id} 执行", {"worker_id": run.worker_id}, "warning")
+                        return
                 api_key = user_api_key(db, run.user_id)
                 if not api_key: raise ExternalServiceError("未配置模型 API Key")
                 config = json.loads(run.config_json or "{}")
                 run.status = "running"; run.started_at = run.started_at or datetime.now(timezone.utc); run.completed_at = None; run.error = None
+                run.worker_id = self.worker_id; run.heartbeat_at = datetime.now(timezone.utc)
                 if not run.metrics_before_json or run.metrics_before_json == "{}": run.metrics_before_json = json.dumps((await semi_kb.metrics(db, run.user_id))["totals"], ensure_ascii=False)
                 db.commit(); self.emit(db, run_id, "run_started", "持续循环任务已启动", {"agent_count": len(run.agents), "continuous": config.get("continuous", True), "round_interval_seconds": config.get("round_interval_seconds", 5)})
+            heartbeat_task = asyncio.create_task(self._heartbeat_loop(run_id), name=f"heartbeat-{run_id}")
             consecutive_failures = 0
             while True:
                 await self._pause_point(run_id)
-                with SessionLocal() as db: current = db.scalar(select(func.max(RunRound.round_number)).where(RunRound.run_id == run_id)) or 0
-                stop_target = self.stop_after_rounds.get(run_id)
+                with SessionLocal() as db:
+                    latest = db.scalar(select(RunRound).where(RunRound.run_id == run_id).order_by(RunRound.round_number.desc()).limit(1))
+                    current = latest.round_number if latest else 0
+                    run = db.get(Run, run_id)
+                    stop_target = run.stop_after_round if run else self.stop_after_rounds.get(run_id)
                 if stop_target is not None and int(current) >= stop_target:
                     with SessionLocal() as db:
                         run = db.get(Run, run_id)
@@ -283,10 +364,13 @@ class RunOrchestrator:
                             run.status = "completed"; run.current_stage = "completed"; run.completed_at = datetime.now(timezone.utc); run.progress = 100; db.commit()
                             self.emit(db, run_id, "run_completed", f"任务按请求在第 {int(current)} 轮结束", {"round": int(current)})
                     return
-                round_number = int(current) + 1
+                resume_round = bool(latest and latest.status in {"running", "paused", "recovering"})
+                round_number = int(current) if resume_round else int(current) + 1
                 success = await self.execute_round(run_id, round_number, config, api_key)
                 consecutive_failures = 0 if success else consecutive_failures + 1
-                stop_target = self.stop_after_rounds.get(run_id)
+                with SessionLocal() as db:
+                    persisted = db.get(Run, run_id)
+                    stop_target = persisted.stop_after_round if persisted else self.stop_after_rounds.get(run_id)
                 if not config.get("continuous", True) or (stop_target is not None and round_number >= stop_target):
                     with SessionLocal() as db:
                         run = db.get(Run, run_id)
@@ -326,7 +410,17 @@ class RunOrchestrator:
                     run.status = "failed"; run.error = str(exc); run.completed_at = datetime.now(timezone.utc); db.commit()
                     self.emit(db, run_id, "run_failed", f"任务失败：{exc}", level="error")
         finally:
+            if heartbeat_task:
+                heartbeat_task.cancel()
+                try:
+                    await heartbeat_task
+                except asyncio.CancelledError:
+                    pass
             self.stop_after_rounds.pop(run_id, None); self.cancelled.discard(run_id); self.paused.discard(run_id)
+            with SessionLocal() as db:
+                run = db.get(Run, run_id)
+                if run:
+                    run.worker_id = None; run.heartbeat_at = datetime.now(timezone.utc); db.commit()
 
 
 orchestrator = RunOrchestrator()

@@ -54,6 +54,14 @@ class Run(Base):
     config_json: Mapped[str] = mapped_column(Text, default="{}")
     metrics_before_json: Mapped[str] = mapped_column(Text, default="{}")
     metrics_after_json: Mapped[str] = mapped_column(Text, default="{}")
+    orchestrator_engine: Mapped[str] = mapped_column(String(24), default="langgraph")
+    pause_requested: Mapped[bool] = mapped_column(Boolean, default=False)
+    cancel_requested: Mapped[bool] = mapped_column(Boolean, default=False)
+    stop_after_round: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    checkpoint_thread_id: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    worker_id: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    heartbeat_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    recovery_count: Mapped[int] = mapped_column(Integer, default=0)
     agents: Mapped[list["AgentRun"]] = relationship(back_populates="run", cascade="all, delete-orphan")
     rounds: Mapped[list["RunRound"]] = relationship(back_populates="run", cascade="all, delete-orphan")
 
@@ -95,6 +103,10 @@ class RunRound(Base):
     validation_json: Mapped[str] = mapped_column(Text, default="{}")
     artifacts_json: Mapped[str] = mapped_column(Text, default="{}")
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    checkpoint_id: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    resumed_count: Mapped[int] = mapped_column(Integer, default=0)
+    node_attempts_json: Mapped[str] = mapped_column(Text, default="{}")
+    quarantined_files_json: Mapped[str] = mapped_column(Text, default="[]")
     run: Mapped[Run] = relationship(back_populates="rounds")
 
 
@@ -115,6 +127,9 @@ class AgentIteration(Base):
     output_json: Mapped[str] = mapped_column(Text, default="{}")
     candidate_files_json: Mapped[str] = mapped_column(Text, default="[]")
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    attempt_count: Mapped[int] = mapped_column(Integer, default=0)
+    checkpoint_id: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    input_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
 
 class RunEvent(Base):
