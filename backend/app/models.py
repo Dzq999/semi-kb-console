@@ -207,6 +207,90 @@ class ExportJob(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     kind: Mapped[str] = mapped_column(String(40))
     status: Mapped[str] = mapped_column(String(24), default="queued")
+    progress: Mapped[float] = mapped_column(Float, default=0)
+    total_files: Mapped[int] = mapped_column(Integer, default=0)
+    processed_files: Mapped[int] = mapped_column(Integer, default=0)
+    worker_id: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    heartbeat_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    attempt_count: Mapped[int] = mapped_column(Integer, default=0)
     path: Mapped[str | None] = mapped_column(Text, nullable=True)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class ArticleTopic(Base):
+    __tablename__ = "article_topics"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    title: Mapped[str] = mapped_column(String(240))
+    domain: Mapped[str] = mapped_column(String(80), default="semiconductor")
+    customer_role: Mapped[str] = mapped_column(String(160), default="")
+    pain_point: Mapped[str] = mapped_column(Text, default="")
+    business_context: Mapped[str] = mapped_column(Text, default="")
+    evidence_json: Mapped[str] = mapped_column(Text, default="[]")
+    source_ref: Mapped[str | None] = mapped_column(Text, nullable=True)
+    priority_score: Mapped[float] = mapped_column(Float, default=0)
+    novelty_score: Mapped[float] = mapped_column(Float, default=0)
+    status: Mapped[str] = mapped_column(String(24), default="qualified", index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class Article(Base):
+    __tablename__ = "articles"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    topic_id: Mapped[int | None] = mapped_column(ForeignKey("article_topics.id"), nullable=True, index=True)
+    title: Mapped[str] = mapped_column(String(240))
+    subtitle: Mapped[str] = mapped_column(String(500), default="")
+    status: Mapped[str] = mapped_column(String(32), default="draft", index=True)
+    approval_required: Mapped[bool] = mapped_column(Boolean, default=True)
+    content_markdown: Mapped[str] = mapped_column(Text, default="")
+    content_html: Mapped[str] = mapped_column(Text, default="")
+    validation_json: Mapped[str] = mapped_column(Text, default="{}")
+    metrics_snapshot_json: Mapped[str] = mapped_column(Text, default="{}")
+    word_count: Mapped[int] = mapped_column(Integer, default=0)
+    ai_tone_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    factual_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    generated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class ArticleAsset(Base):
+    __tablename__ = "article_assets"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    article_id: Mapped[int] = mapped_column(ForeignKey("articles.id"), index=True)
+    asset_type: Mapped[str] = mapped_column(String(32))
+    file_path: Mapped[str] = mapped_column(Text)
+    mime_type: Mapped[str] = mapped_column(String(120), default="image/png")
+    caption: Mapped[str] = mapped_column(String(500), default="")
+    source_type: Mapped[str] = mapped_column(String(32), default="generated")
+    source_ref: Mapped[str | None] = mapped_column(Text, nullable=True)
+    sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class ArticleRevision(Base):
+    __tablename__ = "article_revisions"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    article_id: Mapped[int] = mapped_column(ForeignKey("articles.id"), index=True)
+    content_markdown: Mapped[str] = mapped_column(Text)
+    editor_user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    revision_note: Mapped[str] = mapped_column(String(500), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class ArticleSetting(Base):
+    __tablename__ = "article_settings"
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), primary_key=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    frequency: Mapped[str] = mapped_column(String(20), default="daily")
+    generate_time: Mapped[str] = mapped_column(String(5), default="18:00")
+    timezone: Mapped[str] = mapped_column(String(80), default="Asia/Shanghai")
+    approval_required: Mapped[bool] = mapped_column(Boolean, default=True)
+    auto_visuals: Mapped[bool] = mapped_column(Boolean, default=True)
+    last_generated_date: Mapped[str | None] = mapped_column(String(10), nullable=True)

@@ -3,7 +3,7 @@ import type React from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { NavLink, Navigate, Route, Routes, useNavigate } from 'react-router-dom'
 import {
-  Bot, CheckCircle2, CircleStop, Cpu,
+  Archive, Bot, CheckCircle2, CircleStop, Cpu,
   Database, Download, FileText, Gauge, History, LayoutDashboard, LockKeyhole,
   Mail, Network, Newspaper, Pause, Play, RefreshCw, Save, Search, Send,
   Settings, ShieldCheck, Sparkles, Workflow
@@ -31,6 +31,7 @@ const nav = [
   ['/simulation', '仿真引擎', Cpu],
   ['/scenarios', '业务场景', FileText],
   ['/reports', '日报中心', Newspaper],
+  ['/exports', '导出中心', Archive],
   ['/history', '运行历史', History],
   ['/settings', '系统设置', Settings]
 ] as const
@@ -93,6 +94,7 @@ function Layout({ user, onLogout, onUserChange }: { user: User; onLogout: () => 
         <Route path="/simulation" element={<Simulation />} />
         <Route path="/scenarios" element={<Scenarios />} />
         <Route path="/reports" element={<Reports user={user} />} />
+        <Route path="/exports" element={<ExportCenter />} />
         <Route path="/history" element={<RunHistory />} />
         <Route path="/settings" element={<SettingsPage user={user} />} />
         <Route path="*" element={<Navigate to="/" replace />} />
@@ -154,7 +156,7 @@ const agentTemplates = [
 
 function Orchestrator({ user, onUserChange }: { user: User; onUserChange: (user: User) => void }) {
   const navigate = useNavigate(); const setLatestRun = useAppStore((state) => state.setLatestRun); const setNotice = useAppStore((state) => state.setNotice)
-  const [count, setCount] = useState(user.preferences.default_agent_count || 6)
+  const count = 10
   const [modelSearch, setModelSearch] = useState(user.preferences.default_model_id || '')
   const [selectedModel, setSelectedModel] = useState(user.preferences.default_model_id || '')
   const [publishChanges, setPublishChanges] = useState(true)
@@ -181,7 +183,7 @@ function Orchestrator({ user, onUserChange }: { user: User; onUserChange: (user:
   const updateSource = (index: number, source_mode: SourceMode) => setAgents((items) => items.map((item, itemIndex) => itemIndex === index ? { ...item, source_mode } : item))
   return <div className="page"><div className="page-head"><div><h2>任务编排</h2><p>同一组子 Agent 按轮持续执行，直到用户要求在轮次边界停止。</p></div><Button primary disabled={!selectedModel || start.isPending} onClick={() => start.mutate()}><Play size={15} />{start.isPending ? '启动中…' : `启动 ${count} 个 Agent 持续循环`}</Button></div>
     {(models.error || loop.error || start.error || saveLoop.error || saveDefault.error) && <ErrorBox error={models.error || loop.error || start.error || saveLoop.error || saveDefault.error} />}
-    <div className="compose-grid"><Panel title="模型与并发" meta={models.data ? `已同步 ${models.data.total} 个模型` : '等待同步'}><div className="config-grid"><label>搜索并选择模型<div className="search-input"><Search size={15} /><input value={modelSearch} onChange={(e) => setModelSearch(e.target.value)} placeholder="输入模型名称或ID" /></div><select value={selectedModel} onChange={(e) => setSelectedModel(e.target.value)}><option value="">请选择模型</option>{filtered.map((item) => <option key={item.id}>{item.id}</option>)}</select></label><div className="agent-count"><span>并行子 Agent</span><strong>{count} / 10</strong><input type="range" min="1" max="10" value={count} onChange={(e) => setCount(Number(e.target.value))} /></div></div><div className="model-actions"><Button onClick={() => models.refetch()}><RefreshCw size={14} />刷新模型</Button><Button onClick={() => saveDefault.mutate()} disabled={!selectedModel}><Save size={14} />设为默认模型</Button><small>启动任务前后端会再次刷新并校验模型可用性</small></div></Panel>
+    <div className="compose-grid"><Panel title="模型与并发" meta={models.data ? `已同步 ${models.data.total} 个模型` : '等待同步'}><div className="config-grid"><label>搜索并选择模型<div className="search-input"><Search size={15} /><input value={modelSearch} onChange={(e) => setModelSearch(e.target.value)} placeholder="输入模型名称或ID" /></div><select value={selectedModel} onChange={(e) => setSelectedModel(e.target.value)}><option value="">请选择模型</option>{filtered.map((item) => <option key={item.id}>{item.id}</option>)}</select></label><div className="agent-count"><span>标准 Agent 编制</span><strong>固定 {count} 个</strong><small>所有 Agent 协作完成一轮全流程；每个 Agent 可独立选择知识来源。</small></div></div><div className="model-actions"><Button onClick={() => models.refetch()}><RefreshCw size={14} />刷新模型</Button><Button onClick={() => saveDefault.mutate()} disabled={!selectedModel}><Save size={14} />设为默认模型</Button><small>启动任务前后端会再次刷新并校验模型可用性</small></div></Panel>
       <Panel title="来源策略摘要" meta="逐个生效"><div className="source-summary">{(['web', 'model_prior', 'hybrid'] as SourceMode[]).map((mode) => <div key={mode}><strong>{agents.slice(0, count).filter((item) => item.source_mode === mode).length}</strong><span>{mode === 'web' ? '自行搜索资料' : mode === 'model_prior' ? '预训练知识' : '混合模式'}</span></div>)}</div><p className="info-note"><ShieldCheck size={15} />联网结果保存正文、URL、时间与哈希；模型先验不会伪装成外部证据。</p></Panel></div>
     <Panel title="持续循环、发布与自动启动" meta="轮次级安全控制"><div className="loop-config"><label className="switch-line"><span>持续进入下一轮</span><input type="checkbox" checked={continuous} onChange={(e) => setContinuous(e.target.checked)} /></label><label className="switch-line"><span>全部门禁通过后自动发布本体、知识库和仿真</span><input type="checkbox" checked={publishChanges} onChange={(e) => setPublishChanges(e.target.checked)} /></label><label>轮次间隔（秒）<input type="number" min="0" max="86400" value={roundInterval} onChange={(e) => setRoundInterval(Number(e.target.value))} /></label><label className="switch-line"><span>后端启动后按计划自动拉起持续任务</span><input type="checkbox" checked={autoStart} onChange={(e) => setAutoStart(e.target.checked)} /></label><label>自动拉起检查间隔（分钟）<input type="number" min="5" max="43200" value={autoStartInterval} onChange={(e) => setAutoStartInterval(Number(e.target.value))} /></label><Button onClick={() => saveLoop.mutate()} disabled={!selectedModel || saveLoop.isPending}><Save size={14} />保存自动启动配置</Button></div><div className="warning-box loop-warning">自动发布仅在 JSON Schema、来源、内部特征/vFab、能力问题、OWL、SHACL、推理、经营模型和仿真全部通过后执行；失败候选不会写入正式库。</div></Panel>
     <Panel title="Agent 分工与知识来源" meta="每行单独配置"><div className="table-wrap"><table><thead><tr><th>子 Agent</th><th>职责</th><th>问题域</th><th>知识来源</th><th>模型</th></tr></thead><tbody>{agents.slice(0, count).map((agent, index) => <tr key={index}><td><span className="agent-index">{String(index + 1).padStart(2, '0')}</span>{agent.name}</td><td><input value={agent.objective} onChange={(e) => setAgents((items) => items.map((item, i) => i === index ? { ...item, objective: e.target.value } : item))} /></td><td><input className="short-input" value={agent.domain} onChange={(e) => setAgents((items) => items.map((item, i) => i === index ? { ...item, domain: e.target.value } : item))} /></td><td><select value={agent.source_mode} onChange={(e) => updateSource(index, e.target.value as SourceMode)}><option value="web">自行搜索资料</option><option value="model_prior">预训练知识</option><option value="hybrid">混合模式</option></select></td><td><span className="inherit">继承 {selectedModel || '任务模型'}</span></td></tr>)}</tbody></table></div></Panel>
@@ -190,8 +192,17 @@ function Orchestrator({ user, onUserChange }: { user: User; onUserChange: (user:
 
 function ExportButton({ kind }: { kind: string }) {
   const setNotice = useAppStore((state) => state.setNotice)
-  const mutation = useMutation({ mutationFn: () => api<{ id: string }>('/api/exports', { method: 'POST', body: JSON.stringify({ kind }) }), onSuccess: ({ id }) => setNotice(`导出任务 ${id} 已创建，可在完成后下载`) })
+  const queryClient = useQueryClient()
+  const mutation = useMutation({ mutationFn: () => api<{ id: string }>('/api/exports', { method: 'POST', body: JSON.stringify({ kind }) }), onSuccess: ({ id }) => { setNotice(`导出任务 ${id} 已创建，可在导出中心查看进度`); queryClient.invalidateQueries({ queryKey: ['exports'] }) } })
   return <Button onClick={() => mutation.mutate()} disabled={mutation.isPending}><Download size={15} />导出</Button>
+}
+
+function ExportCenter() {
+  const queryClient = useQueryClient()
+  const query = useQuery<{ items: Array<{ id: string; kind: string; status: string; progress: number; total_files: number; processed_files: number; error?: string; created_at: string; completed_at?: string; download_url?: string }> }>({ queryKey: ['exports'], queryFn: () => api('/api/exports'), refetchInterval: 2000 })
+  const retry = useMutation({ mutationFn: (id: string) => api(`/api/exports/${id}/retry`, { method: 'POST' }), onSuccess: () => queryClient.invalidateQueries({ queryKey: ['exports'] }) })
+  const cancel = useMutation({ mutationFn: (id: string) => api(`/api/exports/${id}/cancel`, { method: 'POST' }), onSuccess: () => queryClient.invalidateQueries({ queryKey: ['exports'] }) })
+  return <div className="page"><div className="page-head"><div><h2>导出中心</h2><p>导出任务持久化保存，刷新页面或重启服务后仍可继续查看。</p></div></div><Panel title="导出任务" meta={`${query.data?.items.length || 0} 条`}>{query.isLoading ? <Loading /> : query.error ? <ErrorBox error={query.error} /> : <div className="table-wrap"><table><thead><tr><th>任务</th><th>类型</th><th>状态</th><th>进度</th><th>文件</th><th>创建时间</th><th>完成时间</th><th /></tr></thead><tbody>{query.data?.items.map((item) => <tr key={item.id}><td><code>{item.id}</code></td><td>{item.kind}</td><td><span className={`status-tag ${item.status}`}>{item.status}</span>{item.error && <small className="error-text">{item.error}</small>}</td><td><progress value={item.progress || 0} max={100} /> {Math.round(item.progress || 0)}%</td><td>{item.processed_files}/{item.total_files}</td><td>{new Date(item.created_at).toLocaleString()}</td><td>{item.completed_at ? new Date(item.completed_at).toLocaleString() : '-'}</td><td>{item.download_url && <a className="button" href={item.download_url}>下载</a>}{['failed', 'cancelled'].includes(item.status) && <Button onClick={() => retry.mutate(item.id)}>重试</Button>}{['queued', 'running'].includes(item.status) && <Button danger onClick={() => cancel.mutate(item.id)}>取消</Button>}</td></tr>)}</tbody></table></div>}</Panel></div>
 }
 
 function Ontology() {
@@ -220,12 +231,22 @@ function Simulation() {
 }
 
 function CatalogPage({ title, subtitle, icon, exportKind, query }: { title: string; subtitle: string; icon: React.ReactNode; exportKind: string; query: { isLoading: boolean; error: unknown; data?: { items: Array<{ path: string; name: string; document: unknown }> } } }) {
-  return <div className="page"><div className="page-head"><div><h2>{title}</h2><p>{subtitle}</p></div><ExportButton kind={exportKind} /></div>{query.isLoading ? <Loading /> : query.error ? <ErrorBox error={query.error} /> : <div className="catalog-grid">{query.data?.items.map((item) => <article className="catalog-card" key={item.path}><span>{icon}</span><div><strong>{item.name}</strong><small>{item.path}</small></div><pre>{JSON.stringify(item.document, null, 2).slice(0, 1000)}</pre></article>)}</div>}</div>
+  return <div className="page"><div className="page-head"><div><h2>{title}</h2><p>{subtitle}</p></div><ExportButton kind={exportKind} /></div>{query.isLoading ? <Loading /> : query.error ? <ErrorBox error={query.error} /> : <div className="catalog-grid">{query.data?.items.map((item) => <CatalogCard key={item.path} item={item} icon={icon} />)}</div>}</div>
+}
+
+function CatalogCard({ item, icon }: { item: { path: string; name: string; document: unknown }; icon: React.ReactNode }) {
+  const [open, setOpen] = useState(false)
+  const detail = useQuery<{ content: string; size: number }>({ queryKey: ['knowledge-file', item.path], queryFn: () => api(`/api/knowledge/file?path=${encodeURIComponent(item.path)}`), enabled: open })
+  const preview = JSON.stringify(item.document, null, 2)
+  return <article className="catalog-card"><span>{icon}</span><div><strong>{item.name}</strong><small>{item.path}</small></div><pre>{preview.length > 1000 ? `${preview.slice(0, 1000)}\n…` : preview}</pre><div className="card-actions"><small>{preview.length} 字符{preview.length > 1000 ? '（当前为摘要）' : ''}</small><Button onClick={() => setOpen(!open)}>{open ? '收起完整内容' : '查看完整内容'}</Button></div>{open && (detail.isLoading ? <Loading /> : detail.error ? <ErrorBox error={detail.error} /> : <pre className="full-document">{detail.data?.content}</pre>)}</article>
 }
 
 function Scenarios() {
-  const query = useQuery<{ content: string; path: string }>({ queryKey: ['scenarios'], queryFn: () => api('/api/scenario-articles') })
-  return <div className="page"><div className="page-head"><div><h2>业务场景与客户痛点</h2><p>从本体、知识、经营模型和仿真结果生成正文。</p></div><ExportButton kind="scenarios" /></div>{query.isLoading ? <Loading /> : query.error ? <ErrorBox error={query.error} /> : <Panel title="当前场景文章" meta={query.data?.path}><pre className="article-content">{query.data?.content || '尚无场景文章'}</pre></Panel>}</div>
+  const topics = useQuery<{ items: Array<{ id: number; title: string; domain: string; pain_point: string; status: string; priority_score: number }> }>({ queryKey: ['article-topics'], queryFn: () => api('/api/article-topics') })
+  const articles = useQuery<{ items: Array<{ id: number; title: string; status: string; content_markdown: string; validation: { passed: boolean; errors: string[] }; word_count: number }> }>({ queryKey: ['articles'], queryFn: () => api('/api/articles') })
+  const discover = useMutation({ mutationFn: () => api('/api/article-topics/discover', { method: 'POST' }), onSuccess: () => topics.refetch() })
+  const generate = useMutation({ mutationFn: (topic_id: number) => api('/api/articles/generate', { method: 'POST', body: JSON.stringify({ topic_id }) }), onSuccess: () => { articles.refetch(); topics.refetch() } })
+  return <div className="page"><div className="page-head"><div><h2>业务场景与公众号文章</h2><p>主题候选池与文章独立管理：一篇文章只聚焦一个场景和一个客户痛点。</p></div><div className="actions"><Button onClick={() => discover.mutate()}><RefreshCw size={14} />发现主题</Button><ExportButton kind="scenarios" /></div></div><div className="report-grid"><Panel title="场景候选池" meta={`${topics.data?.items.length || 0} 个`}><div className="topic-list">{topics.data?.items.map((topic) => <div className="topic-item" key={topic.id}><div><strong>{topic.title}</strong><small>{topic.domain} · 优先级 {topic.priority_score.toFixed(2)}</small><p>{topic.pain_point}</p></div><Button primary onClick={() => generate.mutate(topic.id)} disabled={generate.isPending || topic.status !== 'qualified'}>生成文章</Button></div>)}</div></Panel><Panel title="文章草稿与正文" meta={`${articles.data?.items.length || 0} 篇`}><div className="article-list">{articles.data?.items.map((article) => <details key={article.id}><summary><strong>{article.title}</strong><span className={`status-tag ${article.status}`}>{article.status}</span></summary><p>{article.word_count} 字 · 校验 {article.validation?.passed ? '通过' : '未通过'}</p><pre className="article-content">{article.content_markdown}</pre>{article.validation?.errors?.length ? <small className="error-text">{article.validation.errors.join('；')}</small> : null}</details>)}</div></Panel></div></div>
 }
 
 function Reports({ user }: { user: User }) {

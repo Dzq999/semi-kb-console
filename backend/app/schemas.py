@@ -75,6 +75,37 @@ class ExportCreate(BaseModel):
     kind: Literal["ontology", "knowledge", "business", "simulation", "scenarios", "complete"]
 
 
+class ArticleGenerateRequest(BaseModel):
+    topic_id: int | None = None
+    model_id: str | None = None
+
+
+class ArticleUpdate(BaseModel):
+    title: str | None = Field(default=None, min_length=1, max_length=240)
+    content_markdown: str | None = Field(default=None, min_length=1, max_length=200_000)
+    revision_note: str = Field(default="", max_length=500)
+
+
+class ArticleSettingsUpdate(BaseModel):
+    enabled: bool = True
+    frequency: Literal["daily"] = "daily"
+    generate_time: str = "18:00"
+    timezone: str = "Asia/Shanghai"
+    approval_required: bool = True
+    auto_visuals: bool = True
+
+    @field_validator("generate_time")
+    @classmethod
+    def validate_article_time(cls, value: str) -> str:
+        parts = value.split(":")
+        if len(parts) != 2 or not all(part.isdigit() for part in parts):
+            raise ValueError("generate_time 必须为 HH:MM")
+        hour, minute = map(int, parts)
+        if hour > 23 or minute > 59:
+            raise ValueError("generate_time 超出范围")
+        return f"{hour:02d}:{minute:02d}"
+
+
 class LoopUpdate(BaseModel):
     enabled: bool
     interval_minutes: int = Field(default=1440, ge=5, le=43_200)

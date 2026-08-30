@@ -23,15 +23,16 @@ from sqlalchemy.orm import Session
 from .config import settings
 from .db import Base, SessionLocal, engine, get_db
 from .migrations import upgrade_database
-from .models import AgentIteration, AgentRun, DailyReport, DailyReportRevision, EncryptedCredential, ExportJob, LoopSetting, NotificationRecord, ReportSetting, Run, RunEvent, RunRound, User, UserPreference
-from .schemas import CredentialUpdate, DefaultModelUpdate, ExportCreate, LoginRequest, LoopUpdate, ReportContentUpdate, ReportSettingsUpdate, RunCreate, SetupRequest
+from .models import AgentIteration, AgentRun, Article, ArticleAsset, ArticleRevision, ArticleSetting, ArticleTopic, DailyReport, DailyReportRevision, EncryptedCredential, ExportJob, LoopSetting, NotificationRecord, ReportSetting, Run, RunEvent, RunRound, User, UserPreference
+from .schemas import ArticleGenerateRequest, ArticleSettingsUpdate, ArticleUpdate, CredentialUpdate, DefaultModelUpdate, ExportCreate, LoginRequest, LoopUpdate, ReportContentUpdate, ReportSettingsUpdate, RunCreate, SetupRequest
 from .security import encrypt_secret, hash_password, new_session_token, verify_password
-from .services.exports import create_export
+from .services.exports import create_export, recover_export_jobs
 from .services.llm import ExternalServiceError, llm_service, user_api_key
 from .services.notifications import NotificationError, send_email_reminder, send_wecom
 from .services.orchestrator import orchestrator
 from .services.checkpoints import checkpoint_runtime
 from .services.reports import generate_report, send_report, validate_report
+from .services.articles import _markdown_to_html, discover_topics, generate_article, validate_article
 from .services.semi_kb import SemiKbError, semi_kb
 
 
@@ -54,6 +55,15 @@ def prepare_recoverable_runs(db: Session) -> list[str]:
     return recover_ids
 
 
+def ensure_article_settings(db: Session) -> None:
+    existing = {row.user_id for row in db.scalars(select(ArticleSetting)).all()}
+    users = db.scalars(select(User)).all()
+    missing = [ArticleSetting(user_id=user.id) for user in users if user.id not in existing]
+    if missing:
+        db.add_all(missing)
+        db.commit()
+
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     upgrade_database()
@@ -61,10 +71,14 @@ async def lifespan(_app: FastAPI):
     await checkpoint_runtime.startup()
     with SessionLocal() as db:
         recover_ids = prepare_recoverable_runs(db)
+        export_ids = recover_export_jobs(db)
+        ensure_article_settings(db)
     scheduler.add_job(scheduler_tick, "interval", seconds=60, id="scheduler-tick", max_instances=1, coalesce=True, replace_existing=True)
     scheduler.start()
     for run_id in recover_ids:
         orchestrator.start(run_id)
+    for export_id in export_ids:
+        asyncio.create_task(export_job_task(export_id))
     try:
         yield
     finally:
@@ -145,6 +159,18 @@ async def generate_report_job(user_id: int, report_date: str, model_id: str) -> 
                 db.commit()
 
 
+async def generate_article_job(user_id: int, topic_id: int, model_id: str, approval_required: bool, auto_visuals: bool) -> None:
+    with SessionLocal() as db:
+        topic = db.get(ArticleTopic, topic_id)
+        if not topic:
+            return
+        try:
+            await generate_article(db, user_id, topic, model_id, approval_required, auto_visuals)
+        except Exception:
+            topic.status = "blocked"
+            db.commit()
+
+
 async def scheduler_tick() -> None:
     zone = ZoneInfo(settings.timezone)
     now = datetime.now(zone)
@@ -182,6 +208,24 @@ async def scheduler_tick() -> None:
                 orchestrator.start(run.id)
                 loop.next_run_at = datetime.now(timezone.utc) + timedelta(minutes=loop.interval_minutes)
                 db.commit()
+        for setting in db.scalars(select(ArticleSetting).where(ArticleSetting.enabled.is_(True))).all():
+            try:
+                zone = ZoneInfo(setting.timezone or settings.timezone)
+            except Exception:
+                zone = ZoneInfo(settings.timezone)
+            local_now = datetime.now(zone)
+            if setting.generate_time != local_now.strftime("%H:%M") or setting.last_generated_date == local_now.date().isoformat():
+                continue
+            preference = db.get(UserPreference, setting.user_id)
+            if not preference or not preference.default_model_id:
+                continue
+            discover_topics(db, setting.user_id)
+            topic = db.scalar(select(ArticleTopic).where(ArticleTopic.user_id == setting.user_id, ArticleTopic.status == "qualified", ArticleTopic.used_at.is_(None)).order_by(ArticleTopic.priority_score.desc(), ArticleTopic.novelty_score.desc(), ArticleTopic.created_at.asc()).limit(1))
+            if not topic:
+                continue
+            setting.last_generated_date = local_now.date().isoformat()
+            db.commit()
+            asyncio.create_task(generate_article_job(setting.user_id, topic.id, preference.default_model_id, setting.approval_required, setting.auto_visuals))
 
 
 @app.get("/api/health")
@@ -208,6 +252,7 @@ def setup_account(payload: SetupRequest, response: Response, db: Session = Depen
     db.add(UserPreference(user_id=user.id, default_agent_count=6, timezone=settings.timezone))
     db.add(ReportSetting(user_id=user.id))
     db.add(LoopSetting(user_id=user.id))
+    db.add(ArticleSetting(user_id=user.id))
     db.commit()
     token = new_session_token()
     sessions[token] = user.id
@@ -561,6 +606,156 @@ def scenario_articles(user: User = Depends(current_user)) -> dict:
     return {"content": path.read_text(encoding="utf-8") if path.is_file() else "", "path": path.relative_to(settings.semi_kb_root).as_posix()}
 
 
+def topic_payload(topic: ArticleTopic) -> dict:
+    return {"id": topic.id, "title": topic.title, "domain": topic.domain, "customer_role": topic.customer_role, "pain_point": topic.pain_point, "business_context": topic.business_context, "evidence": json_load(topic.evidence_json, []), "priority_score": topic.priority_score, "novelty_score": topic.novelty_score, "status": topic.status, "created_at": topic.created_at, "used_at": topic.used_at}
+
+
+@app.get("/api/article-topics")
+def list_article_topics(status_filter: str | None = Query(default=None, alias="status"), user: User = Depends(current_user), db: Session = Depends(get_db)) -> dict:
+    query = select(ArticleTopic).where(ArticleTopic.user_id == user.id).order_by(ArticleTopic.priority_score.desc(), ArticleTopic.created_at.desc())
+    if status_filter:
+        query = query.where(ArticleTopic.status == status_filter)
+    return {"items": [topic_payload(topic) for topic in db.scalars(query.limit(200)).all()]}
+
+
+@app.post("/api/article-topics/discover")
+def discover_article_topics(user: User = Depends(current_user), db: Session = Depends(get_db)) -> dict:
+    return {"created": discover_topics(db, user.id)}
+
+
+@app.post("/api/article-topics/{topic_id}/queue")
+def queue_article_topic(topic_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)) -> dict:
+    topic = db.get(ArticleTopic, topic_id)
+    if not topic or topic.user_id != user.id:
+        raise HTTPException(status_code=404, detail="主题不存在")
+    topic.status = "qualified"; topic.used_at = None; db.commit()
+    return topic_payload(topic)
+
+
+@app.post("/api/article-topics/{topic_id}/reject")
+def reject_article_topic(topic_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)) -> dict:
+    topic = db.get(ArticleTopic, topic_id)
+    if not topic or topic.user_id != user.id:
+        raise HTTPException(status_code=404, detail="主题不存在")
+    topic.status = "rejected"; db.commit()
+    return topic_payload(topic)
+
+
+def article_payload(article: Article, db: Session) -> dict:
+    topic = db.get(ArticleTopic, article.topic_id) if article.topic_id else None
+    assets = db.scalars(select(ArticleAsset).where(ArticleAsset.article_id == article.id)).all()
+    return {"id": article.id, "topic": topic_payload(topic) if topic else None, "title": article.title, "subtitle": article.subtitle, "status": article.status, "approval_required": article.approval_required, "content_markdown": article.content_markdown, "content_html": article.content_html, "validation": json_load(article.validation_json, {}), "metrics_snapshot": json_load(article.metrics_snapshot_json, {}), "word_count": article.word_count, "ai_tone_score": article.ai_tone_score, "factual_score": article.factual_score, "generated_at": article.generated_at, "approved_at": article.approved_at, "published_at": article.published_at, "assets": [{"id": a.id, "asset_type": a.asset_type, "file_path": a.file_path, "mime_type": a.mime_type, "caption": a.caption} for a in assets]}
+
+
+@app.get("/api/articles")
+def list_articles(user: User = Depends(current_user), db: Session = Depends(get_db)) -> dict:
+    items = db.scalars(select(Article).where(Article.user_id == user.id).order_by(Article.created_at.desc()).limit(100)).all()
+    return {"items": [article_payload(article, db) for article in items]}
+
+
+@app.post("/api/articles/generate", status_code=202)
+async def create_article(payload: ArticleGenerateRequest, user: User = Depends(current_user), db: Session = Depends(get_db)) -> dict:
+    preference = db.get(UserPreference, user.id)
+    model_id = payload.model_id or (preference.default_model_id if preference else None)
+    if not model_id:
+        raise HTTPException(status_code=422, detail="请先设置默认模型")
+    if payload.topic_id:
+        topic = db.get(ArticleTopic, payload.topic_id)
+    else:
+        discover_topics(db, user.id)
+        topic = db.scalar(select(ArticleTopic).where(ArticleTopic.user_id == user.id, ArticleTopic.status == "qualified", ArticleTopic.used_at.is_(None)).order_by(ArticleTopic.priority_score.desc()).limit(1))
+    if not topic or topic.user_id != user.id:
+        raise HTTPException(status_code=404, detail="没有可生成的主题")
+    setting = db.get(ArticleSetting, user.id) or ArticleSetting(user_id=user.id)
+    db.add(setting); db.commit()
+    asyncio.create_task(generate_article_job(user.id, topic.id, model_id, setting.approval_required, setting.auto_visuals))
+    return {"topic_id": topic.id, "status": "generating"}
+
+
+@app.get("/api/articles/{article_id}")
+def get_article(article_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)) -> dict:
+    article = db.get(Article, article_id)
+    if not article or article.user_id != user.id:
+        raise HTTPException(status_code=404, detail="文章不存在")
+    return article_payload(article, db)
+
+
+@app.patch("/api/articles/{article_id}")
+def update_article(article_id: int, payload: ArticleUpdate, user: User = Depends(current_user), db: Session = Depends(get_db)) -> dict:
+    article = db.get(Article, article_id)
+    if not article or article.user_id != user.id:
+        raise HTTPException(status_code=404, detail="文章不存在")
+    if payload.content_markdown is not None:
+        topic = db.get(ArticleTopic, article.topic_id) if article.topic_id else ArticleTopic(title=article.title, user_id=user.id)
+        article.content_markdown = payload.content_markdown
+        article.content_html = _markdown_to_html(payload.content_markdown)
+        validation = validate_article(article.content_markdown, topic, json_load(topic.evidence_json, []))
+        article.validation_json = json.dumps(validation, ensure_ascii=False); article.word_count = validation["word_count"]; article.ai_tone_score = validation["ai_tone_score"]; article.factual_score = validation["factual_score"]
+        db.add(ArticleRevision(article_id=article.id, content_markdown=payload.content_markdown, editor_user_id=user.id, revision_note=payload.revision_note))
+    if payload.title is not None:
+        article.title = payload.title
+    article.status = "waiting_approval" if json_load(article.validation_json, {}).get("passed") and article.approval_required else article.status
+    db.commit(); return article_payload(article, db)
+
+
+@app.post("/api/articles/{article_id}/validate")
+def validate_article_endpoint(article_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)) -> dict:
+    article = db.get(Article, article_id)
+    if not article or article.user_id != user.id:
+        raise HTTPException(status_code=404, detail="文章不存在")
+    topic = db.get(ArticleTopic, article.topic_id)
+    result = validate_article(article.content_markdown, topic or ArticleTopic(title=article.title, user_id=user.id), json_load(topic.evidence_json, []) if topic else [])
+    article.validation_json = json.dumps(result, ensure_ascii=False); db.commit(); return result
+
+
+@app.post("/api/articles/{article_id}/approve")
+def approve_article(article_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)) -> dict:
+    article = db.get(Article, article_id)
+    if not article or article.user_id != user.id:
+        raise HTTPException(status_code=404, detail="文章不存在")
+    validation = json_load(article.validation_json, {})
+    if not validation.get("passed"):
+        raise HTTPException(status_code=422, detail=validation.get("errors", ["文章校验未通过"]))
+    article.status = "approved"; article.approved_at = datetime.now(timezone.utc); db.commit(); return {"status": article.status}
+
+
+@app.get("/api/article-settings")
+def get_article_settings(user: User = Depends(current_user), db: Session = Depends(get_db)) -> dict:
+    row = db.get(ArticleSetting, user.id) or ArticleSetting(user_id=user.id)
+    db.add(row); db.commit()
+    return {"enabled": row.enabled, "frequency": row.frequency, "generate_time": row.generate_time, "timezone": row.timezone, "approval_required": row.approval_required, "auto_visuals": row.auto_visuals, "last_generated_date": row.last_generated_date}
+
+
+@app.put("/api/article-settings")
+def update_article_settings(payload: ArticleSettingsUpdate, user: User = Depends(current_user), db: Session = Depends(get_db)) -> dict:
+    row = db.get(ArticleSetting, user.id) or ArticleSetting(user_id=user.id)
+    for key, value in payload.model_dump().items(): setattr(row, key, value)
+    db.add(row); db.commit(); return {"enabled": row.enabled, "frequency": row.frequency, "generate_time": row.generate_time, "timezone": row.timezone, "approval_required": row.approval_required, "auto_visuals": row.auto_visuals, "last_generated_date": row.last_generated_date}
+
+
+@app.post("/api/article-settings/run-now", status_code=202)
+async def run_article_now(user: User = Depends(current_user), db: Session = Depends(get_db)) -> dict:
+    result = create_article(ArticleGenerateRequest(), user, db)
+    return await result
+
+
+def _safe_catalog_path(relative_path: str) -> Path:
+    root = settings.semi_kb_root.resolve()
+    candidate = (root / relative_path).resolve()
+    if root not in candidate.parents or not candidate.is_file():
+        raise HTTPException(status_code=404, detail="知识库文件不存在")
+    return candidate
+
+
+@app.get("/api/knowledge/file")
+def knowledge_file(path: str = Query(..., min_length=1), user: User = Depends(current_user)) -> dict:
+    candidate = _safe_catalog_path(path)
+    if not (candidate.suffix.lower() in {".yaml", ".yml", ".json", ".ttl", ".md"} and ("kb" in candidate.parts or "business" in candidate.parts or "simulation" in candidate.parts)):
+        raise HTTPException(status_code=403, detail="不允许访问该文件")
+    text = candidate.read_text(encoding="utf-8")
+    return {"path": candidate.relative_to(settings.semi_kb_root).as_posix(), "content": text, "size": len(text)}
+
+
 @app.get("/api/report-settings")
 def get_report_settings(user: User = Depends(current_user), db: Session = Depends(get_db)) -> dict:
     row = db.get(ReportSetting, user.id) or ReportSetting(user_id=user.id)
@@ -682,7 +877,36 @@ def get_export(job_id: str, user: User = Depends(current_user), db: Session = De
     job = db.get(ExportJob, job_id)
     if not job or job.user_id != user.id:
         raise HTTPException(status_code=404, detail="导出任务不存在")
-    return {"id": job.id, "kind": job.kind, "status": job.status, "error": job.error, "download_url": f"/api/exports/{job.id}/download" if job.status == "completed" else None}
+    return {"id": job.id, "kind": job.kind, "status": job.status, "progress": job.progress, "total_files": job.total_files, "processed_files": job.processed_files, "error": job.error, "created_at": job.created_at, "started_at": job.started_at, "completed_at": job.completed_at, "attempt_count": job.attempt_count, "download_url": f"/api/exports/{job.id}/download" if job.status == "completed" else None}
+
+
+@app.get("/api/exports")
+def list_exports(limit: int = Query(50, ge=1, le=200), user: User = Depends(current_user), db: Session = Depends(get_db)) -> dict:
+    jobs = db.scalars(select(ExportJob).where(ExportJob.user_id == user.id).order_by(ExportJob.created_at.desc()).limit(limit)).all()
+    return {"items": [{"id": j.id, "kind": j.kind, "status": j.status, "progress": j.progress, "total_files": j.total_files, "processed_files": j.processed_files, "error": j.error, "created_at": j.created_at, "started_at": j.started_at, "completed_at": j.completed_at, "attempt_count": j.attempt_count, "download_url": f"/api/exports/{j.id}/download" if j.status == "completed" else None} for j in jobs]}
+
+
+@app.post("/api/exports/{job_id}/retry", status_code=202)
+async def retry_export(job_id: str, user: User = Depends(current_user), db: Session = Depends(get_db)) -> dict:
+    job = db.get(ExportJob, job_id)
+    if not job or job.user_id != user.id:
+        raise HTTPException(status_code=404, detail="导出任务不存在")
+    if job.status not in {"failed", "cancelled"}:
+        raise HTTPException(status_code=409, detail="当前状态不可重试")
+    job.status = "queued"; job.error = None; job.progress = 0; job.path = None; job.completed_at = None
+    db.commit(); asyncio.create_task(export_job_task(job.id))
+    return {"id": job.id, "status": job.status}
+
+
+@app.post("/api/exports/{job_id}/cancel")
+def cancel_export(job_id: str, user: User = Depends(current_user), db: Session = Depends(get_db)) -> dict:
+    job = db.get(ExportJob, job_id)
+    if not job or job.user_id != user.id:
+        raise HTTPException(status_code=404, detail="导出任务不存在")
+    if job.status in {"completed", "failed", "cancelled"}:
+        return {"id": job.id, "status": job.status}
+    job.status = "cancelled"; job.completed_at = datetime.now(timezone.utc); db.commit()
+    return {"id": job.id, "status": job.status}
 
 
 @app.get("/api/exports/{job_id}/download")
