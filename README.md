@@ -11,6 +11,12 @@ Copy-Item .env.example .env
 
 访问 `http://127.0.0.1:5173`，首次进入创建管理员，再到“系统设置”录入 API Key、企业微信 Key 和 QQ SMTP 授权码。凭据由后端加密保存，前端不回显明文。
 
+停止前后端服务：
+
+```powershell
+.\scripts\stop.ps1
+```
+
 ## PostgreSQL 与迁移
 
 正式运行使用 `SEMI_KB_DB_PASSWORD` 用户环境变量，默认连接本机 `semi_kb_console` 数据库和同名用户。首次迁移执行：
@@ -44,5 +50,6 @@ Alembic 管理业务表结构；`langgraph-checkpoint-postgres` 管理图 checkp
 - Agent 子图支持部分失败继续、输入哈希幂等、已保存模型响应复用、有界修复和失败候选隔离。
 - vFab 未交付时保持 `awaiting_source`。
 - 日报默认需要审核；关闭审核后只有自动校验通过才会直接发送。
+- 导出中心支持本体、知识库、经营模型、仿真引擎、场景文章和完整包，任务进度与下载记录持久化保存。
 - 正式本体写入仍由 `semi-kb` 的 OWL、SHACL、推理、经营模型、仿真和黄金问题门禁控制。
 - 不要把任何密钥写入 `.env.example`、源码、日志或导出包。
