@@ -1,9 +1,17 @@
 from __future__ import annotations
 
+import json
+
 from fastapi.testclient import TestClient
 
+from app.db import SessionLocal
+from app.models import AgentIteration, Article, User
+from app.schemas import RunCreate
 from app.services.llm import llm_service
 from app.services.orchestrator import orchestrator
+from app.main import create_run
+from app.services.wechat_publisher import wechat_publisher
+from app.config import settings
 
 
 def test_setup_and_session(client: TestClient):
@@ -47,3 +55,91 @@ def test_agent_limit_is_enforced(authenticated: TestClient):
     response = authenticated.post("/api/runs", json={"model_id": "x", "agents": agents})
     assert response.status_code == 422
 
+
+def test_run_references_are_deduplicated_and_filter_unsafe_urls(authenticated: TestClient):
+    with SessionLocal() as db:
+        user = db.query(User).filter_by(username="admin").one()
+        run = create_run(db, user.id, RunCreate.model_validate({
+            "model_id": "gpt-test",
+            "continuous": False,
+            "agents": [{"name": "Fab", "role": "research", "domain": "fab", "objective": "coverage", "source_mode": "web"}],
+        }))
+        agent_id = run.agents[0].id
+        db.add(AgentIteration(
+            run_id=run.id,
+            agent_id=agent_id,
+            round_number=1,
+            status="completed",
+            evidence_json=json.dumps([
+                {"title": "公开来源", "url": "https://example.com/fab", "fetch_status": "ok", "excerpt": "摘要"},
+                {"title": "重复来源", "url": "https://example.com/fab", "fetch_status": "ok"},
+                {"title": "本地地址", "url": "http://127.0.0.1/internal", "fetch_status": "ok"},
+                {"title": "令牌地址", "url": "https://example.com/a?token=hidden", "fetch_status": "ok"},
+                {"title": "模型先验（不应展示）", "url": "https://example.com/prior", "source_type": "model_prior", "fetch_status": "ok"},
+            ], ensure_ascii=False),
+        ))
+        db.commit()
+        run_id = run.id
+
+    response = authenticated.get(f"/api/runs/{run_id}/references")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["total"] == 1
+    assert body["items"][0]["url"] == "https://example.com/fab"
+    assert body["items"][0]["provenance"][0]["agent_name"] == "Fab"
+
+
+def test_article_can_be_sent_to_wechat_draft_and_is_idempotent(authenticated: TestClient, monkeypatch):
+    authenticated.put("/api/credentials", json={"kind": "wechat_app_id", "value": "wx-test-app"})
+    authenticated.put("/api/credentials", json={"kind": "wechat_app_secret", "value": "secret-test"})
+    with SessionLocal() as db:
+        user = db.query(User).filter_by(username="admin").one()
+        article = Article(
+            user_id=user.id,
+            title="设备状态信号为何总是晚一步",
+            subtitle="从一个现场信号看交付风险",
+            status="waiting_approval",
+            content_markdown="# 设备状态信号为何总是晚一步\n\n客户痛点与现场表现。",
+            content_html="<h1>设备状态信号为何总是晚一步</h1>",
+            validation_json=json.dumps({"passed": True}),
+        )
+        db.add(article)
+        db.commit()
+        db.refresh(article)
+        article_id = article.id
+
+    calls = []
+
+    async def fake_create_draft(**kwargs):
+        calls.append(kwargs)
+        assert kwargs["app_id"] == "wx-test-app"
+        assert kwargs["app_secret"] == "secret-test"
+        return {"media_id": "draft-media-1", "errcode": 0, "errmsg": "ok"}
+
+    monkeypatch.setattr(wechat_publisher, "create_draft", fake_create_draft)
+    first = authenticated.post(f"/api/articles/{article_id}/wechat-draft")
+    assert first.status_code == 200
+    assert first.json()["wechat_status"] == "sent_to_draft"
+    assert first.json()["wechat_draft_media_id"] == "draft-media-1"
+    second = authenticated.post(f"/api/articles/{article_id}/wechat-draft")
+    assert second.status_code == 200
+    assert len(calls) == 1
+
+
+def test_scenario_knowledge_products_are_listed_and_read(authenticated: TestClient):
+    target_dir = settings.semi_kb_root / "knowledge" / "articles" / "agent-rounds"
+    target_dir.mkdir(parents=True, exist_ok=True)
+    target = target_dir / "test-api-scenario.md"
+    target.write_text("# 场景知识产物\n\n这里是测试内容。", encoding="utf-8")
+    try:
+        listing = authenticated.get("/api/scenario-knowledge")
+        assert listing.status_code == 200
+        item = next(entry for entry in listing.json()["items"] if entry["path"].endswith("test-api-scenario.md"))
+        assert listing.json()["total"] >= 1
+        detail = authenticated.get("/api/scenario-knowledge/file", params={"path": item["path"]})
+        assert detail.status_code == 200
+        assert "场景知识产物" in detail.json()["content"]
+        blocked = authenticated.get("/api/scenario-knowledge/file", params={"path": "knowledge/articles/generated/article-1.md"})
+        assert blocked.status_code == 403
+    finally:
+        target.unlink(missing_ok=True)

@@ -18,6 +18,44 @@ class NotificationError(RuntimeError):
     pass
 
 
+WECOM_MARKDOWN_V2_LIMIT = 4096
+
+
+def split_markdown_v2(content: str, max_bytes: int = WECOM_MARKDOWN_V2_LIMIT) -> list[str]:
+    """Split UTF-8 Markdown into API-safe chunks without cutting a codepoint."""
+    if max_bytes <= 0:
+        raise ValueError("max_bytes must be positive")
+    if not content:
+        return [""]
+    chunks: list[str] = []
+    current = ""
+
+    def append_piece(piece: str) -> None:
+        nonlocal current
+        if not piece:
+            return
+        if len((current + piece).encode("utf-8")) <= max_bytes:
+            current += piece
+            return
+        if current:
+            chunks.append(current)
+            current = ""
+        remainder = piece
+        while len(remainder.encode("utf-8")) > max_bytes:
+            part = remainder.encode("utf-8")[:max_bytes].decode("utf-8", errors="ignore")
+            if not part:
+                raise ValueError("max_bytes is smaller than one UTF-8 codepoint")
+            chunks.append(part)
+            remainder = remainder[len(part):]
+        current = remainder
+
+    for line in content.splitlines(keepends=True):
+        append_piece(line)
+    if current:
+        chunks.append(current)
+    return chunks or [content]
+
+
 def _secret(db: Session, user_id: int, kind: str) -> str:
     row = db.scalar(select(EncryptedCredential).where(EncryptedCredential.user_id == user_id, EncryptedCredential.kind == kind))
     if not row:
@@ -28,11 +66,11 @@ def _secret(db: Session, user_id: int, kind: str) -> str:
 async def send_wecom(db: Session, user_id: int, markdown: str, report_id: int | None = None) -> dict:
     key = _secret(db, user_id, "wecom_webhook_key")
     url = "https://qyapi.weixin.qq.com/cgi-bin/webhook/send"
-    chunks = [markdown[i:i + 3800] for i in range(0, len(markdown), 3800)] or [markdown]
+    chunks = split_markdown_v2(markdown)
     responses = []
     async with httpx.AsyncClient(timeout=15) as client:
         for chunk in chunks:
-            response = await client.post(url, params={"key": key}, json={"msgtype": "markdown", "markdown": {"content": chunk}})
+            response = await client.post(url, params={"key": key}, json={"msgtype": "markdown_v2", "markdown_v2": {"content": chunk}})
             data = response.json()
             if response.status_code >= 400 or data.get("errcode") != 0:
                 db.add(NotificationRecord(user_id=user_id, report_id=report_id, channel="wecom", status="failed", detail=f"HTTP {response.status_code}; errcode={data.get('errcode')}"))
@@ -69,4 +107,3 @@ async def send_email_reminder(db: Session, user_id: int, subject: str, body: str
         raise NotificationError(f"邮件发送失败：{type(exc).__name__}") from exc
     db.add(NotificationRecord(user_id=user_id, report_id=report_id, channel="email", status="sent", detail="QQ SMTP"))
     db.commit()
-

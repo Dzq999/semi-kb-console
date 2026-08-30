@@ -59,3 +59,13 @@ export interface RunInfo {
   cancel_requested: boolean
   agents: Array<{ id: string; name: string; role: string; domain: string; source_mode: SourceMode; status: string; duration_seconds?: number; error?: string }>
 }
+
+export interface RunReference {
+  title: string
+  url: string
+  source_type: string
+  fetch_status: string
+  excerpt: string
+  retrieved_at?: string | null
+  provenance: Array<{ round: number; agent_id: string; agent_name: string }>
+}

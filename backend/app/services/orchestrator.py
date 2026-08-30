@@ -309,7 +309,7 @@ class RunOrchestrator:
                     if not check.get("passed", False): raise SemiKbError("经营模型/仿真门禁失败")
                 elif stage == "scenario_article":
                     count = len(round_candidate_files(outputs)["articles"]); artifacts["scenario_articles"] = count
-                    with SessionLocal() as db: self.emit(db, run_id, "articles_ready", f"第 {round_number} 轮形成 {count} 篇场景文章候选", {"round": round_number, "count": count})
+                    with SessionLocal() as db: self.emit(db, run_id, "articles_ready", f"第 {round_number} 轮形成 {count} 项场景知识产物候选", {"round": round_number, "count": count})
             with SessionLocal() as db:
                 run = db.get(Run, run_id); row = db.scalar(select(RunRound).where(RunRound.run_id == run_id, RunRound.round_number == round_number))
                 if not run or not row: return False

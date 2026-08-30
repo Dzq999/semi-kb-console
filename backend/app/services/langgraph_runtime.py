@@ -263,7 +263,7 @@ class RoundGraphEngine:
         count = len(round_candidate_files(state.get("outputs") or [])["articles"])
         artifacts = dict(state.get("artifacts") or {}); artifacts["scenario_articles"] = count
         with SessionLocal() as db:
-            self.controller.emit(db, state["run_id"], "articles_ready", f"第 {state['round_number']} 轮形成 {count} 篇场景文章候选", {"round": state["round_number"], "count": count})
+            self.controller.emit(db, state["run_id"], "articles_ready", f"第 {state['round_number']} 轮形成 {count} 项场景知识产物候选", {"round": state["round_number"], "count": count})
         return {"artifacts": artifacts}
 
     async def finalize(self, state: RoundGraphState) -> dict:

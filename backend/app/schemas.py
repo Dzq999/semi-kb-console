@@ -42,7 +42,7 @@ class DefaultModelUpdate(BaseModel):
 
 
 class CredentialUpdate(BaseModel):
-    kind: Literal["llm_api_key", "wecom_webhook_key", "qq_smtp_auth_code"]
+    kind: Literal["llm_api_key", "wecom_webhook_key", "qq_smtp_auth_code", "wechat_app_id", "wechat_app_secret"]
     value: str = Field(min_length=1, max_length=2000)
     masked_hint: str | None = Field(default=None, max_length=120)
 
@@ -97,6 +97,8 @@ class ArticleSettingsUpdate(BaseModel):
     article_model_id: str | None = Field(default=None, max_length=160)
     image_model_id: str | None = Field(default=None, max_length=160)
     image_count: int = Field(default=1, ge=0, le=5)
+    auto_repair: bool = True
+    max_repair_attempts: int = Field(default=3, ge=0, le=3)
 
     @field_validator("generate_time")
     @classmethod

@@ -161,6 +161,7 @@ class ReportSetting(Base):
     reminder_timeout_minutes: Mapped[int] = mapped_column(Integer, default=10)
     email_sender: Mapped[str | None] = mapped_column(String(200), nullable=True)
     email_recipient: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    last_trigger_key: Mapped[str | None] = mapped_column(String(32), nullable=True)
 
 
 class DailyReport(Base):
@@ -246,6 +247,10 @@ class Article(Base):
     title: Mapped[str] = mapped_column(String(240))
     subtitle: Mapped[str] = mapped_column(String(500), default="")
     status: Mapped[str] = mapped_column(String(32), default="draft", index=True)
+    generation_stage: Mapped[str] = mapped_column(String(80), default="queued")
+    generation_progress: Mapped[int] = mapped_column(Integer, default=0)
+    generation_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    repair_attempts: Mapped[int] = mapped_column(Integer, default=0)
     approval_required: Mapped[bool] = mapped_column(Boolean, default=True)
     content_markdown: Mapped[str] = mapped_column(Text, default="")
     content_html: Mapped[str] = mapped_column(Text, default="")
@@ -263,6 +268,11 @@ class Article(Base):
     generated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    wechat_status: Mapped[str] = mapped_column(String(24), default="not_sent")
+    wechat_draft_media_id: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    wechat_last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    wechat_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    wechat_response_json: Mapped[str] = mapped_column(Text, default="{}")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
@@ -303,4 +313,6 @@ class ArticleSetting(Base):
     article_model_id: Mapped[str | None] = mapped_column(String(160), nullable=True)
     image_model_id: Mapped[str | None] = mapped_column(String(160), nullable=True)
     image_count: Mapped[int] = mapped_column(Integer, default=1)
+    auto_repair: Mapped[bool] = mapped_column(Boolean, default=True)
+    max_repair_attempts: Mapped[int] = mapped_column(Integer, default=3)
     last_generated_date: Mapped[str | None] = mapped_column(String(10), nullable=True)

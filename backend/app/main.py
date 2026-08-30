@@ -7,8 +7,10 @@ import secrets
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
+from ipaddress import ip_address
 from pathlib import Path
 from typing import Annotated
+from urllib.parse import parse_qsl, urlparse
 from zoneinfo import ZoneInfo
 
 import yaml
@@ -26,19 +28,30 @@ from .db import Base, SessionLocal, engine, get_db
 from .migrations import upgrade_database
 from .models import AgentIteration, AgentRun, Article, ArticleAsset, ArticleRevision, ArticleSetting, ArticleTopic, DailyReport, DailyReportRevision, EncryptedCredential, ExportJob, LoopSetting, NotificationRecord, ReportSetting, Run, RunEvent, RunRound, User, UserPreference
 from .schemas import ArticleGenerateRequest, ArticleSettingsUpdate, ArticleUpdate, CredentialUpdate, DefaultModelUpdate, ExportCreate, LoginRequest, LoopUpdate, ReportContentUpdate, ReportSettingsUpdate, RunCreate, SetupRequest
-from .security import encrypt_secret, hash_password, new_session_token, verify_password
+from .security import decrypt_secret, encrypt_secret, hash_password, new_session_token, verify_password
 from .services.exports import create_export, recover_export_jobs
 from .services.llm import ExternalServiceError, llm_service, user_api_key
 from .services.notifications import NotificationError, send_email_reminder, send_wecom
+from .services.wechat_publisher import WechatPublisherError, wechat_publisher
 from .services.orchestrator import orchestrator
 from .services.checkpoints import checkpoint_runtime
 from .services.reports import generate_report, send_report, validate_report
-from .services.articles import _markdown_to_html, discover_topics, generate_article, generate_daily_batch, validate_article
+from .services.articles import _markdown_to_wechat_html, discover_topics, generate_article, generate_daily_batch, validate_article
 from .services.semi_kb import SemiKbError, semi_kb
 
 
 def prepare_recoverable_runs(db: Session) -> list[str]:
     recover_ids: list[str] = []
+    # Older workers could leave a pending parent row after its round failed.
+    # Reconcile that durable state on startup so the UI does not show a spinner
+    # for a task that has already stopped and needs operator attention.
+    for run in db.scalars(select(Run).where(Run.status == "pending")).all():
+        latest_round = max(run.rounds, key=lambda item: item.round_number, default=None)
+        if latest_round and latest_round.status == "failed":
+            run.status = "needs_attention"
+            run.current_stage = "round_failed"
+            run.error = run.error or f"第 {latest_round.round_number} 轮失败，任务已停止，请检查校验原因"
+            run.completed_at = run.completed_at or latest_round.completed_at or datetime.now(timezone.utc)
     interrupted = db.scalars(select(Run).where(Run.status.in_(["running", "recovering", "paused", "between_rounds", "stopping_after_round", "cancelling"]))).all()
     for run in interrupted:
         if run.orchestrator_engine != "langgraph" or not settings.auto_resume_runs:
@@ -110,6 +123,77 @@ def json_load(value: str, default):
         return default
 
 
+_REFERENCE_SENSITIVE_QUERY_KEYS = {
+    "access_token", "api_key", "apikey", "auth", "authorization", "key",
+    "password", "passwd", "secret", "signature", "sig", "token",
+}
+
+
+def _public_reference_url(value: object) -> str | None:
+    """Return only a public URL safe to render as an external reference."""
+    if not isinstance(value, str):
+        return None
+    candidate = value.strip()
+    if len(candidate) > 2048:
+        return None
+    parsed = urlparse(candidate)
+    if parsed.scheme not in {"http", "https"} or not parsed.hostname or parsed.username or parsed.password:
+        return None
+    hostname = parsed.hostname.casefold().rstrip(".")
+    if hostname in {"localhost", "localhost.localdomain"}:
+        return None
+    try:
+        address = ip_address(hostname)
+    except ValueError:
+        address = None
+    if address and (address.is_private or address.is_loopback or address.is_link_local or address.is_reserved):
+        return None
+    if any(key.casefold() in _REFERENCE_SENSITIVE_QUERY_KEYS for key, _ in parse_qsl(parsed.query, keep_blank_values=True)):
+        return None
+    return candidate
+
+
+def _run_references(db: Session, run_id: str) -> list[dict]:
+    """Flatten AgentIteration evidence for a run while retaining provenance."""
+    rows = db.scalars(
+        select(AgentIteration)
+        .where(AgentIteration.run_id == run_id)
+        .order_by(AgentIteration.round_number.desc(), AgentIteration.agent_id)
+    ).all()
+    agents = {item.id: item for item in db.scalars(select(AgentRun).where(AgentRun.run_id == run_id)).all()}
+    references: list[dict] = []
+    seen: dict[str, int] = {}
+    for iteration in rows:
+        agent = agents.get(iteration.agent_id)
+        for evidence in json_load(iteration.evidence_json, []):
+            if not isinstance(evidence, dict):
+                continue
+            url = _public_reference_url(evidence.get("url"))
+            if not url:
+                continue
+            source_type = str(evidence.get("source_type") or "web").casefold()
+            if source_type not in {"web", "web_search", "external"}:
+                continue
+            existing_index = seen.get(url)
+            provenance = {"round": iteration.round_number, "agent_id": iteration.agent_id, "agent_name": agent.name if agent else iteration.agent_id}
+            if existing_index is not None:
+                existing = references[existing_index]
+                if provenance not in existing["provenance"]:
+                    existing["provenance"].append(provenance)
+                continue
+            seen[url] = len(references)
+            references.append({
+                "title": str(evidence.get("title") or url)[:300],
+                "url": url,
+                "source_type": source_type,
+                "fetch_status": str(evidence.get("fetch_status") or "unknown"),
+                "excerpt": str(evidence.get("excerpt") or "")[:1200],
+                "retrieved_at": evidence.get("retrieved_at"),
+                "provenance": [provenance],
+            })
+    return references
+
+
 def run_payload(run: Run) -> dict:
     config = json_load(run.config_json, {})
     current_round = max((item.round_number for item in run.rounds), default=0)
@@ -160,14 +244,20 @@ async def generate_report_job(user_id: int, report_date: str, model_id: str) -> 
                 db.commit()
 
 
-async def generate_article_job(user_id: int, topic_id: int, model_id: str, approval_required: bool, auto_visuals: bool, image_model_id: str | None = None, image_count: int = 1) -> None:
+async def generate_article_job(user_id: int, topic_id: int, model_id: str, approval_required: bool, auto_visuals: bool, image_model_id: str | None = None, image_count: int = 1, auto_repair: bool = True, max_repair_attempts: int = 3) -> None:
     with SessionLocal() as db:
         topic = db.get(ArticleTopic, topic_id)
         if not topic:
             return
         try:
-            await generate_article(db, user_id, topic, model_id, approval_required, auto_visuals, image_model_id, image_count)
-        except Exception:
+            await generate_article(db, user_id, topic, model_id, approval_required, auto_visuals, image_model_id, image_count, auto_repair=auto_repair, max_repair_attempts=max_repair_attempts)
+        except Exception as exc:
+            article = db.scalar(select(Article).where(Article.user_id == user_id, Article.topic_id == topic_id, Article.status == "generating").order_by(Article.id.desc()).limit(1))
+            if article:
+                article.status = "blocked"
+                article.generation_stage = "生成失败"
+                article.generation_progress = 100
+                article.generation_error = type(exc).__name__
             topic.status = "blocked"
             db.commit()
 
@@ -193,9 +283,13 @@ async def scheduler_tick() -> None:
         for row in db.scalars(select(ReportSetting).where(ReportSetting.enabled.is_(True))).all():
             if row.generate_time == now.strftime("%H:%M"):
                 date_text = now.date().isoformat()
-                exists = db.scalar(select(DailyReport).where(DailyReport.user_id == row.user_id, DailyReport.report_date == date_text))
                 preference = db.get(UserPreference, row.user_id)
-                if not exists and preference and preference.default_model_id:
+                trigger_key = f"{date_text}T{row.generate_time}"
+                # Reuse the daily row so a later schedule on the same day can
+                # regenerate/send a fresh report; deduplicate only this minute.
+                if row.last_trigger_key != trigger_key and preference and preference.default_model_id:
+                    row.last_trigger_key = trigger_key
+                    db.commit()
                     asyncio.create_task(generate_report_job(row.user_id, date_text, preference.default_model_id))
         pending = db.scalars(select(DailyReport).where(DailyReport.status == "waiting_approval")).all()
         for report in pending:
@@ -374,6 +468,16 @@ def delete_credential(kind: str, user: User = Depends(current_user), db: Session
     return Response(status_code=204)
 
 
+def _stored_credential(db: Session, user_id: int, kind: str) -> str:
+    row = db.scalar(select(EncryptedCredential).where(EncryptedCredential.user_id == user_id, EncryptedCredential.kind == kind))
+    if not row:
+        raise HTTPException(status_code=424, detail=f"未配置 {kind}")
+    try:
+        return decrypt_secret(row.ciphertext)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail="凭据无法解密，请重新配置") from exc
+
+
 @app.get("/api/dashboard")
 async def dashboard(user: User = Depends(current_user), db: Session = Depends(get_db)) -> dict:
     try:
@@ -511,6 +615,16 @@ def run_rounds(run_id: str, limit: int = Query(default=100, ge=1, le=1000), user
     return {"items": items, "total": len(run.rounds)}
 
 
+@app.get("/api/runs/{run_id}/references")
+def run_references(run_id: str, limit: int = Query(default=500, ge=1, le=5000), user: User = Depends(current_user), db: Session = Depends(get_db)) -> dict:
+    """Return safe, deduplicated web references collected by every Agent iteration."""
+    run = db.get(Run, run_id)
+    if not run or run.user_id != user.id:
+        raise HTTPException(status_code=404, detail="任务不存在")
+    references = _run_references(db, run_id)
+    return {"items": references[:limit], "total": len(references)}
+
+
 @app.post("/api/runs/{run_id}/retry", status_code=202)
 async def retry_run(run_id: str, user: User = Depends(current_user), db: Session = Depends(get_db)) -> dict:
     old = db.get(Run, run_id)
@@ -627,6 +741,49 @@ def scenario_articles(user: User = Depends(current_user)) -> dict:
     return {"content": path.read_text(encoding="utf-8") if path.is_file() else "", "path": path.relative_to(settings.semi_kb_root).as_posix()}
 
 
+def _scenario_knowledge_paths() -> list[Path]:
+    root = settings.semi_kb_root
+    paths: list[Path] = []
+    current = root / "knowledge" / "articles" / "current-scenarios.md"
+    if current.is_file():
+        paths.append(current)
+    paths.extend(sorted((root / "knowledge" / "articles" / "agent-rounds").glob("*.md")))
+    return paths
+
+
+@app.get("/api/scenario-knowledge")
+def scenario_knowledge(user: User = Depends(current_user)) -> dict:
+    """List human-readable scenario knowledge products, excluding公众号草稿。"""
+    zone = ZoneInfo(settings.timezone)
+    today = datetime.now(zone).date()
+    items = []
+    for path in _scenario_knowledge_paths():
+        try:
+            stat = path.stat()
+            updated_at = datetime.fromtimestamp(stat.st_mtime, timezone.utc)
+            items.append({
+                "path": path.relative_to(settings.semi_kb_root).as_posix(),
+                "name": path.stem,
+                "size": stat.st_size,
+                "updated_at": updated_at,
+                "today_added": updated_at.astimezone(zone).date() == today,
+            })
+        except OSError:
+            continue
+    items.sort(key=lambda item: item["updated_at"], reverse=True)
+    return {"items": items, "total": len(items), "today_added": sum(1 for item in items if item["today_added"])}
+
+
+@app.get("/api/scenario-knowledge/file")
+def scenario_knowledge_file(path: str = Query(..., min_length=1), user: User = Depends(current_user)) -> dict:
+    candidate = _safe_catalog_path(path)
+    allowed = set(_scenario_knowledge_paths())
+    if candidate not in allowed or candidate.suffix.lower() != ".md":
+        raise HTTPException(status_code=403, detail="不允许访问该场景知识产物")
+    content = candidate.read_text(encoding="utf-8")
+    return {"path": candidate.relative_to(settings.semi_kb_root).as_posix(), "content": content, "size": len(content)}
+
+
 def topic_payload(topic: ArticleTopic) -> dict:
     return {"id": topic.id, "title": topic.title, "domain": topic.domain, "customer_role": topic.customer_role, "pain_point": topic.pain_point, "business_context": topic.business_context, "evidence": json_load(topic.evidence_json, []), "priority_score": topic.priority_score, "novelty_score": topic.novelty_score, "status": topic.status, "created_at": topic.created_at, "used_at": topic.used_at}
 
@@ -665,7 +822,7 @@ def reject_article_topic(topic_id: int, user: User = Depends(current_user), db: 
 def article_payload(article: Article, db: Session) -> dict:
     topic = db.get(ArticleTopic, article.topic_id) if article.topic_id else None
     assets = db.scalars(select(ArticleAsset).where(ArticleAsset.article_id == article.id)).all()
-    return {"id": article.id, "topic": topic_payload(topic) if topic else None, "title": article.title, "subtitle": article.subtitle, "status": article.status, "approval_required": article.approval_required, "content_markdown": article.content_markdown, "content_html": article.content_html, "validation": json_load(article.validation_json, {}), "metrics_snapshot": json_load(article.metrics_snapshot_json, {}), "word_count": article.word_count, "ai_tone_score": article.ai_tone_score, "factual_score": article.factual_score, "generation_date": article.generation_date, "sequence_no": article.sequence_no, "article_model_id": article.article_model_id, "image_model_id": article.image_model_id, "cover_prompt": article.cover_prompt, "generated_at": article.generated_at, "approved_at": article.approved_at, "published_at": article.published_at, "assets": [{"id": a.id, "asset_type": a.asset_type, "file_path": a.file_path, "mime_type": a.mime_type, "caption": a.caption} for a in assets]}
+    return {"id": article.id, "topic": topic_payload(topic) if topic else None, "title": article.title, "subtitle": article.subtitle, "status": article.status, "generation_stage": article.generation_stage, "generation_progress": article.generation_progress, "generation_error": article.generation_error, "repair_attempts": article.repair_attempts, "approval_required": article.approval_required, "content_markdown": article.content_markdown, "content_html": _markdown_to_wechat_html(article.content_markdown, article.id, assets), "validation": json_load(article.validation_json, {}), "metrics_snapshot": json_load(article.metrics_snapshot_json, {}), "word_count": article.word_count, "ai_tone_score": article.ai_tone_score, "factual_score": article.factual_score, "generation_date": article.generation_date, "sequence_no": article.sequence_no, "article_model_id": article.article_model_id, "image_model_id": article.image_model_id, "cover_prompt": article.cover_prompt, "generated_at": article.generated_at, "approved_at": article.approved_at, "published_at": article.published_at, "wechat_status": article.wechat_status, "wechat_draft_media_id": article.wechat_draft_media_id, "wechat_last_error": article.wechat_last_error, "wechat_sent_at": article.wechat_sent_at, "assets": [{"id": a.id, "asset_type": a.asset_type, "file_path": a.file_path, "mime_type": a.mime_type, "caption": a.caption} for a in assets]}
 
 
 @app.get("/api/articles")
@@ -689,7 +846,7 @@ async def create_article(payload: ArticleGenerateRequest, user: User = Depends(c
         raise HTTPException(status_code=404, detail="没有可生成的主题")
     setting = db.get(ArticleSetting, user.id) or ArticleSetting(user_id=user.id)
     db.add(setting); db.commit()
-    asyncio.create_task(generate_article_job(user.id, topic.id, setting.article_model_id or model_id, setting.approval_required, setting.auto_visuals, setting.image_model_id, setting.image_count))
+    asyncio.create_task(generate_article_job(user.id, topic.id, setting.article_model_id or model_id, setting.approval_required, setting.auto_visuals, setting.image_model_id, setting.image_count, setting.auto_repair, setting.max_repair_attempts))
     return {"topic_id": topic.id, "status": "generating"}
 
 
@@ -718,8 +875,9 @@ def update_article(article_id: int, payload: ArticleUpdate, user: User = Depends
     if payload.content_markdown is not None:
         topic = db.get(ArticleTopic, article.topic_id) if article.topic_id else ArticleTopic(title=article.title, user_id=user.id)
         article.content_markdown = payload.content_markdown
-        article.content_html = _markdown_to_html(payload.content_markdown)
-        validation = validate_article(article.content_markdown, topic, json_load(topic.evidence_json, []))
+        assets = db.scalars(select(ArticleAsset).where(ArticleAsset.article_id == article.id)).all()
+        article.content_html = _markdown_to_wechat_html(payload.content_markdown, article.id, assets)
+        validation = validate_article(article.content_markdown, topic, json_load(topic.evidence_json, []), article.title)
         article.validation_json = json.dumps(validation, ensure_ascii=False); article.word_count = validation["word_count"]; article.ai_tone_score = validation["ai_tone_score"]; article.factual_score = validation["factual_score"]
         db.add(ArticleRevision(article_id=article.id, content_markdown=payload.content_markdown, editor_user_id=user.id, revision_note=payload.revision_note))
     if payload.title is not None:
@@ -734,8 +892,16 @@ def validate_article_endpoint(article_id: int, user: User = Depends(current_user
     if not article or article.user_id != user.id or article.deleted_at:
         raise HTTPException(status_code=404, detail="文章不存在")
     topic = db.get(ArticleTopic, article.topic_id)
-    result = validate_article(article.content_markdown, topic or ArticleTopic(title=article.title, user_id=user.id), json_load(topic.evidence_json, []) if topic else [])
-    article.validation_json = json.dumps(result, ensure_ascii=False); db.commit(); return result
+    result = validate_article(article.content_markdown, topic or ArticleTopic(title=article.title, user_id=user.id), json_load(topic.evidence_json, []) if topic else [], article.title)
+    result = {**result, "repair_attempts": article.repair_attempts}
+    article.validation_json = json.dumps(result, ensure_ascii=False)
+    if result["passed"] and article.approval_required:
+        article.status = "waiting_approval"
+        article.generation_stage = "校验通过，等待审核"
+    elif not result["passed"]:
+        article.status = "blocked"
+        article.generation_stage = "需用户修改"
+    db.commit(); return result
 
 
 @app.post("/api/articles/{article_id}/approve")
@@ -747,6 +913,46 @@ def approve_article(article_id: int, user: User = Depends(current_user), db: Ses
     if not validation.get("passed"):
         raise HTTPException(status_code=422, detail=validation.get("errors", ["文章校验未通过"]))
     article.status = "approved"; article.approved_at = datetime.now(timezone.utc); db.commit(); return {"status": article.status}
+
+
+@app.post("/api/articles/{article_id}/wechat-draft")
+async def send_article_to_wechat_draft(article_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)) -> dict:
+    article = db.get(Article, article_id)
+    if not article or article.user_id != user.id or article.deleted_at:
+        raise HTTPException(status_code=404, detail="文章不存在")
+    if article.wechat_status == "sending":
+        raise HTTPException(status_code=409, detail="文章正在发送到公众号草稿箱")
+    validation = json_load(article.validation_json, {})
+    if article.status in {"generating", "blocked", "deleted"} or not validation.get("passed"):
+        raise HTTPException(status_code=422, detail="文章必须完成生成且通过校验后才能发送到公众号草稿箱")
+    if article.wechat_status == "sent_to_draft" and article.wechat_draft_media_id:
+        return article_payload(article, db)
+    app_id = _stored_credential(db, user.id, "wechat_app_id")
+    app_secret = _stored_credential(db, user.id, "wechat_app_secret")
+    assets = db.scalars(select(ArticleAsset).where(ArticleAsset.article_id == article.id).order_by(ArticleAsset.id)).all()
+    article.wechat_status = "sending"
+    article.wechat_last_error = None
+    db.commit()
+    try:
+        result = await wechat_publisher.create_draft(
+            app_id=app_id,
+            app_secret=app_secret,
+            title=article.title,
+            digest=article.subtitle,
+            content_html=_markdown_to_wechat_html(article.content_markdown, article.id, assets),
+            assets=assets,
+        )
+    except WechatPublisherError as exc:
+        article.wechat_status = "failed"
+        article.wechat_last_error = str(exc)[:500]
+        db.commit()
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    article.wechat_status = "sent_to_draft"
+    article.wechat_draft_media_id = result["media_id"]
+    article.wechat_sent_at = datetime.now(timezone.utc)
+    article.wechat_response_json = json.dumps(result, ensure_ascii=False)
+    db.commit()
+    return article_payload(article, db)
 
 
 @app.get("/api/articles/{article_id}/assets/{asset_id}")
@@ -766,14 +972,14 @@ def article_asset(article_id: int, asset_id: int, user: User = Depends(current_u
 def get_article_settings(user: User = Depends(current_user), db: Session = Depends(get_db)) -> dict:
     row = db.get(ArticleSetting, user.id) or ArticleSetting(user_id=user.id)
     db.add(row); db.commit()
-    return {"enabled": row.enabled, "frequency": row.frequency, "generate_time": row.generate_time, "timezone": row.timezone, "approval_required": row.approval_required, "auto_visuals": row.auto_visuals, "daily_article_count": row.daily_article_count, "article_model_id": row.article_model_id, "image_model_id": row.image_model_id, "image_count": row.image_count, "last_generated_date": row.last_generated_date}
+    return {"enabled": row.enabled, "frequency": row.frequency, "generate_time": row.generate_time, "timezone": row.timezone, "approval_required": row.approval_required, "auto_visuals": row.auto_visuals, "daily_article_count": row.daily_article_count, "article_model_id": row.article_model_id, "image_model_id": row.image_model_id, "image_count": row.image_count, "auto_repair": row.auto_repair, "max_repair_attempts": row.max_repair_attempts, "last_generated_date": row.last_generated_date}
 
 
 @app.put("/api/article-settings")
 def update_article_settings(payload: ArticleSettingsUpdate, user: User = Depends(current_user), db: Session = Depends(get_db)) -> dict:
     row = db.get(ArticleSetting, user.id) or ArticleSetting(user_id=user.id)
     for key, value in payload.model_dump().items(): setattr(row, key, value)
-    db.add(row); db.commit(); return {"enabled": row.enabled, "frequency": row.frequency, "generate_time": row.generate_time, "timezone": row.timezone, "approval_required": row.approval_required, "auto_visuals": row.auto_visuals, "daily_article_count": row.daily_article_count, "article_model_id": row.article_model_id, "image_model_id": row.image_model_id, "image_count": row.image_count, "last_generated_date": row.last_generated_date}
+    db.add(row); db.commit(); return {"enabled": row.enabled, "frequency": row.frequency, "generate_time": row.generate_time, "timezone": row.timezone, "approval_required": row.approval_required, "auto_visuals": row.auto_visuals, "daily_article_count": row.daily_article_count, "article_model_id": row.article_model_id, "image_model_id": row.image_model_id, "image_count": row.image_count, "auto_repair": row.auto_repair, "max_repair_attempts": row.max_repair_attempts, "last_generated_date": row.last_generated_date}
 
 
 @app.post("/api/article-settings/run-now", status_code=202)
@@ -804,7 +1010,7 @@ def get_report_settings(user: User = Depends(current_user), db: Session = Depend
     row = db.get(ReportSetting, user.id) or ReportSetting(user_id=user.id)
     if db.get(ReportSetting, user.id) is None:
         db.add(row); db.commit()
-    return {"enabled": row.enabled, "generate_time": row.generate_time, "approval_required": row.approval_required, "reminder_timeout_minutes": row.reminder_timeout_minutes, "email_sender": row.email_sender, "email_recipient": row.email_recipient}
+    return {"enabled": row.enabled, "generate_time": row.generate_time, "approval_required": row.approval_required, "reminder_timeout_minutes": row.reminder_timeout_minutes, "email_sender": row.email_sender, "email_recipient": row.email_recipient, "last_trigger_key": row.last_trigger_key}
 
 
 @app.put("/api/report-settings")

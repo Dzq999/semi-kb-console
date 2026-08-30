@@ -16,11 +16,15 @@ def test_article_settings_and_topics(authenticated: TestClient):
     settings = authenticated.get("/api/article-settings")
     assert settings.status_code == 200
     assert settings.json()["approval_required"] is True
-    updated = authenticated.put("/api/article-settings", json={"enabled": True, "frequency": "daily", "generate_time": "19:30", "timezone": "Asia/Shanghai", "approval_required": False, "auto_visuals": True, "daily_article_count": 3, "article_model_id": "gpt-test", "image_model_id": "gpt-image-2", "image_count": 2})
+    assert settings.json()["auto_repair"] is True
+    assert settings.json()["max_repair_attempts"] == 3
+    updated = authenticated.put("/api/article-settings", json={"enabled": True, "frequency": "daily", "generate_time": "19:30", "timezone": "Asia/Shanghai", "approval_required": False, "auto_visuals": True, "daily_article_count": 3, "article_model_id": "gpt-test", "image_model_id": "gpt-image-2", "image_count": 2, "auto_repair": False, "max_repair_attempts": 0})
     assert updated.status_code == 200
     assert updated.json()["generate_time"] == "19:30"
     assert updated.json()["daily_article_count"] == 3
     assert updated.json()["image_count"] == 2
+    assert updated.json()["auto_repair"] is False
+    assert updated.json()["max_repair_attempts"] == 0
     assert authenticated.get("/api/article-topics").status_code == 200
 
 

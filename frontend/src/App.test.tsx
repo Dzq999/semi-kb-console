@@ -42,7 +42,7 @@ describe('App preferences', () => {
       </QueryClientProvider>
     )
 
-    await screen.findByText('Loop 空闲')
+    await screen.findByText('持续协作任务空闲')
     fireEvent.click(screen.getByRole('link', { name: '任务编排' }))
     const modelSelect = (await screen.findByRole('option', { name: 'gpt-5.6-sol' })).parentElement as HTMLSelectElement
     fireEvent.change(modelSelect, { target: { value: 'gpt-5.6-sol' } })

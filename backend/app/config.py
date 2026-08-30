@@ -27,6 +27,8 @@ class Settings:
     llm_base_url: str = os.getenv("LLM_BASE_URL", "https://4sapi.com/v1").rstrip("/")
     model_catalog_url: str = os.getenv("MODEL_CATALOG_URL", "https://4sapi.org/v1/models")
     llm_api_key_env: str = os.getenv("LLM_API_KEY_ENV", "4SAPI_API_KEY")
+    wechat_api_base_url: str = os.getenv("WECHAT_API_BASE_URL", "https://api.weixin.qq.com").rstrip("/")
+    wechat_account_name: str = os.getenv("WECHAT_ACCOUNT_NAME", "墨言yyy")
     max_agent_count: int = min(10, max(1, int(os.getenv("MAX_AGENT_COUNT", "10"))))
     max_provider_concurrency: int = max(1, int(os.getenv("MAX_PROVIDER_CONCURRENCY", "5")))
     research_result_limit: int = min(12, max(1, int(os.getenv("RESEARCH_RESULT_LIMIT", "6"))))
@@ -36,6 +38,7 @@ class Settings:
     orchestrator_engine: str = os.getenv("ORCHESTRATOR_ENGINE", "langgraph").casefold()
     auto_resume_runs: bool = os.getenv("AUTO_RESUME_RUNS", "true").casefold() in {"1", "true", "yes", "on"}
     graph_repair_attempts: int = min(3, max(0, int(os.getenv("GRAPH_REPAIR_ATTEMPTS", "1"))))
+    article_repair_attempts: int = min(3, max(0, int(os.getenv("ARTICLE_REPAIR_ATTEMPTS", "3"))))
     worker_heartbeat_seconds: int = min(300, max(5, int(os.getenv("WORKER_HEARTBEAT_SECONDS", "15"))))
 
     @property

@@ -19,7 +19,8 @@ EXPORT_PATTERNS = {
     "knowledge": ["knowledge/semantic/*.ttl", "knowledge/scenarios/*", "kb/**/*.yaml"],
     "business": ["business/models/*.yaml", "business/templates/*.yaml", "business/datasets/*.yaml"],
     "simulation": ["simulation/scenarios/*.yaml"],
-    "scenarios": ["knowledge/articles/**/*", "knowledge/scenarios/*"],
+    # Keep the scenario-knowledge export separate from公众号草稿（knowledge/articles/generated）。
+    "scenarios": ["knowledge/articles/current-scenarios.md", "knowledge/articles/agent-rounds/*.md", "knowledge/scenarios/*"],
 }
 
 
