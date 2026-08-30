@@ -63,7 +63,7 @@ class RoundGraphEngine:
         provenance and executable-query violations are isolated immediately.
         """
         text = str(error or "").casefold()
-        hard = ("sensitive", "凭据", "bearer", "危险", "只读", "insert", "delete", "非法 iri", "悬空", "source", "伪造")
+        hard = ("sensitive", "敏感", "凭据", "bearer", "危险", "只读", "insert", "delete", "非法 iri", "悬空引用", "来源伪造", "source_ref 伪造")
         if any(token in text for token in hard):
             return "hard"
         repairable = ("缺少", "不完整", "引用", "restriction", "diagnostic", "possiblecause", "possible cause", "hasdiagnosticaction", "haspossiblecause", "门禁失败", "校验失败", "candidate", "候选")
@@ -310,45 +310,138 @@ class RoundGraphEngine:
         raise SemiKbError(state.get("gate_error") or "候选门禁失败")
 
     async def partial_publish(self, state: RoundGraphState) -> dict:
-        """Publish each Agent's bundle independently after bounded repair attempts."""
+        """Publish a single filtered batch after bounded repair attempts.
+
+        We first isolate incompatible semantic candidates with logarithmic
+        prechecks, then invoke the expensive full publish gate exactly once for
+        the remaining batch.  This avoids the previous per-Agent/per-file
+        ``apply_semantic_changeset`` explosion.
+        """
         await self._control(state, "partial_publish", 82)
-        published = 0
         quarantined = list(state.get("quarantined_files") or [])
-        last_validation: dict[str, Any] = {}
+        rejected_semantic: list[Path] = []
+        rejected_reasons: dict[str, str] = {}
         outputs = state.get("outputs") or []
-        for output in outputs:
-            files = round_candidate_files([output])
-            if not any(files[key] for key in ("semantic", "business", "simulation", "knowledge", "rules", "articles")):
-                continue
-            try:
-                result = await semi_kb.process_candidates(files, publish=True)
-                last_validation = result
-                accepted = int(sum((result.get("accepted_candidates") or {}).values()))
-                published += accepted or sum(len(files[key]) for key in ("semantic", "business", "simulation", "knowledge", "rules", "articles"))
-            except Exception as exc:
-                # A single malformed candidate must not discard valid siblings.
-                for key in ("semantic", "business", "simulation", "knowledge", "rules"):
-                    for path in files[key]:
-                        if not path.is_file():
-                            continue
-                        single = {"semantic": [], "business": [], "simulation": [], "knowledge": [], "rules": [], "articles": []}
-                        single[key].append(path)
-                        try:
-                            result = await semi_kb.process_candidates(single, publish=True)
-                            last_validation = result
-                            published += int(sum((result.get("accepted_candidates") or {}).values())) or 1
-                        except Exception as single_exc:
-                            quarantine = path.parent / "quarantine"; quarantine.mkdir(exist_ok=True)
-                            target = quarantine / path.name
+        all_files = round_candidate_files(outputs)
+        semantic = list(all_files["semantic"])
+
+        async def isolate(group: list[Path]) -> list[Path]:
+            if not group:
+                return []
+            check = await semi_kb.semantic_precheck_sources(group)
+            if check.get("exit_code", 0) == 0 or check.get("passed", False):
+                return group
+            if len(group) == 1:
+                path = group[0]
+                rejected_semantic.append(path)
+                rejected_reasons[str(path)] = str(check.get("output") or "")
+                return []
+            midpoint = max(1, len(group) // 2)
+            left, right = await asyncio.gather(isolate(group[:midpoint]), isolate(group[midpoint:]))
+            return left + right
+
+        gate_text = str(state.get("gate_error") or "")
+        # A SHACL report that points at pre-existing focus nodes is a baseline
+        # failure, not a candidate-local defect.  Do not launch probe commands
+        # (or model repairs) for every file in that case; quarantine the new
+        # semantic batch and continue with independent artifacts immediately.
+        baseline_gate = "constraint violation" in gate_text.casefold() and "focus node" in gate_text.casefold()
+        valid_semantic = [] if baseline_gate else await isolate(semantic)
+        if baseline_gate:
+            for path in semantic:
+                rejected_semantic.append(path)
+                rejected_reasons[str(path)] = gate_text
+        valid_set = {str(path) for path in valid_semantic}
+        filtered = {key: list(value) for key, value in all_files.items()}
+        filtered["semantic"] = [path for path in semantic if str(path) in valid_set]
+        # Knowledge, rule and article artifacts have independent contracts; publish
+        # them in one local transaction without invoking the expensive semantic gate.
+        auxiliary = await semi_kb.publish_auxiliary_candidates({"knowledge": all_files["knowledge"], "rules": all_files["rules"], "articles": all_files["articles"]})
+        published = int(sum((auxiliary.get("accepted_candidates") or {}).values()))
+        for item in auxiliary.get("quarantined_candidates") or []:
+            path = Path(str(item.get("path") or ""))
+            if path.is_file():
+                quarantine = path.parent / "quarantine"; quarantine.mkdir(exist_ok=True); target = quarantine / path.name
+                try: shutil.move(str(path), str(target)); quarantined.append(str(target))
+                except OSError: target = path
+                with SessionLocal() as db:
+                    self.controller.emit(db, state["run_id"], "candidate_quarantined", f"候选已隔离：{path.name}；{item.get('reason', '')}", {"round": state["round_number"], "path": str(target), "error": item.get("reason", "")}, "warning")
+        filtered["knowledge"] = []; filtered["rules"] = []; filtered["articles"] = []
+        result: dict[str, Any] = auxiliary
+        try:
+            if not any(filtered[key] for key in ("semantic", "business", "simulation")) and not rejected_semantic:
+                return {"validation": {**auxiliary, "partial": True, "published": bool(published), "repair_attempts": int(state.get("repair_attempt", 0))}, "quarantined_files": list(dict.fromkeys(quarantined)), "gate_error": None, "success": published > 0}
+            if not filtered["semantic"] and rejected_semantic:
+                raise RuntimeError("语义候选预检全部失败，进入候选级兜底")
+            result = await semi_kb.process_candidates(filtered, publish=True)
+            published += int(sum((result.get("accepted_candidates") or {}).values())) or sum(len(filtered[key]) for key in ("semantic", "business", "simulation"))
+            # Candidates rejected by the isolated precheck are quarantined only
+            # after the valid batch has been published.
+            for path in rejected_semantic:
+                if path.is_file():
+                    quarantine = path.parent / "quarantine"; quarantine.mkdir(exist_ok=True); target = quarantine / path.name
+                    try: shutil.move(str(path), str(target)); quarantined.append(str(target))
+                    except OSError: pass
+                    with SessionLocal() as db:
+                        self.controller.emit(db, state["run_id"], "candidate_quarantined", f"候选已隔离：{path.name}", {"round": state["round_number"], "path": str(target)}, "warning")
+        except Exception as exc:
+            # If precheck rejected every semantic file, try the application
+            # service's own candidate-level validation once. This preserves
+            # compatibility with lightweight adapters and can still salvage a
+            # valid candidate that only fails when isolated from its siblings.
+            baseline_failure = any("constraint violation" in reason.casefold() or "semantic_validate.py" in reason.casefold() for reason in rejected_reasons.values())
+            for path in rejected_semantic:
+                if not path.is_file():
+                    continue
+                if baseline_failure:
+                    single_exc = "现有基线全链门禁失败，跳过重复发布尝试"
+                    quarantine = path.parent / "quarantine"; quarantine.mkdir(exist_ok=True); target = quarantine / path.name
+                    try: shutil.move(str(path), str(target)); quarantined.append(str(target))
+                    except OSError: pass
+                    with SessionLocal() as db:
+                        self.controller.emit(db, state["run_id"], "candidate_quarantined", f"候选已隔离：{path.name}；{single_exc}", {"round": state["round_number"], "path": str(target), "error": rejected_reasons.get(str(path), "")[-3000:]}, "warning")
+                    continue
+                single = {"semantic": [path], "business": [], "simulation": [], "knowledge": [], "rules": [], "articles": []}
+                try:
+                    await semi_kb.process_candidates(single, publish=True)
+                    published += 1
+                except Exception as single_exc:
+                    quarantine = path.parent / "quarantine"; quarantine.mkdir(exist_ok=True); target = quarantine / path.name
+                    try: shutil.move(str(path), str(target)); quarantined.append(str(target))
+                    except OSError: pass
+                    with SessionLocal() as db:
+                        self.controller.emit(db, state["run_id"], "candidate_quarantined", f"候选已隔离：{path.name}；{single_exc}", {"round": state["round_number"], "path": str(target), "error": str(single_exc)}, "warning")
+            # Non-semantic candidates (e.g. a malformed simulation/rule) are
+            # isolated individually only after the single filtered batch fails.
+            for key in ("business", "simulation", "knowledge", "rules"):
+                for path in filtered[key]:
+                    if baseline_gate:
+                        if path.is_file():
+                            quarantine = path.parent / "quarantine"; quarantine.mkdir(exist_ok=True); target = quarantine / path.name
                             try: shutil.move(str(path), str(target)); quarantined.append(str(target))
                             except OSError: pass
                             with SessionLocal() as db:
-                                self.controller.emit(db, state["run_id"], "candidate_quarantined", f"候选已隔离：{path.name}；{single_exc}", {"round": state["round_number"], "path": str(target), "error": str(single_exc)}, "warning")
-                with SessionLocal() as db:
-                    self.controller.emit(db, state["run_id"], "partial_publish", f"Agent 候选批量校验失败，已降级为逐候选发布：{exc}", {"round": state["round_number"], "error": str(exc)}, "warning")
+                                self.controller.emit(db, state["run_id"], "candidate_quarantined", f"候选已隔离：{path.name}；现有基线门禁失败，跳过重复校验", {"round": state["round_number"], "path": str(target), "error": gate_text[-3000:]}, "warning")
+                        continue
+                    single = {"semantic": [], "business": [], "simulation": [], "knowledge": [], "rules": [], "articles": []}
+                    single[key].append(path)
+                    try:
+                        await semi_kb.process_candidates(single, publish=True)
+                        published += 1
+                    except Exception as single_exc:
+                        quarantine = path.parent / "quarantine"; quarantine.mkdir(exist_ok=True)
+                        target = quarantine / path.name
+                        try: shutil.move(str(path), str(target)); quarantined.append(str(target))
+                        except OSError: pass
+                        with SessionLocal() as db:
+                            self.controller.emit(db, state["run_id"], "candidate_quarantined", f"候选已隔离：{path.name}；{single_exc}", {"round": state["round_number"], "path": str(target), "error": str(single_exc)}, "warning")
+            if published == 0:
+                raise SemiKbError(str(exc))
+            result = {**auxiliary, "published": True, "partial_error": str(exc), "accepted_candidates": {**(auxiliary.get("accepted_candidates") or {}), "semantic": 0, "business": 0, "simulation": 0}, "partial_published_total": published}
         if published <= 0:
             raise SemiKbError(state.get("gate_error") or "自动返修后没有候选通过门禁")
-        last_validation = dict(last_validation)
+        quarantined = list(dict.fromkeys(quarantined))
+        last_validation = dict(result)
         last_validation["partial"] = True
         last_validation["published"] = True
         last_validation["repair_attempts"] = int(state.get("repair_attempt", 0))
@@ -476,6 +569,15 @@ class RoundGraphEngine:
                     db.commit()
             return bool(result.get("success"))
         except asyncio.CancelledError:
+            with SessionLocal() as db:
+                row = db.scalar(select(RunRound).where(RunRound.run_id == run_id, RunRound.round_number == round_number))
+                if row and row.status not in {"completed", "completed_partial", "completed_no_change"}:
+                    row.status = "cancelled"
+                    row.current_stage = "cancelled"
+                    row.completed_at = datetime.now(timezone.utc)
+                    row.error = "轮次在部分发布阶段被用户停止"
+                    row.duration_seconds = round(time.monotonic() - started, 3)
+                    db.commit()
             raise
         except Exception as exc:
             with SessionLocal() as db:

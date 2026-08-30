@@ -184,6 +184,106 @@ class SemiKbAdapter:
     def _safe_stem(value: str) -> str:
         return re.sub(r"[^a-zA-Z0-9._-]+", "-", value).strip("-.")[:120] or "candidate"
 
+    async def semantic_precheck_sources(self, sources: list[Path]) -> dict:
+        """Run one isolated semantic changeset precheck for a source group.
+
+        Used by partial publication to locate incompatible candidates without
+        invoking the full OWL/SHACL/business/simulation pipeline for each file.
+        The temporary files are always removed under the candidate lock.
+        """
+        sources = [path for path in sources if path.is_file()]
+        if not sources:
+            return {"passed": True, "duration_seconds": 0.0, "output": ""}
+        self._ensure_root()
+        async with self._candidate_lock:
+            pending = self.root / "semantic_changesets" / "pending"
+            pending.mkdir(parents=True, exist_ok=True)
+            staged: list[Path] = []
+            try:
+                for index, source in enumerate(sources, 1):
+                    target = pending / f"console-probe-{self._safe_stem(source.parent.name)}-{self._safe_stem(source.stem)}-{index}.json"
+                    await asyncio.to_thread(shutil.copy2, source, target)
+                    staged.append(target)
+                return await self.command("apply_semantic_changeset.py", "--check", timeout=600)
+            finally:
+                for path in staged:
+                    path.unlink(missing_ok=True)
+
+    async def publish_auxiliary_candidates(self, candidates: dict[str, list[Path]]) -> dict:
+        """Validate and publish knowledge/rule/article artifacts without rerunning
+        the heavyweight semantic and simulation gates.
+
+        These artifacts have independent local contracts and provenance checks;
+        coupling them to a full OWL merge made partial publication needlessly
+        slow and caused valid knowledge entries to wait behind one bad semantic
+        candidate.
+        """
+        self._ensure_root()
+        knowledge_sources = [path for path in candidates.get("knowledge", []) if path.is_file()]
+        rule_sources = [path for path in candidates.get("rules", []) if path.is_file()]
+        article_sources = [path for path in candidates.get("articles", []) if path.is_file()]
+        result = {"published": False, "published_knowledge": [], "published_rules": [], "published_articles": [], "quarantined_candidates": [], "checks": {"auxiliary_contract": {"passed": True, "duration_seconds": 0.0}}}
+        async with self._candidate_lock:
+            knowledge_dir = self.root / "knowledge" / "entries"; knowledge_dir.mkdir(parents=True, exist_ok=True)
+            rules_path = self.root / "ontology" / "rules" / "registry.json"
+            rule_dir = self.root / "ontology" / "rules" / "generated"; rule_dir.mkdir(parents=True, exist_ok=True)
+            registry_backup = rules_path.read_bytes() if rules_path.is_file() else None
+            registry = {"rules": []}
+            try:
+                if rules_path.is_file():
+                    loaded = json.loads(rules_path.read_text(encoding="utf-8")); registry = loaded if isinstance(loaded, dict) else {"rules": loaded}
+                existing = {str(item.get("rule_id")) for item in registry.get("rules") or [] if isinstance(item, dict)}
+                staged_knowledge: list[tuple[Path, Path]] = []
+                staged_rules: list[tuple[dict, Path]] = []
+                for source in knowledge_sources:
+                    try:
+                        entry = json.loads(source.read_text(encoding="utf-8")); entry_id = str(entry.get("id") or "")
+                        if not re.match(r"^urn:pxai:semi:knowledge:[A-Za-z0-9._:%-]+$", entry_id) or len(str(entry.get("content") or "")) < 40:
+                            raise ValueError("知识条目缺少合法 id 或 content 少于 40 字")
+                        target = knowledge_dir / f"{self._safe_stem(entry_id)}.json"
+                        if target.exists(): raise ValueError(f"知识条目 ID 已存在：{entry_id}")
+                        staged_knowledge.append((source, target))
+                    except Exception as exc:
+                        result["quarantined_candidates"].append({"path": str(source), "category": "knowledge", "reason": str(exc)})
+                for source in rule_sources:
+                    try:
+                        rule = json.loads(source.read_text(encoding="utf-8")); rule_id = str(rule.get("rule_id") or ""); query = str(rule.get("query") or "")
+                        if not re.match(r"^R-AUTO-[A-Za-z0-9._-]+$", rule_id) or rule_id in existing or not rule.get("name"):
+                            raise ValueError("规则 ID 重复或缺少名称")
+                        if rule.get("implementation") != "sparql" or not re.search(r"(?is)\bconstruct\b", query):
+                            raise ValueError("规则必须是只读 SPARQL CONSTRUCT")
+                        if re.search(r"\b(?:INSERT|DELETE|LOAD|CLEAR|DROP|CREATE|MOVE|COPY|ADD)\b", query, re.I):
+                            raise ValueError("SPARQL 规则包含危险更新语句")
+                        Graph().query(query)
+                        target = rule_dir / f"{self._safe_stem(rule_id)}.rq"
+                        if target.exists(): raise ValueError(f"规则文件已存在：{target.name}")
+                        staged_rules.append((rule, target)); existing.add(rule_id)
+                    except Exception as exc:
+                        result["quarantined_candidates"].append({"path": str(source), "category": "rule", "reason": str(exc)})
+                for source, target in staged_knowledge:
+                    await asyncio.to_thread(shutil.copy2, source, target); result["published_knowledge"].append(target.relative_to(self.root).as_posix())
+                registry.setdefault("rules", [])
+                for rule, target in staged_rules:
+                    target.write_text(str(rule.get("query") or "").strip() + "\n", encoding="utf-8")
+                    registered = {key: value for key, value in rule.items() if key != "query"}; registered["implementation"] = target.relative_to(self.root).as_posix(); registry["rules"].append(registered); result["published_rules"].append(str(rule.get("rule_id")))
+                if staged_rules:
+                    rules_path.parent.mkdir(parents=True, exist_ok=True); rules_path.write_text(json.dumps(registry, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+                article_dir = self.root / "knowledge" / "articles" / "agent-rounds"; article_dir.mkdir(parents=True, exist_ok=True)
+                for index, source in enumerate(article_sources, 1):
+                    target = article_dir / f"{self._safe_stem(source.parents[2].name if len(source.parents) > 2 else 'round')}-{self._safe_stem(source.parent.name)}-{index}.md"
+                    if not target.exists(): await asyncio.to_thread(shutil.copy2, source, target)
+                    result["published_articles"].append(target.relative_to(self.root).as_posix())
+                result["published"] = bool(result["published_knowledge"] or result["published_rules"] or result["published_articles"])
+                result["accepted_candidates"] = {"knowledge": len(result["published_knowledge"]), "rules": len(result["published_rules"]), "articles": len(result["published_articles"])}
+                self.invalidate_cache()
+                return result
+            except BaseException:
+                for _, target in locals().get("staged_knowledge", []): target.unlink(missing_ok=True)
+                for _, target in locals().get("staged_rules", []): target.unlink(missing_ok=True)
+                if registry_backup is None: rules_path.unlink(missing_ok=True)
+                else: rules_path.write_bytes(registry_backup)
+                raise
+
     async def process_candidates(self, candidates: dict[str, list[Path]], publish: bool) -> dict:
         """Stage candidates under the engine lock, run all gates, and optionally publish.
 
@@ -240,19 +340,37 @@ class SemiKbAdapter:
             rules_registry_modified = False
             rules_path = self.root / "ontology" / "rules" / "registry.json"
             try:
+                # Stage the complete semantic batch and run the expensive
+                # changeset precheck once.  The previous implementation invoked
+                # this command once per file, multiplying a 1–3 minute check by
+                # every candidate.  Candidate-level isolation is retained as a
+                # fallback only when the batch precheck actually fails.
+                semantic_pairs: list[tuple[Path, Path]] = []
                 for index, source in enumerate(semantic_sources, 1):
                     target = pending / f"console-{self._safe_stem(source.parent.name)}-{self._safe_stem(source.stem)}-{index}.json"
                     if target.exists():
                         raise SemiKbError(f"语义暂存文件冲突：{target.name}")
                     await asyncio.to_thread(shutil.copy2, source, target)
-                    # Precheck each proposal in isolation. A malformed proposal is
-                    # quarantined while other agents' valid proposals continue.
-                    check = await self.command("apply_semantic_changeset.py", "--check", timeout=600)
-                    if check["exit_code"]:
-                        result["quarantined_candidates"].append({"path": str(source), "category": "semantic", "reason": check["output"][-3000:]})
-                        target.unlink(missing_ok=True)
+                    semantic_pairs.append((source, target))
+                if semantic_pairs:
+                    batch_check = await self.command("apply_semantic_changeset.py", "--check", timeout=600)
+                    if batch_check["exit_code"] == 0:
+                        staged_semantic.extend(target for _, target in semantic_pairs)
                     else:
-                        staged_semantic.append(target)
+                        # Isolate only on a real batch failure.  This keeps the
+                        # normal path O(1) expensive checks while preserving the
+                        # existing guarantee that one bad candidate is isolated.
+                        for source, target in semantic_pairs:
+                            target.unlink(missing_ok=True)
+                        for index, source in enumerate(semantic_sources, 1):
+                            target = pending / f"console-isolate-{self._safe_stem(source.parent.name)}-{self._safe_stem(source.stem)}-{index}.json"
+                            await asyncio.to_thread(shutil.copy2, source, target)
+                            single_check = await self.command("apply_semantic_changeset.py", "--check", timeout=600)
+                            if single_check["exit_code"]:
+                                result["quarantined_candidates"].append({"path": str(source), "category": "semantic", "reason": single_check["output"][-3000:]})
+                                target.unlink(missing_ok=True)
+                            else:
+                                staged_semantic.append(target)
                 for index, source in enumerate(business_sources, 1):
                     doc = yaml.safe_load(source.read_text(encoding="utf-8")) or {}
                     model_id = str((doc.get("model") or {}).get("id") or f"candidate-{index}")
@@ -365,13 +483,13 @@ class SemiKbAdapter:
                         applied = await self.command("apply_semantic_changeset.py", timeout=1800)
                         result["checks"]["full_publish_gate"] = {"passed": applied["exit_code"] == 0, "duration_seconds": applied["duration_seconds"], "output": applied["output"][-8000:]}
                         if applied["exit_code"]:
-                            raise SemiKbError("全链发布门禁失败，语义数据已由引擎回滚")
+                            raise SemiKbError("全链发布门禁失败，语义数据已由引擎回滚：" + applied["output"][-5000:])
                         semantic_applied = True
                     else:
                         full = await self.validate(full=True)
                         result["checks"]["full_publish_gate"] = {"passed": full["passed"], "duration_seconds": full["duration_seconds"], "output": full["output"][-8000:]}
                         if not full["passed"]:
-                            raise SemiKbError("仿真发布全链门禁失败")
+                            raise SemiKbError("仿真发布全链门禁失败：" + full["output"][-5000:])
                     article_dir = self.root / "knowledge" / "articles" / "agent-rounds"
                     article_dir.mkdir(parents=True, exist_ok=True)
                     published_articles = []
