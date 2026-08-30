@@ -73,6 +73,31 @@ type DashboardData = {
   latest_run: RunInfo | null;
 };
 
+type MetricKey =
+  | "classes"
+  | "properties"
+  | "relations"
+  | "individuals"
+  | "axioms"
+  | "rules"
+  | "knowledge_entries"
+  | "business_relations"
+  | "simulation_scenarios"
+  | "scenario_articles";
+
+const metricDefinitions: Array<{ key: MetricKey; label: string }> = [
+  { key: "classes", label: "类 Class" },
+  { key: "properties", label: "属性 Property" },
+  { key: "relations", label: "关系 Relation" },
+  { key: "individuals", label: "实例 Individual" },
+  { key: "axioms", label: "公理 Axiom" },
+  { key: "rules", label: "推理规则 Rule" },
+  { key: "knowledge_entries", label: "知识条目" },
+  { key: "business_relations", label: "经营模型关系" },
+  { key: "simulation_scenarios", label: "仿真场景" },
+  { key: "scenario_articles", label: "场景知识产物" },
+];
+
 const nav = [
   ["/", "总览", LayoutDashboard],
   ["/orchestrator", "任务编排", Bot],
@@ -306,9 +331,35 @@ function MetricCard({
       </strong>
       <small>
         {delta !== undefined
-          ? `今日 +${delta.toLocaleString()}`
-          : "当前正式总量"}
+          ? `今日新增 +${delta.toLocaleString()}`
+          : "质量指标 · 百分比"}
       </small>
+    </div>
+  );
+}
+
+function MetricsOverview({
+  metrics,
+  keys = metricDefinitions.map(({ key }) => key),
+  className = "",
+}: {
+  metrics: DashboardData["metrics"];
+  keys?: MetricKey[];
+  className?: string;
+}) {
+  return (
+    <div className={`metrics-grid ${className}`.trim()}>
+      {keys.map((key) => {
+        const definition = metricDefinitions.find((item) => item.key === key)!;
+        return (
+          <MetricCard
+            key={key}
+            label={definition.label}
+            value={metrics.totals[key] ?? 0}
+            delta={metrics.today_added[key] ?? 0}
+          />
+        );
+      })}
     </div>
   );
 }
@@ -522,15 +573,6 @@ function Dashboard() {
       </div>
     );
   const t = data.metrics.totals;
-  const d = data.metrics.today_added;
-  const metrics = [
-    ["OWL 类", t.classes ?? 0, d.classes],
-    ["属性", t.properties ?? 0, d.properties],
-    ["关系", t.relations ?? 0, d.relations],
-    ["实例", t.individuals ?? 0, d.individuals],
-    ["知识条目", t.knowledge_entries ?? 0, d.knowledge_entries],
-    ["问题域覆盖率", `${t.coverage_percent ?? 0}%`, undefined],
-  ] as Array<[string, number | string, number | undefined]>;
   const currentIndex = Object.keys(stageLabels).indexOf(
     latest?.current_stage || "",
   );
@@ -630,10 +672,13 @@ function Dashboard() {
         </div>
       </section>
       {action.error && <ErrorBox error={action.error} />}
-      <div className="metrics-grid">
-        {metrics.map(([label, value, delta]) => (
-          <MetricCard key={label} label={label} value={value} delta={delta} />
-        ))}
+      <MetricsOverview metrics={data.metrics} />
+      <div className="metric-support-row">
+        <MetricCard
+          label="问题域覆盖率"
+          value={`${t.coverage_percent ?? 0}%`}
+        />
+        <span>覆盖率是质量指标，不适用“今日新增”数量口径。</span>
       </div>
       <div className="dashboard-grid">
         <Panel
@@ -1309,8 +1354,6 @@ function Ontology() {
         <ErrorBox error={metrics.error} />
       </div>
     );
-  const t = metrics.data!.totals;
-  const d = metrics.data!.today_added;
   return (
     <div className="page">
       <div className="page-head">
@@ -1320,26 +1363,7 @@ function Ontology() {
         </div>
         <ExportButton kind="ontology" />
       </div>
-      <div className="metrics-grid six">
-        <MetricCard label="类 Class" value={t.classes || 0} delta={d.classes} />
-        <MetricCard
-          label="属性 Property"
-          value={t.properties || 0}
-          delta={d.properties}
-        />
-        <MetricCard
-          label="关系 Relation"
-          value={t.relations || 0}
-          delta={d.relations}
-        />
-        <MetricCard
-          label="实例 Individual"
-          value={t.individuals || 0}
-          delta={d.individuals}
-        />
-        <MetricCard label="公理 Axiom" value={t.axioms || 0} delta={d.axioms} />
-        <MetricCard label="推理规则" value={t.rules || 0} delta={d.rules} />
-      </div>
+      <MetricsOverview metrics={metrics.data!} />
       <Panel title="本体实体" meta={`${entities.data?.total || 0} 项`}>
         <div className="filter-bar">
           <div className="search-input">
@@ -1396,6 +1420,7 @@ function Knowledge() {
       subtitle="事实、实例、证据与来源可追溯。"
       icon={<Database />}
       exportKind="knowledge"
+      metricKeys={["knowledge_entries"]}
       query={query}
     />
   );
@@ -1411,6 +1436,7 @@ function Business() {
       subtitle="成本、产能、周期与风险的可计算关系。"
       icon={<Gauge />}
       exportKind="business"
+      metricKeys={["business_relations"]}
       query={query}
     />
   );
@@ -1426,6 +1452,7 @@ function Simulation() {
       subtitle="真实场景参数、经营结果与自动校验。"
       icon={<Cpu />}
       exportKind="simulation"
+      metricKeys={["simulation_scenarios"]}
       query={query}
     />
   );
@@ -1436,18 +1463,25 @@ function CatalogPage({
   subtitle,
   icon,
   exportKind,
+  metricKeys,
   query,
 }: {
   title: string;
   subtitle: string;
   icon: React.ReactNode;
   exportKind: string;
+  metricKeys: MetricKey[];
   query: {
     isLoading: boolean;
     error: unknown;
     data?: { items: Array<{ path: string; name: string; document: unknown }> };
   };
 }) {
+  const metrics = useQuery<DashboardData["metrics"]>({
+    queryKey: ["ontology-metrics"],
+    queryFn: () => api("/api/ontology/metrics"),
+    refetchInterval: 5000,
+  });
   return (
     <div className="page">
       <div className="page-head">
@@ -1457,6 +1491,14 @@ function CatalogPage({
         </div>
         <ExportButton kind={exportKind} />
       </div>
+      {metrics.data && (
+        <MetricsOverview
+          metrics={metrics.data}
+          keys={metricKeys}
+          className="metric-context"
+        />
+      )}
+      {metrics.error && <ErrorBox error={metrics.error} />}
       {query.isLoading ? (
         <Loading />
       ) : query.error ? (
@@ -1653,6 +1695,11 @@ function Scenarios() {
     queryFn: () => api("/api/articles"),
     refetchInterval: 5000,
   });
+  const metrics = useQuery<DashboardData["metrics"]>({
+    queryKey: ["ontology-metrics"],
+    queryFn: () => api("/api/ontology/metrics"),
+    refetchInterval: 5000,
+  });
   const settingsQuery = useQuery<ArticleSettings>({
     queryKey: ["article-settings"],
     queryFn: () => api("/api/article-settings"),
@@ -1774,6 +1821,14 @@ function Scenarios() {
           }
         />
       )}
+      {metrics.data && (
+        <MetricsOverview
+          metrics={metrics.data}
+          keys={["scenario_articles"]}
+          className="metric-context"
+        />
+      )}
+      {metrics.error && <ErrorBox error={metrics.error} />}
       <ScenarioKnowledgeProducts />
       <div className="article-stats">
         <div>

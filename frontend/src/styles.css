@@ -64,11 +64,15 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .loop-state strong { font-size: 13px; }
 .loop-state div > span { margin-top: 3px; color: #708097; font-size: 10px; }
 .loop-state .runtime-meta { color: #2864dc; font-family: Consolas, monospace; font-size: 9px; }
-.metrics-grid { display: grid; grid-template-columns: repeat(6, minmax(0,1fr)); gap: 9px; }
+.metrics-grid { display: grid; grid-template-columns: repeat(5, minmax(0,1fr)); gap: 10px; }
+.metrics-grid.metric-context { grid-template-columns: minmax(210px, 280px); }
 .metric-card { min-width: 0; padding: 12px; border: 1px solid #dce5ee; border-radius: 10px; background: white; }
 .metric-card > span { display: block; color: #708097; font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .metric-card strong { display: block; margin-top: 6px; font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; }
-.metric-card small { display: block; margin-top: 4px; color: #15956a; font-size: 9px; }
+.metric-card small { display: block; margin-top: 4px; color: #15956a; font-size: 9px; font-variant-numeric: tabular-nums; }
+.metric-support-row { display: flex; align-items: center; gap: 10px; }
+.metric-support-row .metric-card { flex: 0 0 190px; }
+.metric-support-row > span { color: #708097; font-size: 10px; }
 .dashboard-grid { display: grid; grid-template-columns: minmax(0,1.7fr) minmax(240px,.65fr); gap: 12px; }
 .pipeline { padding: 20px 12px 13px; display: grid; grid-template-columns: repeat(8,minmax(60px,1fr)); position: relative; }
 .pipeline::before { content: ""; position: absolute; top: 36px; left: 7%; right: 7%; height: 2px; background: #dce5ee; }
@@ -266,6 +270,7 @@ code { color: #31557f; font-family: Consolas, monospace; font-size: 9px; }
 
 @media (max-width: 1000px) {
   .metrics-grid { grid-template-columns: repeat(3,minmax(0,1fr)); }
+  .metrics-grid.metric-context { grid-template-columns: minmax(210px, 280px); }
   .dashboard-grid, .compose-grid, .report-grid, .article-workspace, .article-editor-grid, .scenario-products { grid-template-columns: 1fr; }
   .scenario-product-list { max-height: 260px; border-right: 0; border-bottom: 1px solid #e1e8f0; }
   .pipeline { grid-template-columns: repeat(4,minmax(70px,1fr)); gap: 16px 0; }
@@ -281,6 +286,8 @@ code { color: #31557f; font-family: Consolas, monospace; font-size: 9px; }
   .connection { display: none; }
   .page { padding: 14px; }
   .config-grid, .settings-grid, .catalog-grid, .loop-config, .article-stats { grid-template-columns: 1fr; }
+  .metric-support-row { align-items: stretch; flex-direction: column; }
+  .metric-support-row .metric-card { flex-basis: auto; }
   .credential-row { grid-template-columns: 1fr; }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -292,5 +299,6 @@ code { color: #31557f; font-family: Consolas, monospace; font-size: 9px; }
   .brand, .sidebar nav { display: none; }
   .topbar, .page-head, .loop-banner { align-items: flex-start; flex-direction: column; }
   .metrics-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .metrics-grid.metric-context { grid-template-columns: minmax(0, 1fr); }
   .pipeline { grid-template-columns: repeat(2,minmax(70px,1fr)); }
 }

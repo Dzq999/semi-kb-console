@@ -57,4 +57,57 @@ describe('App preferences', () => {
     fireEvent.click(screen.getByRole('link', { name: '系统设置' }))
     await waitFor(() => expect(screen.getByText('当前默认模型').parentElement).toHaveTextContent('gpt-5.6-sol'))
   })
+
+  it('shows total and daily-added values for every tracked metric', async () => {
+    const totals = {
+      classes: 101,
+      properties: 202,
+      relations: 303,
+      individuals: 404,
+      axioms: 505,
+      rules: 606,
+      knowledge_entries: 707,
+      business_relations: 808,
+      simulation_scenarios: 909,
+      scenario_articles: 1001,
+      coverage_percent: 88.5,
+    }
+    const todayAdded = {
+      classes: 1,
+      properties: 2,
+      relations: 3,
+      individuals: 4,
+      axioms: 5,
+      rules: 6,
+      knowledge_entries: 7,
+      business_relations: 8,
+      simulation_scenarios: 9,
+      scenario_articles: 10,
+    }
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const path = String(input)
+      if (path === '/api/auth/status') return json({ setup_required: false })
+      if (path === '/api/users/me') return json({ id: 1, username: 'tester', preferences: { default_model_id: null, default_agent_count: 6, timezone: 'Asia/Shanghai' } })
+      if (path === '/api/dashboard') return json({ metrics: { totals, today_added: todayAdded, source_distribution: {}, uncovered: [] }, latest_run: null })
+      return json({ items: [], total: 0, enabled: false, interval_minutes: 1440 })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter><App /></MemoryRouter>
+      </QueryClientProvider>
+    )
+
+    await screen.findByText('场景知识产物')
+    for (const label of ['类 Class', '属性 Property', '关系 Relation', '实例 Individual', '公理 Axiom', '推理规则 Rule', '知识条目', '经营模型关系', '仿真场景', '场景知识产物']) {
+      expect(screen.getByText(label)).toBeInTheDocument()
+    }
+    expect(screen.getByText('101')).toBeInTheDocument()
+    expect(screen.getByText('今日新增 +1')).toBeInTheDocument()
+    expect(screen.getByText('1,001')).toBeInTheDocument()
+    expect(screen.getByText('今日新增 +10')).toBeInTheDocument()
+    expect(screen.getByText('88.5%')).toBeInTheDocument()
+  })
 })
