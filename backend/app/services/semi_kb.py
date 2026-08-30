@@ -194,9 +194,13 @@ class SemiKbAdapter:
         semantic_sources = [path for path in candidates.get("semantic", []) if path.is_file()]
         business_sources = [path for path in candidates.get("business", []) if path.is_file()]
         simulation_sources = [path for path in candidates.get("simulation", []) if path.is_file()]
+        knowledge_sources = [path for path in candidates.get("knowledge", []) if path.is_file()]
+        rule_sources = [path for path in candidates.get("rules", []) if path.is_file()]
         article_sources = [path for path in candidates.get("articles", []) if path.is_file()]
-        result: dict = {"published": False, "semantic_candidates": len(semantic_sources), "business_candidates": len(business_sources), "simulation_candidates": len(simulation_sources), "checks": {}}
-        if not semantic_sources and not business_sources and not simulation_sources:
+        result: dict = {"published": False, "semantic_candidates": len(semantic_sources), "business_candidates": len(business_sources), "simulation_candidates": len(simulation_sources), "knowledge_candidates": len(knowledge_sources), "rule_candidates": len(rule_sources), "quarantined_candidates": [], "checks": {}}
+        if not semantic_sources and not business_sources and not simulation_sources and not knowledge_sources and not rule_sources:
+            result["accepted_candidates"] = {"semantic": 0, "business": 0, "simulation": 0, "knowledge": 0, "rules": 0}
+            result["rejected_candidates"] = 0
             result["checks"] = await self.cross_validate()
             result["checks"]["candidate_precheck"] = {"passed": True, "output": "本轮没有非空语义或仿真候选"}
             baseline = await self.validate(full=publish)
@@ -223,17 +227,32 @@ class SemiKbAdapter:
             pending.mkdir(parents=True, exist_ok=True)
             business_dir.mkdir(parents=True, exist_ok=True)
             simulation_dir.mkdir(parents=True, exist_ok=True)
+            knowledge_dir = self.root / "knowledge" / "entries"
+            knowledge_dir.mkdir(parents=True, exist_ok=True)
             staged_semantic: list[Path] = []
             staged_business: list[Path] = []
             staged_simulation: list[Path] = []
+            staged_knowledge: list[tuple[Path, Path]] = []
+            staged_rules: list[dict] = []
+            staged_rule_paths: list[Path] = []
             semantic_applied = False
+            rules_backup: bytes | None = None
+            rules_registry_modified = False
+            rules_path = self.root / "ontology" / "rules" / "registry.json"
             try:
                 for index, source in enumerate(semantic_sources, 1):
                     target = pending / f"console-{self._safe_stem(source.parent.name)}-{self._safe_stem(source.stem)}-{index}.json"
                     if target.exists():
                         raise SemiKbError(f"语义暂存文件冲突：{target.name}")
                     await asyncio.to_thread(shutil.copy2, source, target)
-                    staged_semantic.append(target)
+                    # Precheck each proposal in isolation. A malformed proposal is
+                    # quarantined while other agents' valid proposals continue.
+                    check = await self.command("apply_semantic_changeset.py", "--check", timeout=600)
+                    if check["exit_code"]:
+                        result["quarantined_candidates"].append({"path": str(source), "category": "semantic", "reason": check["output"][-3000:]})
+                        target.unlink(missing_ok=True)
+                    else:
+                        staged_semantic.append(target)
                 for index, source in enumerate(business_sources, 1):
                     doc = yaml.safe_load(source.read_text(encoding="utf-8")) or {}
                     model_id = str((doc.get("model") or {}).get("id") or f"candidate-{index}")
@@ -249,6 +268,56 @@ class SemiKbAdapter:
                         raise SemiKbError(f"仿真候选 ID 已存在：{scenario_id}")
                     await asyncio.to_thread(shutil.copy2, source, target)
                     staged_simulation.append(target)
+
+                for source in knowledge_sources:
+                    try:
+                        entry = json.loads(source.read_text(encoding="utf-8"))
+                        entry_id = str(entry.get("id") or "")
+                        if not re.match(r"^urn:pxai:semi:knowledge:[A-Za-z0-9._:%-]+$", entry_id) or len(str(entry.get("content") or "")) < 40:
+                            raise ValueError("知识条目缺少合法 id 或 content 少于 40 字")
+                        target = knowledge_dir / f"{self._safe_stem(entry_id)}.json"
+                        if target.exists():
+                            raise ValueError(f"知识条目 ID 已存在：{entry_id}")
+                        staged_knowledge.append((source, target))
+                    except (OSError, ValueError, json.JSONDecodeError) as exc:
+                        result["quarantined_candidates"].append({"path": str(source), "category": "knowledge", "reason": str(exc)})
+
+                existing_rules: set[str] = set()
+                registry = {"rules": []}
+                if rules_path.is_file():
+                    registry = json.loads(rules_path.read_text(encoding="utf-8"))
+                    registry = registry if isinstance(registry, dict) else {"rules": registry}
+                    existing_rules = {str(item.get("rule_id")) for item in registry.get("rules") or [] if isinstance(item, dict)}
+                for source in rule_sources:
+                    try:
+                        rule = json.loads(source.read_text(encoding="utf-8"))
+                        rule_id = str(rule.get("rule_id") or "")
+                        implementation = str(rule.get("implementation") or "")
+                        query = str(rule.get("query") or "")
+                        if not re.match(r"^R-AUTO-[A-Za-z0-9._-]+$", rule_id) or rule_id in existing_rules or not rule.get("name"):
+                            raise ValueError("规则 ID 重复或缺少名称")
+                        if implementation != "sparql":
+                            raise ValueError("规则 implementation 不受支持")
+                        if implementation == "sparql" and not re.search(r"(?is)\bconstruct\b", query):
+                            raise ValueError("SPARQL 规则必须是 CONSTRUCT")
+                        if re.search(r"\b(?:INSERT|DELETE|LOAD|CLEAR|DROP|CREATE|MOVE|COPY|ADD)\b", query, re.I):
+                            raise ValueError("SPARQL 规则只能是只读查询")
+                        Graph().query(query)
+                        rule["tests"] = [
+                            str(test_ref) for test_ref in (rule.get("tests") or [])
+                            if ".." not in Path(str(test_ref).split("::", 1)[0]).parts
+                            and (self.root / str(test_ref).split("::", 1)[0]).is_file()
+                        ]
+                        staged_rules.append(rule); existing_rules.add(rule_id)
+                    except Exception as exc:  # Candidate-local parse errors must not abort the round.
+                        result["quarantined_candidates"].append({"path": str(source), "category": "rule", "reason": str(exc)})
+
+                result["accepted_candidates"] = {
+                    "semantic": len(staged_semantic), "business": len(staged_business),
+                    "simulation": len(staged_simulation), "knowledge": len(staged_knowledge),
+                    "rules": len(staged_rules),
+                }
+                result["rejected_candidates"] = len(result["quarantined_candidates"])
 
                 cross = await self.cross_validate()
                 result["checks"].update(cross)
@@ -274,6 +343,24 @@ class SemiKbAdapter:
                 result["simulation_runs"] = simulation_runs
 
                 if publish:
+                    if staged_rules:
+                        rules_backup = rules_path.read_bytes() if rules_path.is_file() else None
+                        rule_dir = self.root / "ontology" / "rules" / "generated"
+                        rule_dir.mkdir(parents=True, exist_ok=True)
+                        registered_rules = []
+                        for rule in staged_rules:
+                            target = rule_dir / f"{self._safe_stem(str(rule.get('rule_id')))}.rq"
+                            if target.exists():
+                                raise SemiKbError(f"规则文件已存在：{target.name}")
+                            target.write_text(str(rule.get("query") or "").strip() + "\n", encoding="utf-8")
+                            staged_rule_paths.append(target)
+                            registered = {key: value for key, value in rule.items() if key != "query"}
+                            registered["implementation"] = target.relative_to(self.root).as_posix()
+                            registered_rules.append(registered)
+                        registry.setdefault("rules", []).extend(registered_rules)
+                        rules_path.parent.mkdir(parents=True, exist_ok=True)
+                        rules_path.write_text(json.dumps(registry, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+                        rules_registry_modified = True
                     if staged_semantic:
                         applied = await self.command("apply_semantic_changeset.py", timeout=1800)
                         result["checks"]["full_publish_gate"] = {"passed": applied["exit_code"] == 0, "duration_seconds": applied["duration_seconds"], "output": applied["output"][-8000:]}
@@ -298,6 +385,10 @@ class SemiKbAdapter:
                     result["published_articles"] = published_articles
                     result["published_business_models"] = [path.relative_to(self.root).as_posix() for path in staged_business]
                     result["published_simulations"] = [path.relative_to(self.root).as_posix() for path in staged_simulation]
+                    for source, target in staged_knowledge:
+                        await asyncio.to_thread(shutil.copy2, source, target)
+                    result["published_knowledge"] = [target.relative_to(self.root).as_posix() for _, target in staged_knowledge]
+                    result["published_rules"] = [str(rule.get("rule_id")) for rule in staged_rules]
                     self.invalidate_cache()
                 else:
                     result["checks"]["publish_policy"] = {"passed": True, "output": "用户未开启自动发布；候选仅保存在控制台产物目录"}
@@ -307,6 +398,15 @@ class SemiKbAdapter:
                     path.unlink(missing_ok=True)
                 for path in staged_simulation:
                     path.unlink(missing_ok=True)
+                for _, target in staged_knowledge:
+                    target.unlink(missing_ok=True)
+                for path in staged_rule_paths:
+                    path.unlink(missing_ok=True)
+                if rules_registry_modified:
+                    if rules_backup is None:
+                        rules_path.unlink(missing_ok=True)
+                    else:
+                        rules_path.write_bytes(rules_backup)
                 raise
             finally:
                 if not publish or not semantic_applied:
@@ -317,6 +417,8 @@ class SemiKbAdapter:
                         path.unlink(missing_ok=True)
                     for path in staged_simulation:
                         path.unlink(missing_ok=True)
+                    for _, target in staged_knowledge:
+                        target.unlink(missing_ok=True)
 
     def semantic_counts(self) -> dict[str, int]:
         self._ensure_root()
@@ -331,6 +433,7 @@ class SemiKbAdapter:
         object_properties = set(schema.subjects(RDF.type, OWL.ObjectProperty))
         datatype_properties = set(schema.subjects(RDF.type, OWL.DatatypeProperty))
         individuals = {s for s, _, o in data.triples((None, RDF.type, None)) if o not in {OWL.Class, OWL.ObjectProperty, OWL.DatatypeProperty}}
+        relation_assertions = sum(1 for subject, predicate, obj in data if predicate in object_properties and subject != obj)
         axiom_predicates = {OWL.equivalentClass, OWL.disjointWith, OWL.inverseOf, OWL.onProperty, OWL.cardinality, OWL.qualifiedCardinality, OWL.minQualifiedCardinality, OWL.maxQualifiedCardinality}
         axioms = sum(1 for _, predicate, _ in schema if predicate in axiom_predicates)
         rules_path = self.root / "ontology" / "rules" / "registry.json"
@@ -344,6 +447,7 @@ class SemiKbAdapter:
             "object_properties": len(object_properties),
             "datatype_properties": len(datatype_properties),
             "individuals": len(individuals),
+            "relation_assertions": relation_assertions,
             "axioms": axioms,
             "rules": rules,
             "semantic_triples": len(schema) + len(data),
@@ -372,7 +476,16 @@ class SemiKbAdapter:
             except json.JSONDecodeError:
                 pass
         agent_articles = len(list((self.root / "knowledge" / "articles" / "agent-rounds").glob("*.md")))
-        return {"business_models": len(business_models), "business_relations": business_relations, "simulation_scenarios": simulations, "scenario_articles": scenario_count + agent_articles, "vfab_state": vfab_state}
+        knowledge_entries = 0
+        entries_dir = self.root / "knowledge" / "entries"
+        for path in entries_dir.glob("*.json") if entries_dir.is_dir() else []:
+            try:
+                doc = json.loads(path.read_text(encoding="utf-8"))
+                if doc.get("id") and doc.get("content"):
+                    knowledge_entries += 1
+            except (OSError, json.JSONDecodeError):
+                continue
+        return {"business_models": len(business_models), "business_relations": business_relations, "simulation_scenarios": simulations, "scenario_articles": scenario_count + agent_articles, "knowledge_entries": knowledge_entries, "vfab_state": vfab_state}
 
     async def metrics(self, db: Session | None = None, user_id: int | None = None) -> dict:
         if self._base_metrics_cache and time.monotonic() - self._base_metrics_cache[0] < 5:
@@ -381,7 +494,7 @@ class SemiKbAdapter:
         else:
             legacy = await self.status()
             totals = {**self.semantic_counts(), **self.artifact_counts()}
-            totals.update({"legacy_entities": legacy.get("entities", 0), "knowledge_entries": legacy.get("kb_cases", 0), "relations": legacy.get("edges", 0), "anomaly_total": legacy.get("anomaly_total", 0), "anomaly_covered": legacy.get("anomaly_covered", 0)})
+            totals.update({"legacy_entities": legacy.get("entities", 0), "knowledge_entries": int(legacy.get("kb_cases", 0)) + int(totals.get("knowledge_entries", 0)), "relations": int(legacy.get("edges", 0)) + int(totals.get("relation_assertions", 0)), "anomaly_total": legacy.get("anomaly_total", 0), "anomaly_covered": legacy.get("anomaly_covered", 0)})
             self._base_metrics_cache = (time.monotonic(), {"legacy": legacy, "totals": dict(totals)})
         totals["coverage_percent"] = round(100 * totals["anomaly_covered"] / totals["anomaly_total"], 1) if totals["anomaly_total"] else 0
         today = {key: 0 for key in ("classes", "properties", "relations", "individuals", "axioms", "rules", "knowledge_entries", "business_relations", "simulation_scenarios", "scenario_articles")}

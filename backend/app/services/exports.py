@@ -16,7 +16,7 @@ from ..models import ExportJob
 
 EXPORT_PATTERNS = {
     "ontology": ["ontology/modules/*.ttl", "ontology/shapes/*.ttl", "ontology/rules/*", "ontology/catalog.xml"],
-    "knowledge": ["knowledge/semantic/*.ttl", "knowledge/scenarios/*", "kb/**/*.yaml"],
+    "knowledge": ["knowledge/semantic/*.ttl", "knowledge/scenarios/*", "knowledge/entries/*.json", "kb/**/*.yaml"],
     "business": ["business/models/*.yaml", "business/templates/*.yaml", "business/datasets/*.yaml"],
     "simulation": ["simulation/scenarios/*.yaml"],
     # Keep the scenario-knowledge export separate from公众号草稿（knowledge/articles/generated）。

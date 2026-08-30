@@ -1,0 +1,64 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import pytest
+
+from app.services.semi_kb import semi_kb
+
+from app.services.semantic_pipeline import validate_and_store_agent_output
+
+
+def test_cross_reference_cleanup_keeps_valid_class_and_drops_dangling_property() -> None:
+    raw = {
+        "summary": "设备异常知识需要统一建模，便于跨系统定位和复盘。",
+        "customer_pains": ["同一异常在不同系统中使用不同名称，导致排查耗时。"],
+        "semantic_changesets": [{
+            "provenance": {"source_type": "model_prior", "confidence": "low", "source_ref": "model:test"},
+            "additions": {
+                "classes": [{"iri": "urn:pxai:semi:ConsoleValidEnrichmentClass", "label_zh": "验证类", "subclass_of": ["urn:pxai:semi:Equipment"]}],
+                "datatype_properties": [{"iri": "urn:pxai:semi:ConsoleDanglingProperty", "label_zh": "悬空属性", "domain": ["urn:pxai:semi:ClassFromAnotherAgent"], "datatype": "http://www.w3.org/2001/XMLSchema#string"}],
+            },
+        }],
+        "scenario_article_markdown": "场景：设备异常知识。客户痛点：名称不一致。经营与仿真含义：仅用于自动校验，不构成经营承诺。",
+    }
+    result = validate_and_store_agent_output(raw, run_id="run-enrichment-test", round_number=1, agent_id="agent-1", source_mode="model_prior", model_id="gpt-test", evidence=[])
+    document = json.loads(Path(result["semantic_files"][0]).read_text(encoding="utf-8"))
+    assert len(document["additions"]["classes"]) == 1
+    assert "datatype_properties" not in document["additions"]
+    assert any("domain未声明" in warning for warning in result["sanitization_warnings"])
+
+
+def test_knowledge_and_rule_candidates_are_normalized() -> None:
+    raw = {
+        "summary": "设备停机事件与维护响应之间存在可验证的时间约束。",
+        "customer_pains": ["维护响应时间缺少统一口径，影响交付风险评估。"],
+        "semantic_changesets": [],
+        "knowledge_entries": [{"entry": {"id": "urn:pxai:semi:knowledge:enrichment-test", "title": "维护响应知识", "domain": "eqp", "summary": "响应时间约束", "content": "设备停机后维护响应时间需要统一记录，并与交付风险评估关联。", "source_refs": [], "related_iris": [], "confidence": "high"}}],
+        "rule_candidates": [{"rule": {"rule_id": "R-AUTO-ENRICHMENT-001", "name": "响应时间风险提示", "purpose": "为后续规则测试提供结构化候选", "implementation": "sparql", "query": "CONSTRUCT { ?event <urn:pxai:semi:hasRisk> ?risk } WHERE { ?event a <urn:pxai:semi:EquipmentDowntimeEvent> . }", "preconditions": ["事件类型已声明"], "conclusion": "生成风险提示候选", "required_sources": ["equipment_event"], "tests": [], "confidence": "medium"}}],
+        "scenario_article_markdown": "场景：设备停机。客户痛点：维护响应时间不统一。经营与仿真含义：只用于校验。",
+    }
+    result = validate_and_store_agent_output(raw, run_id="run-enrichment-test", round_number=2, agent_id="agent-1", source_mode="model_prior", model_id="gpt-test", evidence=[])
+    assert len(result["knowledge_files"]) == 1
+    assert len(result["rule_files"]) == 1
+
+
+@pytest.mark.asyncio
+async def test_bad_semantic_candidate_is_quarantined_without_blocking_valid_one(tmp_path: Path) -> None:
+    valid = tmp_path / "valid.json"
+    valid.write_text(json.dumps({
+        "id": "scs.console.enrichment-valid", "created_at": "2026-08-30",
+        "provenance": {"source_type": "model_prior", "confidence": "low", "source_ref": "model:test"},
+        "additions": {"classes": [{"iri": "urn:pxai:semi:ConsoleEnrichmentValidClass", "label_zh": "有效候选类", "subclass_of": ["urn:pxai:semi:Equipment"]}]},
+    }), encoding="utf-8")
+    bad = tmp_path / "bad.json"
+    bad.write_text(json.dumps({
+        "id": "scs.console.enrichment-bad", "created_at": "2026-08-30",
+        "provenance": {"source_type": "model_prior", "confidence": "low", "source_ref": "model:test"},
+        "additions": {"datatype_properties": [{"iri": "urn:pxai:semi:ConsoleEnrichmentBadProperty", "label_zh": "坏属性", "domain": ["urn:pxai:semi:DoesNotExist"], "datatype": "http://www.w3.org/2001/XMLSchema#string"}]},
+    }), encoding="utf-8")
+    result = await semi_kb.process_candidates({"semantic": [bad, valid], "business": [], "simulation": [], "knowledge": [], "rules": [], "articles": []}, publish=False)
+    assert result["semantic_candidates"] == 2
+    assert any(item["path"] == str(bad) for item in result["quarantined_candidates"])
+    assert result["checks"]["semantic_precheck"]["passed"] is True

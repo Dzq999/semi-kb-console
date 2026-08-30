@@ -178,7 +178,7 @@ class RoundGraphEngine:
         artifacts = dict(state.get("artifacts") or {})
         artifacts.update({key: [str(path) for path in value] for key, value in candidates.items()})
         with SessionLocal() as db:
-            self.controller.emit(db, state["run_id"], "candidates_ready", f"第 {state['round_number']} 轮生成语义候选 {len(candidates['semantic'])}、经营模型候选 {len(candidates['business'])}、仿真候选 {len(candidates['simulation'])}", {"round": state["round_number"], "semantic": len(candidates["semantic"]), "business": len(candidates["business"]), "simulation": len(candidates["simulation"])})
+            self.controller.emit(db, state["run_id"], "candidates_ready", f"第 {state['round_number']} 轮生成语义候选 {len(candidates['semantic'])}、经营模型候选 {len(candidates['business'])}、仿真候选 {len(candidates['simulation'])}、知识条目 {len(candidates['knowledge'])}、规则 {len(candidates['rules'])}", {"round": state["round_number"], "semantic": len(candidates["semantic"]), "business": len(candidates["business"]), "simulation": len(candidates["simulation"]), "knowledge": len(candidates["knowledge"]), "rules": len(candidates["rules"])})
         return {"artifacts": artifacts}
 
     async def cross_validation(self, state: RoundGraphState) -> dict:
@@ -197,7 +197,11 @@ class RoundGraphEngine:
                 row = db.scalar(select(RunRound).where(RunRound.run_id == state["run_id"], RunRound.round_number == state["round_number"]))
                 if row:
                     row.validation_json = json.dumps(validation, ensure_ascii=False)
+                    row.quarantined_files_json = json.dumps(validation.get("quarantined_candidates") or [], ensure_ascii=False)
                     db.commit()
+                for item in validation.get("quarantined_candidates") or []:
+                    reason = " ".join(str(item.get("reason") or "未知原因").split())[-220:]
+                    self.controller.emit(db, state["run_id"], "candidate_quarantined", f"候选已隔离：{Path(str(item.get('path') or '')).name}；{reason}", {"round": state["round_number"], **item}, "warning")
                 self.controller.emit(db, state["run_id"], "cross_validation", f"第 {state['round_number']} 轮交叉验证通过", {"round": state["round_number"], "published": validation.get("published"), "checks": validation.get("checks")})
             return {"validation": validation, "gate_error": None}
         except Exception as exc:
@@ -215,13 +219,13 @@ class RoundGraphEngine:
         outputs = json.loads(json.dumps(state.get("outputs") or []))
         quarantined = list(state.get("quarantined_files") or [])
         for output in outputs:
-            for key in ("semantic_files", "business_files", "simulation_files"):
+            for key in ("semantic_files", "business_files", "simulation_files", "knowledge_files", "rule_files"):
                 valid: list[str] = []
                 for raw_path in output.get(key) or []:
                     path = Path(raw_path)
-                    category = "semantic" if key == "semantic_files" else ("business" if key == "business_files" else "simulation")
+                    category = {"semantic_files": "semantic", "business_files": "business", "simulation_files": "simulation", "knowledge_files": "knowledge", "rule_files": "rules"}[key]
                     try:
-                        await semi_kb.process_candidates({"semantic": [path] if category == "semantic" else [], "business": [path] if category == "business" else [], "simulation": [path] if category == "simulation" else [], "articles": []}, publish=False)
+                        await semi_kb.process_candidates({"semantic": [path] if category == "semantic" else [], "business": [path] if category == "business" else [], "simulation": [path] if category == "simulation" else [], "knowledge": [path] if category == "knowledge" else [], "rules": [path] if category == "rules" else [], "articles": []}, publish=False)
                         valid.append(raw_path)
                     except Exception as exc:
                         quarantine = path.parent / "quarantine"; quarantine.mkdir(exist_ok=True)
@@ -231,7 +235,7 @@ class RoundGraphEngine:
                         with SessionLocal() as db:
                             self.controller.emit(db, state["run_id"], "candidate_quarantined", f"候选已隔离：{path.name}", {"round": state["round_number"], "path": str(target), "error": str(exc)}, "warning")
                 output[key] = valid
-        if not any(round_candidate_files(outputs)[key] for key in ("semantic", "business", "simulation")):
+        if not any(round_candidate_files(outputs)[key] for key in ("semantic", "business", "simulation", "knowledge", "rules")):
             raise SemiKbError("所有结构化候选均未通过门禁，已隔离")
         return {"outputs": outputs, "repair_attempt": int(state.get("repair_attempt", 0)) + 1, "quarantined_files": quarantined, "gate_error": None}
 

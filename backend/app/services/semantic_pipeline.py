@@ -102,56 +102,81 @@ def _inventory() -> dict[str, set[str]]:
 def _sanitize_additions(additions: dict, allowed: dict[str, set[str]], claimed: set[str]) -> tuple[dict, list[str]]:
     warnings: list[str] = []
     result = {key: [] for key in ("classes", "object_properties", "datatype_properties", "individuals", "object_assertions", "data_assertions")}
-    for item in additions.get("classes") or []:
-        iri = item.get("iri")
-        if iri in claimed:
-            warnings.append(f"跳过重复或已有类 {iri}"); continue
-        if any(parent not in allowed["classes"] for parent in item.get("subclass_of") or []):
-            warnings.append(f"跳过父类未声明的类 {iri}"); continue
-        copy = dict(item)
-        copy["equivalent_to"] = [value for value in copy.get("equivalent_to") or [] if value in allowed["classes"]]
-        copy["disjoint_with"] = [value for value in copy.get("disjoint_with") or [] if value in allowed["classes"]]
-        clean_restrictions = []
-        for restriction in copy.get("restrictions") or []:
-            prop = restriction.get("on_property")
-            target = restriction.get("target_class")
-            datatype = restriction.get("target_datatype")
-            if prop not in allowed["object_properties"] | allowed["datatype_properties"]: continue
-            if target and target not in allowed["classes"]: continue
-            if datatype and not str(datatype).startswith("http://www.w3.org/2001/XMLSchema#"): continue
-            clean_restrictions.append(restriction)
-        if "restrictions" in copy: copy["restrictions"] = clean_restrictions
-        result["classes"].append(copy); claimed.add(iri)
+    # Build the accepted inventory before checking dependent sections.  A model can
+    # mention a newly proposed class in a property domain, but a duplicate or invalid
+    # class must not remain in the allow-list or it will create an OWL dangling ref.
+    existing_classes = set(allowed["classes"] - {str(item.get("iri")) for item in additions.get("classes") or []})
+    accepted_classes = set(existing_classes)
+    pending_classes = [item for item in additions.get("classes") or [] if isinstance(item, dict)]
+    while pending_classes:
+        deferred: list[dict] = []
+        accepted_this_pass = 0
+        for item in pending_classes:
+            iri = item.get("iri")
+            if iri in claimed:
+                warnings.append(f"跳过重复或已有类 {iri}"); continue
+            parents = item.get("subclass_of") or []
+            if any(parent not in accepted_classes for parent in parents):
+                deferred.append(item); continue
+            copy = dict(item)
+            copy["equivalent_to"] = [value for value in copy.get("equivalent_to") or [] if value in accepted_classes]
+            copy["disjoint_with"] = [value for value in copy.get("disjoint_with") or [] if value in accepted_classes]
+            clean_restrictions = []
+            for restriction in copy.get("restrictions") or []:
+                prop = restriction.get("on_property")
+                target = restriction.get("target_class")
+                datatype = restriction.get("target_datatype")
+                if prop not in allowed["object_properties"] | allowed["datatype_properties"]: continue
+                if target and target not in accepted_classes: continue
+                if datatype and not str(datatype).startswith("http://www.w3.org/2001/XMLSchema#"): continue
+                clean_restrictions.append(restriction)
+            if "restrictions" in copy: copy["restrictions"] = clean_restrictions
+            result["classes"].append(copy); accepted_classes.add(iri); claimed.add(iri); accepted_this_pass += 1
+        if not deferred or not accepted_this_pass:
+            for item in deferred:
+                warnings.append(f"跳过父类未声明的类 {item.get('iri')}")
+            break
+        pending_classes = deferred
+    allowed_classes = accepted_classes
     for section, category in (("object_properties", "object_properties"), ("datatype_properties", "datatype_properties")):
         for item in additions.get(section) or []:
             iri = item.get("iri")
             if iri in claimed:
                 warnings.append(f"跳过重复或已有属性 {iri}"); continue
-            if any(value not in allowed["classes"] for value in item.get("domain") or []):
+            if any(value not in allowed_classes for value in item.get("domain") or []):
                 warnings.append(f"跳过domain未声明的属性 {iri}"); continue
-            if section == "object_properties" and any(value not in allowed["classes"] for value in item.get("range") or []):
+            if section == "object_properties" and any(value not in allowed_classes for value in item.get("range") or []):
                 warnings.append(f"跳过range未声明的属性 {iri}"); continue
             result[section].append(item); claimed.add(iri)
+    accepted_object_properties = set(allowed["object_properties"] - {str(item.get("iri")) for item in additions.get("object_properties") or []}) | {str(item.get("iri")) for item in result["object_properties"]}
+    accepted_datatype_properties = set(allowed["datatype_properties"] - {str(item.get("iri")) for item in additions.get("datatype_properties") or []}) | {str(item.get("iri")) for item in result["datatype_properties"]}
+    for cls in result["classes"]:
+        if "restrictions" in cls:
+            cls["restrictions"] = [item for item in cls.get("restrictions") or [] if item.get("on_property") in accepted_object_properties | accepted_datatype_properties]
     for item in additions.get("individuals") or []:
         iri = item.get("iri")
         if iri in claimed:
             warnings.append(f"跳过重复或已有实例 {iri}"); continue
-        if any(value not in allowed["classes"] for value in item.get("types") or []):
+        if any(value not in allowed_classes for value in item.get("types") or []):
             warnings.append(f"跳过类型未声明的实例 {iri}"); continue
         copy = dict(item)
         for predicate in (copy.get("objects") or {}):
-            if predicate not in allowed["object_properties"]: warnings.append(f"实例 {iri} 跳过未声明对象属性 {predicate}")
+            if predicate not in accepted_object_properties: warnings.append(f"实例 {iri} 跳过未声明对象属性 {predicate}")
         for predicate in (copy.get("data") or {}):
-            if predicate not in allowed["datatype_properties"]: warnings.append(f"实例 {iri} 跳过未声明数据属性 {predicate}")
-        copy["objects"] = {predicate: [value for value in _as_list(values) if value in allowed["subjects"]] for predicate, values in (copy.get("objects") or {}).items() if predicate in allowed["object_properties"]}
-        copy["data"] = {predicate: [value for value in _as_list(values) if isinstance(value, (str, int, float, bool))] for predicate, values in (copy.get("data") or {}).items() if predicate in allowed["datatype_properties"]}
+            if predicate not in accepted_datatype_properties: warnings.append(f"实例 {iri} 跳过未声明数据属性 {predicate}")
+        copy["objects"] = {predicate: [value for value in _as_list(values) if value in allowed["subjects"]] for predicate, values in (copy.get("objects") or {}).items() if predicate in accepted_object_properties}
+        copy["data"] = {predicate: [value for value in _as_list(values) if isinstance(value, (str, int, float, bool))] for predicate, values in (copy.get("data") or {}).items() if predicate in accepted_datatype_properties}
         result["individuals"].append(copy); claimed.add(iri)
+    accepted_subjects = allowed["subjects"] | {str(item.get("iri")) for item in result["individuals"]}
+    accepted_subjects |= {str(item.get("iri")) for item in result["classes"]}
+    for individual in result["individuals"]:
+        individual["objects"] = {predicate: [value for value in values if value in accepted_subjects] for predicate, values in (individual.get("objects") or {}).items()}
     for item in additions.get("object_assertions") or []:
-        if item.get("subject") in allowed["subjects"] and item.get("object") in allowed["subjects"] and item.get("predicate") in allowed["object_properties"]:
+        if item.get("subject") in accepted_subjects and item.get("object") in accepted_subjects and item.get("predicate") in accepted_object_properties:
             result["object_assertions"].append(item)
         else: warnings.append(f"跳过悬空对象关系 {item.get('predicate')}")
     for item in additions.get("data_assertions") or []:
-        if item.get("subject") in allowed["subjects"] and item.get("predicate") in allowed["datatype_properties"]:
+        if item.get("subject") in accepted_subjects and item.get("predicate") in accepted_datatype_properties:
             result["data_assertions"].append(item)
         else: warnings.append(f"跳过未声明数据属性 {item.get('predicate')}")
     return {key: value for key, value in result.items() if value}, warnings
@@ -188,6 +213,21 @@ def prompt_contract() -> dict:
                 "interventions": [{"target_ref": "existing legacy ontology id", "variable": "existing model input", "operation": "set|add|multiply", "value": 1}],
                 "assertions": [{"type": "nondecreasing|nonincreasing|unchanged", "variable": "existing model output"}],
                 "investment": {"one_time": 0, "unit": "CNY"},
+            }
+        }],
+        "knowledge_entries": [{
+            "entry": {
+                "id": "urn:pxai:semi:knowledge:...", "title": "string", "domain": "fab|fac|eqp",
+                "summary": "string", "content": "evidence-grounded concise knowledge",
+                "source_refs": ["URL or model reference"], "related_iris": ["existing or same-output IRI"],
+                "confidence": "high|medium|low"
+            }
+        }],
+        "rule_candidates": [{
+            "rule": {
+                "rule_id": "R-AUTO-...", "name": "string", "purpose": "string", "implementation": "sparql",
+                "query": "required read-only SPARQL CONSTRUCT", "preconditions": ["string"], "conclusion": "string",
+                "required_sources": ["string"], "tests": ["tests/semantic/..."], "confidence": "high|medium|low"
             }
         }],
         "scenario_article_markdown": "Markdown正文，包含场景、客户痛点、影响、证据边界和仿真含义",
@@ -345,6 +385,90 @@ def validate_and_store_agent_output(
         path.write_text(yaml.safe_dump({"schema_version": "2.0", "scenario": scenario}, allow_unicode=True, sort_keys=False), encoding="utf-8")
         simulation_files.append(str(path))
 
+    # Knowledge entries and inference rules are separate governed artifacts.  They
+    # are kept out of the OWL changeset so a bad rule/query cannot invalidate valid
+    # ontology additions, while still using the same provenance and publish gate.
+    knowledge_files: list[str] = []
+    known_iris = inventory["subjects"] | proposed["classes"] | proposed["object_properties"] | proposed["datatype_properties"] | proposed["individuals"]
+    for index, wrapper in enumerate(_as_list(raw.get("knowledge_entries")), 1):
+        entry = dict((wrapper or {}).get("entry") or {}) if isinstance(wrapper, dict) else {}
+        entry_id = str(entry.get("id") or "")
+        title = str(entry.get("title") or "").strip()
+        content = str(entry.get("content") or "").strip()
+        if not entry_id or not re.match(r"^urn:pxai:semi:knowledge:[A-Za-z0-9._:%-]+$", entry_id) or not title or len(content) < 40:
+            sanitization_warnings.append("跳过不完整知识条目候选"); continue
+        related = [str(value) for value in _as_list(entry.get("related_iris")) if str(value) in known_iris]
+        refs = [str(value) for value in _as_list(entry.get("source_refs")) if str(value)]
+        if source_mode in {"web", "hybrid"}: refs = [value for value in refs if value in urls] or sorted(urls)[:1]
+        if not refs and source_mode == "web":
+            sanitization_warnings.append(f"跳过知识条目 {entry_id}：缺少网页证据"); continue
+        confidence = str(entry.get("confidence") or "low")
+        if confidence not in {"high", "medium", "low"}: confidence = "low"
+        if source_mode == "model_prior" and confidence == "high": confidence = "medium"
+        normalized_entry = {
+            "id": entry_id, "title": title, "domain": str(entry.get("domain") or "semiconductor"),
+            "summary": str(entry.get("summary") or content[:180]), "content": content,
+            "source_refs": refs, "related_iris": related, "confidence": confidence,
+            "provenance": {"source_type": "web" if refs else "model_prior", "source_ref": refs[0] if refs else f"model:{model_id}"},
+        }
+        path = output_dir / f"knowledge-{index:02d}.json"
+        path.write_text(json.dumps(normalized_entry, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        knowledge_files.append(str(path))
+
+    rule_files: list[str] = []
+    for index, wrapper in enumerate(_as_list(raw.get("rule_candidates")), 1):
+        rule = dict((wrapper or {}).get("rule") or {}) if isinstance(wrapper, dict) else {}
+        rule_id = str(rule.get("rule_id") or "")
+        implementation = str(rule.get("implementation") or "")
+        query = str(rule.get("query") or "").strip()
+        if not re.match(r"^R-AUTO-[A-Za-z0-9._-]+$", rule_id) or not rule.get("name") or implementation != "sparql":
+            sanitization_warnings.append("跳过不完整推理规则候选"); continue
+        if implementation == "sparql" and not re.search(r"(?is)\bconstruct\b", query):
+            sanitization_warnings.append(f"跳过规则 {rule_id}：SPARQL 规则必须是 CONSTRUCT"); continue
+        if query and re.search(r"\b(?:INSERT|DELETE|LOAD|CLEAR|DROP|CREATE|MOVE|COPY|ADD)\b", query, re.I):
+            sanitization_warnings.append(f"跳过规则 {rule_id}：SPARQL 包含危险更新语句"); continue
+        confidence = str(rule.get("confidence") or "low")
+        if confidence not in {"high", "medium", "low"}: confidence = "low"
+        if source_mode == "model_prior" and confidence == "high": confidence = "medium"
+        valid_tests = []
+        for test_ref in _as_list(rule.get("tests")):
+            test_path = str(test_ref).split("::", 1)[0]
+            candidate_test = settings.semi_kb_root / test_path
+            if test_path and ".." not in Path(test_path).parts and candidate_test.is_file():
+                valid_tests.append(str(test_ref))
+            elif test_path:
+                sanitization_warnings.append(f"规则 {rule_id} 移除不存在的测试引用 {test_ref}")
+        normalized_rule = {
+            "rule_id": rule_id, "name": str(rule.get("name")), "purpose": str(rule.get("purpose") or ""),
+            "implementation": implementation, "query": query, "preconditions": [str(v) for v in _as_list(rule.get("preconditions"))],
+            "conclusion": str(rule.get("conclusion") or ""), "required_sources": [str(v) for v in _as_list(rule.get("required_sources"))],
+            "tests": valid_tests, "confidence": confidence,
+            "provenance": {"source_type": "web" if urls else "model_prior", "source_ref": sorted(urls)[0] if urls else f"model:{model_id}"},
+        }
+        path = output_dir / f"rule-{index:02d}.json"
+        path.write_text(json.dumps(normalized_rule, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        rule_files.append(str(path))
+
+    if not knowledge_files and str(raw.get("summary") or raw.get("customer_pains") or "").strip() and (source_mode != "web" or urls):
+        # Keep a concise evidence-backed knowledge record even when a model omits
+        # the optional structured section.  This is a normalization fallback, not
+        # an invented domain fact: it stores exactly the model's stated summary and
+        # pain points with the same provenance boundary.
+        fallback_id = f"urn:pxai:semi:knowledge:{_slug(run_id, 'run')}-r{round_number}-{_slug(agent_id, 'agent')}"
+        fallback_pains = "\n".join(f"- {item}" for item in _as_list(raw.get("customer_pains"))) or "- 尚需更多证据确认客户痛点。"
+        fallback_content = "\n".join([str(raw.get("summary") or "").strip(), fallback_pains]).strip()
+        if len(fallback_content) >= 40:
+            fallback = {
+                "id": fallback_id, "title": str(raw.get("summary") or "本轮研究知识").strip()[:120],
+                "domain": "semiconductor", "summary": str(raw.get("summary") or "").strip()[:180],
+                "content": fallback_content, "source_refs": sorted(urls)[:3], "related_iris": [],
+                "confidence": "medium" if source_mode == "model_prior" else "low",
+                "provenance": {"source_type": "web" if urls else "model_prior", "source_ref": sorted(urls)[0] if urls else f"model:{model_id}"},
+            }
+            path = output_dir / "knowledge-fallback.json"
+            path.write_text(json.dumps(fallback, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+            knowledge_files.append(str(path))
+
     article = str(raw.get("scenario_article_markdown") or "").strip()
     pains = "\n".join(f"- {item}" for item in _as_list(raw.get("customer_pains"))) or "- 尚需更多证据确认客户痛点。"
     if len(article) < 120 or "痛点" not in article or "场景" not in article:
@@ -361,6 +485,8 @@ def validate_and_store_agent_output(
         "semantic_files": semantic_files,
         "business_files": business_files,
         "simulation_files": simulation_files,
+        "knowledge_files": knowledge_files,
+        "rule_files": rule_files,
         "article_file": str(article_path),
         "evidence_count": len([item for item in evidence if item.get("fetch_status") == "ok"]),
         "sanitization_warnings": sanitization_warnings,
@@ -375,5 +501,7 @@ def round_candidate_files(outputs: list[dict]) -> dict[str, list[Path]]:
         "semantic": [Path(path) for output in outputs for path in output.get("semantic_files") or []],
         "business": [Path(path) for output in outputs for path in output.get("business_files") or []],
         "simulation": [Path(path) for output in outputs for path in output.get("simulation_files") or []],
+        "knowledge": [Path(path) for output in outputs for path in output.get("knowledge_files") or []],
+        "rules": [Path(path) for output in outputs for path in output.get("rule_files") or []],
         "articles": [Path(output["article_file"]) for output in outputs if output.get("article_file")],
     }

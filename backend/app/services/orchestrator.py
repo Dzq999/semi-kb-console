@@ -8,6 +8,7 @@ import re
 import socket
 import time
 from datetime import datetime, timezone
+from pathlib import Path
 
 import jsonschema
 from sqlalchemy import func, select
@@ -197,6 +198,9 @@ class RunOrchestrator:
                     "你是企业级半导体知识工程Agent。只输出一个合法JSON对象，不要Markdown代码围栏。"
                     "扩充本体广度和深度，但已有IRI不得重复；多个Agent并行时也不得提出相同IRI，若概念已被其他Agent覆盖则改用更具体的命名或不提出变更，证据不足时允许不提出变更。"
                     "类、对象属性、数据属性、实例、关系断言、公理限制必须遵守提供的结构。"
+                    "每轮应优先补齐合法关系断言（object_assertions/data_assertions）和可证据支持的OWL限制；关系的subject/predicate/object必须分别是已知或本轮同一输出中实际保留的IRI。"
+                    "请同时输出至少1条结构化knowledge_entries（若有摘要或痛点，系统会保存为知识条目），并在资料支持新推理模式时输出rule_candidates；自动规则必须是可解释、可执行的只读SPARQL CONSTRUCT，不得输出更新型SPARQL。"
+                    "knowledge_entries必须包含可核查source_refs和不少于40字content；rule_candidates不得把普通描述冒充规则。"
                     "所有复数结构以及实例objects/data映射中的每个值都必须使用JSON数组，即使只有一个值。"
                     "仿真只能引用已有经营模型和示例中的合法变量；不得编造现场实测数值。" + source_rules
                 )
@@ -229,7 +233,7 @@ class RunOrchestrator:
                         )
                         iteration.output_json = json.dumps(output, ensure_ascii=False)
                         iteration.evidence_json = json.dumps(evidence, ensure_ascii=False)
-                        iteration.candidate_files_json = json.dumps(output.get("semantic_files", []) + output.get("business_files", []) + output.get("simulation_files", []), ensure_ascii=False)
+                        iteration.candidate_files_json = json.dumps(output.get("semantic_files", []) + output.get("business_files", []) + output.get("simulation_files", []) + output.get("knowledge_files", []) + output.get("rule_files", []), ensure_ascii=False)
                         iteration.status = "completed"; agent.output_json = iteration.output_json; agent.status = "completed"
                         return output
                     except (ExternalServiceError, json.JSONDecodeError, ValueError, OSError, jsonschema.ValidationError) as exc:
@@ -297,9 +301,17 @@ class RunOrchestrator:
                     with SessionLocal() as db: self.emit(db, run_id, "evidence_ready", f"第 {round_number} 轮提取 {count} 个网页正文证据", {"round": round_number, "evidence_pages": count})
                 elif stage == "semantic_modeling":
                     candidates = round_candidate_files(outputs); artifacts.update({key: [str(path) for path in value] for key, value in candidates.items()})
-                    with SessionLocal() as db: self.emit(db, run_id, "candidates_ready", f"第 {round_number} 轮生成语义候选 {len(candidates['semantic'])}、经营模型候选 {len(candidates['business'])}、仿真候选 {len(candidates['simulation'])}", {"round": round_number, "semantic": len(candidates["semantic"]), "business": len(candidates["business"]), "simulation": len(candidates["simulation"])})
+                    with SessionLocal() as db: self.emit(db, run_id, "candidates_ready", f"第 {round_number} 轮生成语义候选 {len(candidates['semantic'])}、经营模型候选 {len(candidates['business'])}、仿真候选 {len(candidates['simulation'])}、知识条目 {len(candidates['knowledge'])}、规则 {len(candidates['rules'])}", {"round": round_number, "semantic": len(candidates["semantic"]), "business": len(candidates["business"]), "simulation": len(candidates["simulation"]), "knowledge": len(candidates["knowledge"]), "rules": len(candidates["rules"])})
                 elif stage == "cross_validation":
                     validation = await semi_kb.process_candidates(round_candidate_files(outputs), publish=bool(config.get("publish_changes")))
+                    with SessionLocal() as db:
+                        row = db.scalar(select(RunRound).where(RunRound.run_id == run_id, RunRound.round_number == round_number))
+                        if row:
+                            row.quarantined_files_json = json.dumps(validation.get("quarantined_candidates") or [], ensure_ascii=False)
+                            db.commit()
+                        for item in validation.get("quarantined_candidates") or []:
+                            reason = re.sub(r"\s+", " ", str(item.get("reason") or "未知原因"))[-220:]
+                            self.emit(db, run_id, "candidate_quarantined", f"候选已隔离：{Path(str(item.get('path') or '')).name}；{reason}", {"round": round_number, **item}, "warning")
                     with SessionLocal() as db: self.emit(db, run_id, "cross_validation", f"第 {round_number} 轮交叉验证通过", {"round": round_number, "published": validation.get("published"), "checks": validation.get("checks")})
                 elif stage == "owl_shacl_reasoning":
                     check = (validation.get("checks") or {}).get("full_publish_gate") or (validation.get("checks") or {}).get("semantic_precheck") or {"passed": True}
