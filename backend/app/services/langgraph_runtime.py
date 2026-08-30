@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import re
 import shutil
 import time
 from datetime import datetime, timezone
@@ -257,19 +258,51 @@ class RoundGraphEngine:
             agent_ids = [agent.id for agent in run.agents] if run else []
         configs = (state.get("config") or {}).get("agents") or []
         # Restrict repair calls to Agents that produced the affected artifact
-        # category.  This keeps a failed SHACL candidate from re-running all ten
-        # providers while preserving a safe fallback to every Agent.
+        # *and* the focus entity named by the validator.  Category-only matching
+        # used to send every semantic Agent through a second/third LLM call even
+        # when SHACL identified one specific candidate.  Reading the small local
+        # candidate JSON files is cheap and makes repair proportional to the
+        # actual defect.  If a validator cannot expose a focus entity, retain a
+        # bounded category fallback rather than fan out to all ten Agents.
         error_lower = error.casefold()
         category_keys = [("仿真", "simulation_files"), ("经营", "business_files"), ("规则", "rule_files"), ("知识", "knowledge_files"), ("knowledge", "knowledge_files"), ("rule", "rule_files"), ("simulation", "simulation_files"), ("business", "business_files"), ("diagnostic", "semantic_files"), ("possiblecause", "semantic_files"), ("possible cause", "semantic_files"), ("shacl", "semantic_files"), ("owl", "semantic_files")]
+        focus_tokens: list[str] = []
+        for match in re.findall(r"Focus Node:\s*(<[^>]+>|[^\s\\r\\n]+)", error, flags=re.IGNORECASE):
+            token = match.strip().strip("<>")
+            if token:
+                focus_tokens.extend((token, token.rsplit(":", 1)[-1], token.rsplit("/", 1)[-1]))
+        focus_tokens = sorted({token for token in focus_tokens if len(token) >= 6}, key=len, reverse=True)
         selected_indexes: list[int] = []
         for index, output in enumerate(state.get("outputs") or []):
             if index >= len(agent_ids):
                 continue
             key = next((file_key for token, file_key in category_keys if token in error_lower), None)
-            if key is None or output.get(key):
+            if key is None:
+                selected_indexes.append(index)
+                continue
+            files = [Path(str(path)) for path in (output.get(key) or [])]
+            if not files:
+                continue
+            if not focus_tokens:
+                selected_indexes.append(index)
+                continue
+            try:
+                candidate_text = "\n".join(path.read_text(encoding="utf-8", errors="ignore") for path in files if path.is_file())
+            except OSError:
+                candidate_text = ""
+            if any(token in candidate_text for token in focus_tokens):
                 selected_indexes.append(index)
         if not selected_indexes:
-            selected_indexes = list(range(len(agent_ids)))
+            # A malformed/opaque validator message still gets a chance to repair,
+            # but never causes an unbounded ten-Agent fan-out. Prefer the first
+            # three Agents that produced the affected category.
+            key = next((file_key for token, file_key in category_keys if token in error_lower), None)
+            selected_indexes = [
+                index for index, output in enumerate(state.get("outputs") or [])
+                if index < len(agent_ids) and (key is None or output.get(key))
+            ][:3]
+        if not selected_indexes:
+            selected_indexes = list(range(min(3, len(agent_ids))))
 
         async def repair_one(index: int, agent_id: str) -> tuple[int, dict | None]:
             cfg = dict(configs[index] if index < len(configs) else {})
@@ -389,7 +422,14 @@ class RoundGraphEngine:
             # service's own candidate-level validation once. This preserves
             # compatibility with lightweight adapters and can still salvage a
             # valid candidate that only fails when isolated from its siblings.
-            baseline_failure = any("constraint violation" in reason.casefold() or "semantic_validate.py" in reason.casefold() for reason in rejected_reasons.values())
+            # A command name alone does not prove that the existing baseline is
+            # broken: candidate-local SHACL errors also come from
+            # ``semantic_validate.py``. Only skip single-candidate salvage when
+            # the report explicitly identifies a pre-existing focus node.
+            baseline_failure = any(
+                "constraint violation" in reason.casefold() and "focus node" in reason.casefold()
+                for reason in rejected_reasons.values()
+            )
             for path in rejected_semantic:
                 if not path.is_file():
                     continue
