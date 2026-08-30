@@ -93,6 +93,10 @@ class ArticleSettingsUpdate(BaseModel):
     timezone: str = "Asia/Shanghai"
     approval_required: bool = True
     auto_visuals: bool = True
+    daily_article_count: int = Field(default=1, ge=1, le=10)
+    article_model_id: str | None = Field(default=None, max_length=160)
+    image_model_id: str | None = Field(default=None, max_length=160)
+    image_count: int = Field(default=1, ge=0, le=5)
 
     @field_validator("generate_time")
     @classmethod

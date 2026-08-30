@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import html
 import hashlib
 import json
@@ -61,6 +62,35 @@ class LlmService:
             return response.json()["choices"][0]["message"]["content"]
         except (KeyError, IndexError, TypeError) as exc:
             raise ExternalServiceError("模型响应结构不兼容") from exc
+
+    async def generate_image(self, api_key: str, model: str, prompt: str, size: str = "1536x1024") -> tuple[bytes, str]:
+        """Generate one image and return bytes plus a safe extension.
+
+        The provider follows the OpenAI-compatible /images/generations contract.
+        URL responses are downloaded server-side; data URLs never reach logs.
+        """
+        payload = {"model": model, "prompt": prompt, "size": size, "response_format": "b64_json"}
+        headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+        try:
+            async with httpx.AsyncClient(timeout=90, follow_redirects=True) as client:
+                response = await client.post(f"{settings.llm_base_url}/images/generations", json=payload, headers=headers)
+        except (httpx.HTTPError, OSError) as exc:
+            raise ExternalServiceError(f"图片模型网络调用失败：{type(exc).__name__}") from exc
+        if response.status_code >= 400:
+            raise ExternalServiceError(f"图片模型调用失败：HTTP {response.status_code}")
+        try:
+            item = response.json()["data"][0]
+            if item.get("b64_json"):
+                return base64.b64decode(item["b64_json"]), ".png"
+            image_url = item.get("url")
+            if image_url:
+                async with httpx.AsyncClient(timeout=90, follow_redirects=True) as client:
+                    image = await client.get(image_url)
+                image.raise_for_status()
+                return image.content, ".png"
+        except (KeyError, IndexError, TypeError, ValueError, httpx.HTTPError) as exc:
+            raise ExternalServiceError("图片模型响应结构不兼容") from exc
+        raise ExternalServiceError("图片模型未返回图片")
 
 
 class WebResearchService:

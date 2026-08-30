@@ -30,14 +30,14 @@ METRIC_LABELS = [
 
 
 def fixed_metrics_markdown(snapshot: dict) -> str:
-    lines = ["## 一、今日核心数据", "", "| 指标 | 今日新增 | 当前总量 |", "|---|---:|---:|"]
+    lines = ["## 今日关键结果", "", "| 指标 | 今日新增 | 当前总量 |", "|---|---:|---:|"]
     totals = snapshot["totals"]
     added = snapshot["today_added"]
     for key, label in METRIC_LABELS:
         lines.append(f"| {label} | {int(added.get(key, 0)):,} | {int(totals.get(key, 0)):,} |")
     latest = snapshot.get("latest_round") or {}
     checks = (latest.get("validation") or {}).get("checks") or {}
-    lines.extend(["", "## 二、自动校验与交叉验证", "", f"- 内部特征：已接入；最近轮次来源对齐：`{'pass' if (checks.get('source_alignment') or {}).get('passed') else '无通过记录'}`。", f"- vFab：`{totals.get('vfab_state', 'awaiting_source')}`；未提供时不得标记通过。", f"- 最近轮次：`{latest.get('run_id', '无')}` / 第 `{latest.get('round_number', 0)}` 轮 / `{latest.get('status', '无')}`。", f"- OWL/SHACL/推理发布门禁：`{'pass' if (checks.get('full_publish_gate') or checks.get('semantic_precheck') or {}).get('passed') else '无通过记录'}`；经营仿真：`{'pass' if (checks.get('business_simulation') or {}).get('passed') else '无通过记录'}`。", ""])
+    lines.extend(["", "## 验证与需关注事项", f"- 内部特征：已接入；来源对齐：`{'通过' if (checks.get('source_alignment') or {}).get('passed') else '暂无通过记录'}`。", f"- vFab：`{totals.get('vfab_state', 'awaiting_source')}`（未提供时不标记为通过）。", f"- 最近轮次：第 {latest.get('round_number', 0)} 轮，状态 `{latest.get('status', '无')}`；OWL/SHACL/推理：`{'通过' if (checks.get('full_publish_gate') or checks.get('semantic_precheck') or {}).get('passed') else '暂无通过记录'}`；经营仿真：`{'通过' if (checks.get('business_simulation') or {}).get('passed') else '暂无通过记录'}`。", "", "## 明日重点", "- 继续补齐 Fab、FAC、EQP 的高价值缺口，并优先处理未通过校验项。"])
     return "\n".join(lines)
 
 
@@ -48,13 +48,15 @@ def validate_report(content: str, snapshot: dict) -> dict:
         total = f"{int(snapshot['totals'].get(key, 0)):,}"
         if label not in content or today not in content or total not in content:
             errors.append(f"缺少或不一致：{label}")
-    required = ["客户痛点", "场景", "交叉验证", "经营", "仿真", "明日"]
+    required = ["验证", "经营", "仿真", "明日"]
     errors.extend(f"缺少章节语义：{term}" for term in required if term not in content)
     if snapshot["totals"].get("vfab_state") == "awaiting_source" and re.search(r"vFab.{0,12}(通过|已验证|确认)", content, re.I):
         errors.append("vFab 未提供却被描述为通过")
     secret_patterns = [r"Bearer\s+[A-Za-z0-9._-]+", r"webhook/send\?key=", r"授权码\s*[:：]\s*\S+"]
     if any(re.search(pattern, content, re.I) for pattern in secret_patterns):
         errors.append("内容可能包含敏感凭据")
+    if len(content) > 4000:
+        errors.append("日报过长，应控制为领导结果摘要")
     return {"passed": not errors, "errors": errors}
 
 
@@ -82,11 +84,11 @@ async def generate_report(db: Session, user_id: int, report_date: str, model_id:
         report.validation_json = json.dumps({"passed": False, "errors": ["未配置模型 API Key"]}, ensure_ascii=False)
         db.commit()
         raise ExternalServiceError("未配置模型 API Key，无法生成日报")
-    system = "你是半导体知识工程日报编辑。只根据提供的数据写中文Markdown，不改写或编造数字，不虚构vFab验证。场景部分必须包含约200至400字正文、客户痛点、影响、经营模型与仿真状态。"
-    user = json.dumps({"date": report_date, "metrics": snapshot, "scenario_source": article[-12000:]}, ensure_ascii=False)
+    system = "你是给公司领导写结果摘要的编辑。只输出不超过180字的中文Markdown要点，聚焦业务产出、重要风险和需要关注的事项，不复述技术过程，不编造数字，不虚构vFab验证。"
+    user = json.dumps({"date": report_date, "metrics": snapshot, "scenario_source": article[-4000:]}, ensure_ascii=False)
     narrative = await llm_service.complete(api_key, model_id, system, user)
     fixed = fixed_metrics_markdown(snapshot)
-    content = f"# 半导体本体与知识库建设日报（{report_date}）\n\n{fixed}\n## 三、业务场景、正文与客户痛点\n\n{narrative.strip()}\n\n## 四、明日重点\n\n- 继续扩充 Fab、FAC、EQP 问题域，并优先处理未覆盖异常和校验失败项。\n"
+    content = f"# SEMI-KB 项目日报（{report_date}）\n\n{fixed}\n\n## 业务进展摘要\n\n{narrative.strip()}\n"
     validation = validate_report(content, snapshot)
     report.metrics_snapshot_json = json.dumps(snapshot, ensure_ascii=False)
     report.model_draft = content
