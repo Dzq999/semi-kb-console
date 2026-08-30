@@ -35,10 +35,16 @@ class RunCreate(BaseModel):
     continuous: bool = True
     round_interval_seconds: int = Field(default=5, ge=0, le=86_400)
     max_consecutive_round_failures: int = Field(default=3, ge=1, le=20)
+    auto_repair: bool = True
+    max_auto_repair_attempts: int = Field(default=3, ge=0, le=10)
+    repair_follow_failure_threshold: bool = True
 
 
 class RunResumeRequest(BaseModel):
     max_consecutive_round_failures: int | None = Field(default=None, ge=1, le=20)
+    auto_repair: bool | None = None
+    max_auto_repair_attempts: int | None = Field(default=None, ge=0, le=10)
+    repair_follow_failure_threshold: bool | None = None
 
 
 class DefaultModelUpdate(BaseModel):

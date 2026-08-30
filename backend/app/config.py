@@ -37,7 +37,7 @@ class Settings:
     frontend_origin: str = os.getenv("FRONTEND_ORIGIN", "http://127.0.0.1:5173")
     orchestrator_engine: str = os.getenv("ORCHESTRATOR_ENGINE", "langgraph").casefold()
     auto_resume_runs: bool = os.getenv("AUTO_RESUME_RUNS", "true").casefold() in {"1", "true", "yes", "on"}
-    graph_repair_attempts: int = min(3, max(0, int(os.getenv("GRAPH_REPAIR_ATTEMPTS", "1"))))
+    graph_repair_attempts: int = min(10, max(0, int(os.getenv("GRAPH_REPAIR_ATTEMPTS", "3"))))
     article_repair_attempts: int = min(3, max(0, int(os.getenv("ARTICLE_REPAIR_ATTEMPTS", "3"))))
     worker_heartbeat_seconds: int = min(300, max(5, int(os.getenv("WORKER_HEARTBEAT_SECONDS", "15"))))
 

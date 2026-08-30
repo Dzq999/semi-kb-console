@@ -371,6 +371,7 @@ const stageLabels: Record<string, string> = {
   semantic_modeling: "语义建模",
   cross_validation: "交叉验证",
   candidate_repair: "候选修复",
+  partial_publish: "部分发布",
   owl_shacl_reasoning: "OWL / SHACL",
   business_simulation: "经营仿真",
   scenario_article: "场景沉淀",
@@ -379,10 +380,12 @@ const stageLabels: Record<string, string> = {
   recovering: "断点恢复",
   round_failed: "轮次失败",
   completed: "完成",
+  completed_partial: "部分完成",
+  completed_no_change: "完成（无新增）",
 };
 
 function RunStatusIcon({ status }: { status?: string }) {
-  if (status === "completed") return <CheckCircle2 size={19} />;
+  if (status === "completed" || status === "completed_partial" || status === "completed_no_change") return <CheckCircle2 size={19} />;
   if (status === "failed" || status === "round_failed")
     return <AlertTriangle size={19} />;
   if (status === "paused") return <PauseCircle size={19} />;
@@ -847,6 +850,9 @@ function Orchestrator({
   const [continuous, setContinuous] = useState(true);
   const [roundInterval, setRoundInterval] = useState(5);
   const [maxConsecutiveFailures, setMaxConsecutiveFailures] = useState(3);
+  const [autoRepair, setAutoRepair] = useState(true);
+  const [repairFollowsFailures, setRepairFollowsFailures] = useState(true);
+  const [maxRepairAttempts, setMaxRepairAttempts] = useState(3);
   const [autoStart, setAutoStart] = useState(false);
   const [autoStartInterval, setAutoStartInterval] = useState(1440);
   const [agents, setAgents] = useState<AgentConfig[]>(() =>
@@ -869,7 +875,7 @@ function Orchestrator({
   const loop = useQuery<{
     enabled: boolean;
     interval_minutes: number;
-    run_config?: { max_consecutive_round_failures?: number };
+    run_config?: { max_consecutive_round_failures?: number; max_auto_repair_attempts?: number; auto_repair?: boolean; repair_follow_failure_threshold?: boolean };
   }>({
     queryKey: ["loop"],
     queryFn: () => api("/api/loop"),
@@ -885,6 +891,10 @@ function Orchestrator({
       const configuredFailures =
         loop.data.run_config?.max_consecutive_round_failures;
       if (configuredFailures) setMaxConsecutiveFailures(configuredFailures);
+      const configuredRepairs = loop.data.run_config?.max_auto_repair_attempts;
+      if (configuredRepairs !== undefined) setMaxRepairAttempts(configuredRepairs);
+      if (loop.data.run_config?.auto_repair !== undefined) setAutoRepair(loop.data.run_config.auto_repair);
+      if (loop.data.run_config?.repair_follow_failure_threshold !== undefined) setRepairFollowsFailures(loop.data.run_config.repair_follow_failure_threshold);
     }
   }, [loop.data]);
   const filtered = useMemo(
@@ -901,6 +911,9 @@ function Orchestrator({
     continuous,
     round_interval_seconds: roundInterval,
     max_consecutive_round_failures: maxConsecutiveFailures,
+    auto_repair: autoRepair,
+    max_auto_repair_attempts: repairFollowsFailures ? maxConsecutiveFailures : maxRepairAttempts,
+    repair_follow_failure_threshold: repairFollowsFailures,
   });
   const start = useMutation({
     mutationFn: () =>
@@ -1110,6 +1123,19 @@ function Orchestrator({
             </small>
           </label>
           <label className="switch-line">
+            <span>门禁失败后自动返修</span>
+            <input type="checkbox" checked={autoRepair} onChange={(e) => setAutoRepair(e.target.checked)} />
+          </label>
+          <label className="switch-line">
+            <span>返修次数跟随连续失败阈值</span>
+            <input type="checkbox" checked={repairFollowsFailures} onChange={(e) => setRepairFollowsFailures(e.target.checked)} />
+          </label>
+          <label>
+            单轮最大自动返修次数
+            <input type="number" min="0" max="10" value={maxRepairAttempts} disabled={repairFollowsFailures} onChange={(e) => setMaxRepairAttempts(Math.min(10, Math.max(0, Number(e.target.value))))} />
+            <small className="field-hint">仅对可修复的完整性问题调用原 Agent；安全与来源问题直接隔离。</small>
+          </label>
+          <label className="switch-line">
             <span>后端启动后按计划自动拉起持续任务</span>
             <input
               type="checkbox"
@@ -1137,7 +1163,7 @@ function Orchestrator({
         </div>
         <div className="warning-box loop-warning">
           自动发布仅在 JSON
-          Schema、来源、内部特征/vFab、能力问题、OWL、SHACL、推理、经营模型和仿真全部通过后执行；失败候选不会写入正式库。
+          Schema、来源、内部特征/vFab、能力问题、OWL、SHACL、推理、经营模型和仿真全部通过后执行；可修复门禁失败会按设置回传原 Agent，仍失败的候选隔离，合法候选可部分发布。
         </div>
       </Panel>
       <Panel title="Agent 分工与知识来源" meta="每行单独配置">
@@ -2579,7 +2605,7 @@ function RunHistory() {
       quarantined_files: string[];
       metrics_before: Record<string, number>;
       metrics_after: Record<string, number>;
-      artifacts: { evidence_pages?: number; scenario_articles?: number };
+      artifacts: { evidence_pages?: number; scenario_articles?: number; repair_attempts?: number; repair_successes?: number; repair_failures?: number; candidate_counts?: Record<string, number>; partial?: boolean };
     }>;
   }>({
     queryKey: ["run-rounds", selected],
@@ -2698,6 +2724,7 @@ function RunHistory() {
                       <th>隔离</th>
                       <th>网页证据</th>
                       <th>场景知识产物</th>
+                      <th>自动返修</th>
                       <th>耗时</th>
                       <th>错误</th>
                     </tr>
@@ -2730,6 +2757,7 @@ function RunHistory() {
                         <td>{round.quarantined_files?.length || 0}</td>
                         <td>{round.artifacts.evidence_pages || 0}</td>
                         <td>{round.artifacts.scenario_articles || 0}</td>
+                        <td>{round.artifacts.repair_attempts || 0} 次（{round.artifacts.repair_successes || 0} 成功）</td>
                         <td>
                           {round.duration_seconds
                             ? `${round.duration_seconds}s`

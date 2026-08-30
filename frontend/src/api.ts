@@ -50,6 +50,9 @@ export interface RunInfo {
   publish_changes: boolean
   round_interval_seconds: number
   max_consecutive_round_failures?: number
+  auto_repair?: boolean
+  max_auto_repair_attempts?: number
+  repair_follow_failure_threshold?: boolean
   stop_after_round?: number | null
   orchestrator_engine: 'legacy' | 'langgraph' | string
   checkpoint_backend: 'memory' | 'postgres' | string

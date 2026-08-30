@@ -210,6 +210,12 @@ class RunOrchestrator:
                     "所有复数结构以及实例objects/data映射中的每个值都必须使用JSON数组，即使只有一个值。"
                     "仿真只能引用已有经营模型和示例中的合法变量；不得编造现场实测数值。" + source_rules
                 )
+                repair_context = agent_config.get("repair_context") or {}
+                if repair_context:
+                    system += (
+                        "这是一次门禁返修。必须严格依据 repair_context.gate_error 修正上一版输出；"
+                        "不要删除未涉及的合法产物，不要改变来源边界，不要编造证据；返回完整可解析JSON。"
+                    )
                 prompt = json.dumps({
                     "round": round_number,
                     "agent": {"name": agent.name, "role": agent.role, "domain": agent.domain, "objective": agent.objective, "source_mode": agent.source_mode},
@@ -218,6 +224,7 @@ class RunOrchestrator:
                     "business_simulation_context": business,
                     "evidence": [{**item, "excerpt": str(item.get("excerpt") or "")[:3000]} for item in evidence[:4]],
                     "previous_round_output": previous,
+                    "repair_context": repair_context,
                     "required_output_contract": prompt_contract(),
                 }, ensure_ascii=False)
                 for attempt in range(max_retries + 1):

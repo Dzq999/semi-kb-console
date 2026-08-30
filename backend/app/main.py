@@ -210,10 +210,13 @@ def run_payload(run: Run) -> dict:
         "id": run.id, "model_id": run.model_id, "status": run.status, "current_stage": run.current_stage,
         "progress": run.progress, "created_at": run.created_at, "started_at": run.started_at,
         "completed_at": run.completed_at, "error": run.error, "current_round": current_round,
-        "rounds_completed": sum(item.status == "completed" for item in run.rounds),
+        "rounds_completed": sum(item.status in {"completed", "completed_partial"} for item in run.rounds),
         "continuous": config.get("continuous", True), "publish_changes": config.get("publish_changes", False),
         "round_interval_seconds": config.get("round_interval_seconds", 5),
         "max_consecutive_round_failures": config.get("max_consecutive_round_failures", 3),
+        "auto_repair": config.get("auto_repair", True),
+        "max_auto_repair_attempts": config.get("max_auto_repair_attempts", config.get("max_consecutive_round_failures", 3)),
+        "repair_follow_failure_threshold": config.get("repair_follow_failure_threshold", True),
         "stop_after_round": run.stop_after_round,
         "orchestrator_engine": run.orchestrator_engine,
         "checkpoint_backend": checkpoint_runtime.backend,
@@ -554,9 +557,16 @@ async def resume_run(run_id: str, payload: RunResumeRequest | None = None, user:
     if not run or run.user_id != user.id:
         raise HTTPException(status_code=404, detail="任务不存在")
     if run.status in {"needs_attention", "pending", "paused"}:
-        if payload and payload.max_consecutive_round_failures is not None:
+        if payload and any(value is not None for value in (payload.max_consecutive_round_failures, payload.auto_repair, payload.max_auto_repair_attempts, payload.repair_follow_failure_threshold)):
             config = json_load(run.config_json, {})
-            config["max_consecutive_round_failures"] = payload.max_consecutive_round_failures
+            if payload.max_consecutive_round_failures is not None:
+                config["max_consecutive_round_failures"] = payload.max_consecutive_round_failures
+            if payload.auto_repair is not None:
+                config["auto_repair"] = payload.auto_repair
+            if payload.max_auto_repair_attempts is not None:
+                config["max_auto_repair_attempts"] = payload.max_auto_repair_attempts
+            if payload.repair_follow_failure_threshold is not None:
+                config["repair_follow_failure_threshold"] = payload.repair_follow_failure_threshold
             run.config_json = json.dumps(config, ensure_ascii=False)
         run.error = None; run.pause_requested = False; run.cancel_requested = False
         if run.status == "paused":

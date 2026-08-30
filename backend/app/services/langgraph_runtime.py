@@ -30,7 +30,10 @@ class RoundGraphState(TypedDict, total=False):
     validation: dict[str, Any]
     artifacts: dict[str, Any]
     gate_error: str | None
+    gate_error_class: str | None
     repair_attempt: int
+    repair_successes: int
+    repair_failures: int
     quarantined_files: list[str]
     success: bool
 
@@ -51,6 +54,22 @@ class RoundGraphEngine:
 
     def __init__(self, controller: Any) -> None:
         self.controller = controller
+
+    @staticmethod
+    def classify_gate_error(error: str | None) -> str:
+        """Classify a gate failure without weakening security controls.
+
+        Only semantic completeness failures are sent back to the model.  Safety,
+        provenance and executable-query violations are isolated immediately.
+        """
+        text = str(error or "").casefold()
+        hard = ("sensitive", "凭据", "bearer", "危险", "只读", "insert", "delete", "非法 iri", "悬空", "source", "伪造")
+        if any(token in text for token in hard):
+            return "hard"
+        repairable = ("缺少", "不完整", "引用", "restriction", "diagnostic", "possiblecause", "possible cause", "hasdiagnosticaction", "haspossiblecause", "门禁失败", "校验失败", "candidate", "候选")
+        if any(token in text for token in repairable):
+            return "repairable"
+        return "system"
 
     def _stage(self, run_id: str, round_number: int, stage: str, progress: float) -> None:
         with SessionLocal() as db:
@@ -177,6 +196,7 @@ class RoundGraphEngine:
         candidates = round_candidate_files(state.get("outputs") or [])
         artifacts = dict(state.get("artifacts") or {})
         artifacts.update({key: [str(path) for path in value] for key, value in candidates.items()})
+        artifacts["candidate_counts"] = {key: len(value) for key, value in candidates.items()}
         with SessionLocal() as db:
             self.controller.emit(db, state["run_id"], "candidates_ready", f"第 {state['round_number']} 轮生成语义候选 {len(candidates['semantic'])}、经营模型候选 {len(candidates['business'])}、仿真候选 {len(candidates['simulation'])}、知识条目 {len(candidates['knowledge'])}、规则 {len(candidates['rules'])}", {"round": state["round_number"], "semantic": len(candidates["semantic"]), "business": len(candidates["business"]), "simulation": len(candidates["simulation"]), "knowledge": len(candidates["knowledge"]), "rules": len(candidates["rules"])})
         return {"artifacts": artifacts}
@@ -205,42 +225,134 @@ class RoundGraphEngine:
                 self.controller.emit(db, state["run_id"], "cross_validation", f"第 {state['round_number']} 轮交叉验证通过", {"round": state["round_number"], "published": validation.get("published"), "checks": validation.get("checks")})
             return {"validation": validation, "gate_error": None}
         except Exception as exc:
+            error_text = str(exc)
             with SessionLocal() as db:
-                self.controller.emit(db, state["run_id"], "gate_failed", f"第 {state['round_number']} 轮候选门禁失败：{exc}", {"round": state["round_number"], "error": str(exc)}, "warning")
-            return {"gate_error": str(exc)}
+                self.controller.emit(db, state["run_id"], "gate_failed", f"第 {state['round_number']} 轮候选门禁失败：{error_text}", {"round": state["round_number"], "error": error_text, "error_class": self.classify_gate_error(error_text)}, "warning")
+            return {"gate_error": error_text, "gate_error_class": self.classify_gate_error(error_text)}
 
     def route_validation(self, state: RoundGraphState) -> str:
         if not state.get("gate_error"):
             return "owl_shacl_reasoning"
-        return "repair_candidates" if int(state.get("repair_attempt", 0)) < settings.graph_repair_attempts else "fail_gate"
+        config = state.get("config") or {}
+        auto_repair = bool(config.get("auto_repair", True))
+        limit = int(config.get("max_auto_repair_attempts", settings.graph_repair_attempts))
+        if bool(config.get("repair_follow_failure_threshold", True)):
+            limit = int(config.get("max_consecutive_round_failures", limit))
+        if auto_repair and state.get("gate_error_class") == "repairable" and int(state.get("repair_attempt", 0)) < max(0, min(10, limit)):
+            return "repair_candidates"
+        return "partial_publish" if state.get("gate_error_class") == "repairable" else "fail_gate"
 
     async def repair_candidates(self, state: RoundGraphState) -> dict:
         await self._control(state, "candidate_repair", 55)
-        outputs = json.loads(json.dumps(state.get("outputs") or []))
-        quarantined = list(state.get("quarantined_files") or [])
-        for output in outputs:
-            for key in ("semantic_files", "business_files", "simulation_files", "knowledge_files", "rule_files"):
-                valid: list[str] = []
-                for raw_path in output.get(key) or []:
-                    path = Path(raw_path)
-                    category = {"semantic_files": "semantic", "business_files": "business", "simulation_files": "simulation", "knowledge_files": "knowledge", "rule_files": "rules"}[key]
-                    try:
-                        await semi_kb.process_candidates({"semantic": [path] if category == "semantic" else [], "business": [path] if category == "business" else [], "simulation": [path] if category == "simulation" else [], "knowledge": [path] if category == "knowledge" else [], "rules": [path] if category == "rules" else [], "articles": []}, publish=False)
-                        valid.append(raw_path)
-                    except Exception as exc:
-                        quarantine = path.parent / "quarantine"; quarantine.mkdir(exist_ok=True)
-                        target = quarantine / path.name
-                        if path.is_file(): shutil.move(str(path), str(target))
-                        quarantined.append(str(target))
-                        with SessionLocal() as db:
-                            self.controller.emit(db, state["run_id"], "candidate_quarantined", f"候选已隔离：{path.name}", {"round": state["round_number"], "path": str(target), "error": str(exc)}, "warning")
-                output[key] = valid
-        if not any(round_candidate_files(outputs)[key] for key in ("semantic", "business", "simulation", "knowledge", "rules")):
-            raise SemiKbError("所有结构化候选均未通过门禁，已隔离")
-        return {"outputs": outputs, "repair_attempt": int(state.get("repair_attempt", 0)) + 1, "quarantined_files": quarantined, "gate_error": None}
+        attempt = int(state.get("repair_attempt", 0)) + 1
+        error = str(state.get("gate_error") or "门禁校验失败")
+        context = {
+            "repair": True,
+            "repair_attempt": attempt,
+            "gate_error": error[:6000],
+            "instruction": "仅修复门禁指出的问题；保留合法内容和来源，不编造现场数据，不输出解释，只返回完整 JSON。",
+        }
+        with SessionLocal() as db:
+            run = db.get(Run, state["run_id"])
+            agent_ids = [agent.id for agent in run.agents] if run else []
+        configs = (state.get("config") or {}).get("agents") or []
+        # Restrict repair calls to Agents that produced the affected artifact
+        # category.  This keeps a failed SHACL candidate from re-running all ten
+        # providers while preserving a safe fallback to every Agent.
+        error_lower = error.casefold()
+        category_keys = [("仿真", "simulation_files"), ("经营", "business_files"), ("规则", "rule_files"), ("知识", "knowledge_files"), ("knowledge", "knowledge_files"), ("rule", "rule_files"), ("simulation", "simulation_files"), ("business", "business_files"), ("diagnostic", "semantic_files"), ("possiblecause", "semantic_files"), ("possible cause", "semantic_files"), ("shacl", "semantic_files"), ("owl", "semantic_files")]
+        selected_indexes: list[int] = []
+        for index, output in enumerate(state.get("outputs") or []):
+            if index >= len(agent_ids):
+                continue
+            key = next((file_key for token, file_key in category_keys if token in error_lower), None)
+            if key is None or output.get(key):
+                selected_indexes.append(index)
+        if not selected_indexes:
+            selected_indexes = list(range(len(agent_ids)))
+
+        async def repair_one(index: int, agent_id: str) -> tuple[int, dict | None]:
+            cfg = dict(configs[index] if index < len(configs) else {})
+            cfg["repair_context"] = context
+            cfg["input_hash"] = hashlib.sha256(json.dumps({"run": state["run_id"], "round": state["round_number"], "agent": agent_id, "repair": context}, ensure_ascii=False, sort_keys=True).encode()).hexdigest()
+            with SessionLocal() as db:
+                run = db.get(Run, state["run_id"])
+                key = user_api_key(db, run.user_id) if run else None
+            if not key:
+                return index, None
+            try:
+                return index, await self.controller.execute_agent(state["run_id"], agent_id, state["round_number"], key, state.get("gap") or {}, cfg)
+            except Exception as exc:
+                with SessionLocal() as db:
+                    self.controller.emit(db, state["run_id"], "repair_failed", f"Agent {agent_id} 自动返修失败：{exc}", {"round": state["round_number"], "agent_id": agent_id, "attempt": attempt}, "warning")
+                return index, None
+
+        repaired_results = await asyncio.gather(*(repair_one(index, agent_ids[index]) for index in selected_indexes))
+        original_outputs = list(state.get("outputs") or [])
+        outputs = list(original_outputs)
+        successes = 0
+        for index, item in repaired_results:
+            if item:
+                successes += 1
+                if index < len(outputs):
+                    outputs[index] = item
+                else:
+                    outputs.append(item)
+        if successes:
+            with SessionLocal() as db:
+                self.controller.emit(db, state["run_id"], "repair_completed", f"第 {state['round_number']} 轮已完成第 {attempt} 次自动返修（{successes}/{len(selected_indexes)} 个 Agent）", {"round": state["round_number"], "attempt": attempt, "successes": successes, "selected_agents": len(selected_indexes)}, "info")
+        else:
+            with SessionLocal() as db:
+                self.controller.emit(db, state["run_id"], "repair_failed", f"第 {state['round_number']} 轮第 {attempt} 次自动返修未产生可用结果", {"round": state["round_number"], "attempt": attempt}, "warning")
+        return {"outputs": outputs or state.get("outputs") or [], "repair_attempt": attempt, "repair_successes": int(state.get("repair_successes", 0)) + successes, "repair_failures": int(state.get("repair_failures", 0)) + (len(selected_indexes) - successes), "gate_error": error, "gate_error_class": state.get("gate_error_class")}
 
     async def fail_gate(self, state: RoundGraphState) -> dict:
         raise SemiKbError(state.get("gate_error") or "候选门禁失败")
+
+    async def partial_publish(self, state: RoundGraphState) -> dict:
+        """Publish each Agent's bundle independently after bounded repair attempts."""
+        await self._control(state, "partial_publish", 82)
+        published = 0
+        quarantined = list(state.get("quarantined_files") or [])
+        last_validation: dict[str, Any] = {}
+        outputs = state.get("outputs") or []
+        for output in outputs:
+            files = round_candidate_files([output])
+            if not any(files[key] for key in ("semantic", "business", "simulation", "knowledge", "rules", "articles")):
+                continue
+            try:
+                result = await semi_kb.process_candidates(files, publish=True)
+                last_validation = result
+                accepted = int(sum((result.get("accepted_candidates") or {}).values()))
+                published += accepted or sum(len(files[key]) for key in ("semantic", "business", "simulation", "knowledge", "rules", "articles"))
+            except Exception as exc:
+                # A single malformed candidate must not discard valid siblings.
+                for key in ("semantic", "business", "simulation", "knowledge", "rules"):
+                    for path in files[key]:
+                        if not path.is_file():
+                            continue
+                        single = {"semantic": [], "business": [], "simulation": [], "knowledge": [], "rules": [], "articles": []}
+                        single[key].append(path)
+                        try:
+                            result = await semi_kb.process_candidates(single, publish=True)
+                            last_validation = result
+                            published += int(sum((result.get("accepted_candidates") or {}).values())) or 1
+                        except Exception as single_exc:
+                            quarantine = path.parent / "quarantine"; quarantine.mkdir(exist_ok=True)
+                            target = quarantine / path.name
+                            try: shutil.move(str(path), str(target)); quarantined.append(str(target))
+                            except OSError: pass
+                            with SessionLocal() as db:
+                                self.controller.emit(db, state["run_id"], "candidate_quarantined", f"候选已隔离：{path.name}；{single_exc}", {"round": state["round_number"], "path": str(target), "error": str(single_exc)}, "warning")
+                with SessionLocal() as db:
+                    self.controller.emit(db, state["run_id"], "partial_publish", f"Agent 候选批量校验失败，已降级为逐候选发布：{exc}", {"round": state["round_number"], "error": str(exc)}, "warning")
+        if published <= 0:
+            raise SemiKbError(state.get("gate_error") or "自动返修后没有候选通过门禁")
+        last_validation = dict(last_validation)
+        last_validation["partial"] = True
+        last_validation["published"] = True
+        last_validation["repair_attempts"] = int(state.get("repair_attempt", 0))
+        return {"validation": last_validation, "quarantined_files": quarantined, "gate_error": None, "success": True}
 
     async def owl_shacl_reasoning(self, state: RoundGraphState) -> dict:
         await self._control(state, "owl_shacl_reasoning", 62.5)
@@ -278,19 +390,32 @@ class RoundGraphEngine:
             if not run or not row: raise RuntimeError("运行或轮次不存在")
             before = json.loads(row.metrics_before_json or "{}")
             after = (await semi_kb.metrics(db, run.user_id))["totals"]
-            row.status = "completed"; row.current_stage = "completed"; row.completed_at = datetime.now(timezone.utc)
+            partial = bool((state.get("validation") or {}).get("partial"))
+            delta = {key: int(after.get(key, 0)) - int(before.get(key, 0)) for key in set(before) | set(after) if isinstance(before.get(key, 0), (int, float)) and isinstance(after.get(key, 0), (int, float))}
+            has_change = any(value > 0 for value in delta.values())
+            no_change_status = bool((state.get("config") or {}).get("publish_changes")) and not has_change
+            row.status = "completed_partial" if partial else ("completed_no_change" if no_change_status else "completed"); row.current_stage = "completed"; row.completed_at = datetime.now(timezone.utc)
             started_at = row.started_at or row.completed_at
             if started_at.tzinfo is None:
                 started_at = started_at.replace(tzinfo=timezone.utc)
             row.duration_seconds = round((row.completed_at - started_at).total_seconds(), 3)
             row.metrics_after_json = json.dumps(after, ensure_ascii=False)
-            row.validation_json = json.dumps(state.get("validation") or {}, ensure_ascii=False)
-            row.artifacts_json = json.dumps(state.get("artifacts") or {}, ensure_ascii=False)
+            validation = dict(state.get("validation") or {})
+            validation["repair_attempts"] = int(state.get("repair_attempt", 0))
+            validation["repair_successes"] = int(state.get("repair_successes", 0))
+            validation["repair_failures"] = int(state.get("repair_failures", 0))
+            row.validation_json = json.dumps(validation, ensure_ascii=False)
+            artifacts = dict(state.get("artifacts") or {})
+            artifacts["repair_attempts"] = int(state.get("repair_attempt", 0))
+            artifacts["repair_successes"] = int(state.get("repair_successes", 0))
+            artifacts["repair_failures"] = int(state.get("repair_failures", 0))
+            artifacts["published"] = bool(validation.get("published"))
+            artifacts["partial"] = partial
+            row.artifacts_json = json.dumps(artifacts, ensure_ascii=False)
             row.quarantined_files_json = json.dumps(state.get("quarantined_files") or [], ensure_ascii=False)
             run.metrics_after_json = row.metrics_after_json; run.progress = 100; run.heartbeat_at = datetime.now(timezone.utc)
             db.commit()
-            delta = {key: int(after.get(key, 0)) - int(before.get(key, 0)) for key in set(before) | set(after) if isinstance(before.get(key, 0), (int, float)) and isinstance(after.get(key, 0), (int, float))}
-            self.controller.emit(db, state["run_id"], "round_completed", f"第 {state['round_number']} 轮完成，准备下一轮", {"round": state["round_number"], "duration_seconds": row.duration_seconds, "delta": delta, "published": (state.get("validation") or {}).get("published", False), "engine": "langgraph"})
+            self.controller.emit(db, state["run_id"], "round_completed", f"第 {state['round_number']} 轮{'部分完成' if partial else '完成'}，准备下一轮", {"round": state["round_number"], "duration_seconds": row.duration_seconds, "delta": delta, "published": (state.get("validation") or {}).get("published", False), "partial": partial, "repair_attempts": int(state.get("repair_attempt", 0)), "repair_successes": int(state.get("repair_successes", 0)), "engine": "langgraph"})
         return {"success": True}
 
     def build(self):
@@ -299,7 +424,7 @@ class RoundGraphEngine:
             "gap_analysis": self.gap_analysis, "parallel_research": self.parallel_research,
             "evidence_extraction": self.evidence_extraction, "semantic_modeling": self.semantic_modeling,
             "cross_validation": self.cross_validation, "repair_candidates": self.repair_candidates,
-            "fail_gate": self.fail_gate, "owl_shacl_reasoning": self.owl_shacl_reasoning,
+            "fail_gate": self.fail_gate, "partial_publish": self.partial_publish, "owl_shacl_reasoning": self.owl_shacl_reasoning,
             "business_simulation": self.business_simulation, "scenario_article": self.scenario_article,
             "finalize": self.finalize,
         }
@@ -310,9 +435,10 @@ class RoundGraphEngine:
         graph.add_edge("evidence_extraction", "semantic_modeling")
         graph.add_edge("semantic_modeling", "cross_validation")
         graph.add_conditional_edges("cross_validation", self.route_validation, {
-            "repair_candidates": "repair_candidates", "fail_gate": "fail_gate", "owl_shacl_reasoning": "owl_shacl_reasoning",
+            "repair_candidates": "repair_candidates", "fail_gate": "fail_gate", "partial_publish": "partial_publish", "owl_shacl_reasoning": "owl_shacl_reasoning",
         })
         graph.add_edge("repair_candidates", "cross_validation")
+        graph.add_edge("partial_publish", "finalize")
         graph.add_edge("owl_shacl_reasoning", "business_simulation")
         graph.add_edge("business_simulation", "scenario_article")
         graph.add_edge("scenario_article", "finalize")
@@ -337,7 +463,7 @@ class RoundGraphEngine:
         graph_config = checkpoint_runtime.config(run_id, round_number)
         initial: RoundGraphState | None = None if resume else {
             "run_id": run_id, "round_number": round_number, "config": config, "gap": {}, "outputs": [],
-            "validation": {}, "artifacts": {}, "gate_error": None, "repair_attempt": 0,
+            "validation": {}, "artifacts": {}, "gate_error": None, "gate_error_class": None, "repair_attempt": 0, "repair_successes": 0, "repair_failures": 0,
             "quarantined_files": [], "success": False,
         }
         try:
