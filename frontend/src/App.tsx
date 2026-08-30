@@ -610,7 +610,7 @@ function Dashboard() {
           <div>
             <strong>
               {latest
-                    ? `${latest.status === "completed" ? "持续协作任务已完成" : latest.status === "failed" ? "持续协作任务失败" : latest.status === "needs_attention" ? "持续协作任务需处理" : latest.status === "paused" ? "持续协作任务已暂停" : latest.status === "cancelling" ? "持续协作任务正在停止" : `持续协作任务${latest.status === "between_rounds" ? "等待下一轮" : "运行中"}`} · 第 ${latest.current_round || 1} 轮`
+                    ? `${latest.status === "completed" ? "持续协作任务已完成" : latest.status === "completed_partial" ? "持续协作任务部分完成" : latest.status === "completed_no_change" ? "持续协作任务完成（无新增）" : latest.status === "failed" ? "持续协作任务失败" : latest.status === "needs_attention" ? "持续协作任务需处理" : latest.status === "paused" ? "持续协作任务已暂停" : latest.status === "cancelling" ? "持续协作任务正在停止" : `持续协作任务${latest.status === "between_rounds" ? "等待下一轮" : "运行中"}`} · 第 ${latest.current_round || 1} 轮`
                 : "持续协作任务空闲"}
             </strong>
             <span>
@@ -738,7 +738,7 @@ function Dashboard() {
                   className={`stage ${latest?.current_stage === key ? "active" : ""} ${currentIndex > index || latest?.status === "completed" ? "done" : ""}`}
                 >
                   <span>
-                    {currentIndex > index || latest?.status === "completed"
+                    {currentIndex > index || latest?.status === "completed" || latest?.status === "completed_partial" || latest?.status === "completed_no_change"
                       ? "✓"
                       : index + 1}
                   </span>
