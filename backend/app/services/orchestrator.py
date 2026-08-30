@@ -81,6 +81,12 @@ class RunOrchestrator:
 
     def cancel(self, run_id: str) -> None:
         self.cancelled.add(run_id)
+        task = self.tasks.get(run_id)
+        if task and not task.done():
+            # The cancel endpoint is a synchronous FastAPI handler and may run in
+            # a worker thread. Schedule cancellation on the task's event loop so a
+            # long LLM request/gather is interrupted immediately.
+            task.get_loop().call_soon_threadsafe(task.cancel)
         with SessionLocal() as db:
             run = db.get(Run, run_id)
             if run:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 
 import pytest
@@ -175,3 +176,33 @@ def test_restart_recovery_preserves_pause_and_only_resumes_langgraph(authenticat
         assert db.get(Run, paused_id).status == "paused"
         assert db.get(Run, paused_id).worker_id is None
         assert db.get(Run, legacy_id).status == "interrupted"
+
+
+@pytest.mark.asyncio
+async def test_cancel_interrupts_active_task(authenticated):
+    payload = RunCreate.model_validate({
+        "model_id": "gpt-test", "continuous": True,
+        "agents": [{"name": "Fab", "role": "research", "domain": "fab", "objective": "coverage", "source_mode": "model_prior"}],
+    })
+    with SessionLocal() as db:
+        user = db.scalar(select(User)); run = create_run(db, user.id, payload); run.status = "running"; db.commit(); run_id = run.id
+
+    task = asyncio.create_task(asyncio.sleep(60))
+    orchestrator.tasks[run_id] = task
+    orchestrator.cancel(run_id)
+    await asyncio.sleep(0.05)
+    assert task.cancelled()
+    orchestrator.tasks.pop(run_id, None)
+    orchestrator.cancelled.discard(run_id)
+
+
+def test_restart_marks_stale_cancellation_terminal(authenticated):
+    payload = RunCreate.model_validate({
+        "model_id": "gpt-test", "continuous": True,
+        "agents": [{"name": "Fab", "role": "research", "domain": "fab", "objective": "coverage", "source_mode": "model_prior"}],
+    })
+    with SessionLocal() as db:
+        user = db.scalar(select(User)); run = create_run(db, user.id, payload); run.status = "cancelling"; run.cancel_requested = True; db.commit(); run_id = run.id
+        ids = prepare_recoverable_runs(db)
+        assert run_id not in ids
+        assert db.get(Run, run_id).status == "cancelled"

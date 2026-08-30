@@ -52,7 +52,16 @@ def prepare_recoverable_runs(db: Session) -> list[str]:
             run.current_stage = "round_failed"
             run.error = run.error or f"第 {latest_round.round_number} 轮失败，任务已停止，请检查校验原因"
             run.completed_at = run.completed_at or latest_round.completed_at or datetime.now(timezone.utc)
-    interrupted = db.scalars(select(Run).where(Run.status.in_(["running", "recovering", "paused", "between_rounds", "stopping_after_round", "cancelling"]))).all()
+    # A cancellation is terminal across a backend restart. Resuming it would
+    # silently restart a task the operator explicitly stopped.
+    for run in db.scalars(select(Run).where(Run.status == "cancelling")).all():
+        run.status = "cancelled"
+        run.current_stage = "cancelled"
+        run.completed_at = run.completed_at or datetime.now(timezone.utc)
+        run.worker_id = None
+        run.heartbeat_at = run.completed_at
+        run.error = run.error or "后端重启时完成停止"
+    interrupted = db.scalars(select(Run).where(Run.status.in_(["running", "recovering", "paused", "between_rounds", "stopping_after_round"]))).all()
     for run in interrupted:
         if run.orchestrator_engine != "langgraph" or not settings.auto_resume_runs:
             run.status = "interrupted"

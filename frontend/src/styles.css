@@ -60,6 +60,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .loop-banner.status-failed .pulse-icon, .loop-banner.status-round_failed .pulse-icon { color: #b72e41; border-color: #f1c3ca; background: #ffedf0; box-shadow: none; }
 .loop-banner.status-paused .pulse-icon, .loop-banner.status-between_rounds .pulse-icon { color: #80651d; border-color: #eedba3; background: #fff7dc; box-shadow: none; }
 .loop-banner.status-needs_attention .pulse-icon { color: #a15a13; border-color: #f3d0a4; background: #fff3e4; box-shadow: none; }
+.loop-banner.status-cancelling .pulse-icon { color: #b66a19; border-color: #f0cf8f; background: #fff5df; box-shadow: none; }
 .loop-state strong, .loop-state span { display: block; }
 .loop-state strong { font-size: 13px; }
 .loop-state div > span { margin-top: 3px; color: #708097; font-size: 10px; }
@@ -158,6 +159,7 @@ td input { width: 100%; min-width: 170px; }
 .engine-tag { padding: 4px 7px; border-radius: 6px; color: #6551b4; background: #f0edff; font: 9px Consolas, monospace; white-space: nowrap; }
 .status-tag.completed { color: #147553; background: #e7f7f0; }
 .status-tag.failed, .status-tag.cancelled { color: #b72e41; background: #ffedf0; }
+.status-tag.cancelling { color: #a15a13; background: #fff3e4; }
 code { color: #31557f; font-family: Consolas, monospace; font-size: 9px; }
 .catalog-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
 .catalog-card { min-width: 0; padding: 14px; display: grid; grid-template-columns: 34px minmax(0,1fr); gap: 10px; border: 1px solid #dce5ee; border-radius: 10px; background: white; }

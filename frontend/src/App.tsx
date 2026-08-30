@@ -387,6 +387,7 @@ function RunStatusIcon({ status }: { status?: string }) {
     return <AlertTriangle size={19} />;
   if (status === "paused") return <PauseCircle size={19} />;
   if (status === "needs_attention") return <AlertCircle size={19} />;
+  if (status === "cancelling") return <CircleStop size={19} />;
   if (status === "between_rounds") return <Pause size={18} />;
   return <LoaderCircle className="status-spin" size={19} />;
 }
@@ -572,6 +573,12 @@ function Dashboard() {
     onSuccess: (_result, variables) => {
       setNotice(variables.name === "pause" ? "任务已暂停" : variables.name === "resume" ? "任务已恢复" : variables.name === "cancel" ? "任务已停止" : "已提交轮次停止请求");
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      if (variables.name === "cancel") {
+        // The backend first reports `cancelling` and then persists `cancelled`
+        // from the task's CancelledError handler. Refetch immediately so the
+        // banner never remains on a stale running snapshot after a stop click.
+        void queryClient.refetchQueries({ queryKey: ["dashboard"] });
+      }
     },
   });
   if (isLoading)
@@ -600,7 +607,7 @@ function Dashboard() {
           <div>
             <strong>
               {latest
-                    ? `${latest.status === "completed" ? "持续协作任务已完成" : latest.status === "failed" ? "持续协作任务失败" : latest.status === "needs_attention" ? "持续协作任务需处理" : latest.status === "paused" ? "持续协作任务已暂停" : `持续协作任务${latest.status === "between_rounds" ? "等待下一轮" : "运行中"}`} · 第 ${latest.current_round || 1} 轮`
+                    ? `${latest.status === "completed" ? "持续协作任务已完成" : latest.status === "failed" ? "持续协作任务失败" : latest.status === "needs_attention" ? "持续协作任务需处理" : latest.status === "paused" ? "持续协作任务已暂停" : latest.status === "cancelling" ? "持续协作任务正在停止" : `持续协作任务${latest.status === "between_rounds" ? "等待下一轮" : "运行中"}`} · 第 ${latest.current_round || 1} 轮`
                 : "持续协作任务空闲"}
             </strong>
             <span>
