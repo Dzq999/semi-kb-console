@@ -44,7 +44,10 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .panel-head { min-height: 46px; padding: 0 14px; display: flex; align-items: center; justify-content: space-between; gap: 10px; border-bottom: 1px solid #dce5ee; }
 .panel-head h3 { margin: 0; font-size: 13px; font-weight: 600; }
 .panel-head .panel-meta { color: #708097; font-size: 10px; }
-.global-notice { margin: 12px 20px -4px; padding: 9px 12px; border-radius: 8px; color: #0f7353; background: #e7f7f0; font-size: 11px; }
+.global-notice { position: fixed; top: 84px; right: 24px; z-index: 1000; width: min(420px, calc(100vw - 32px)); min-height: 42px; padding: 10px 14px; display: flex; align-items: center; gap: 8px; border: 1px solid #a9dec8; border-radius: 10px; color: #0f7353; background: #f0fbf6; box-shadow: 0 10px 28px rgba(27, 97, 75, .16); font-size: 11px; line-height: 1.45; animation: toast-in .18s ease-out both; }
+.global-notice svg { flex: 0 0 auto; color: #15956a; }
+@keyframes toast-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) { .global-notice { animation: none; } }
 .error-box { padding: 10px 12px; border: 1px solid #f1c3ca; border-radius: 8px; color: #b72e41; background: #ffedf0; font-size: 11px; }
 .loading, .empty { min-height: 90px; display: flex; align-items: center; justify-content: center; gap: 8px; color: #708097; font-size: 11px; }
 .spin { animation: spin .9s linear infinite; }

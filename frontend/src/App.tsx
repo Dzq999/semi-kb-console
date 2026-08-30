@@ -261,7 +261,12 @@ function Layout({
             <Button onClick={onLogout}>退出</Button>
           </div>
         </header>
-        {notice && <div className="global-notice">{notice}</div>}
+        {notice && (
+          <div className="global-notice" role="status" aria-live="polite">
+            <CheckCircle2 size={15} aria-hidden="true" />
+            <span>{notice}</span>
+          </div>
+        )}
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route

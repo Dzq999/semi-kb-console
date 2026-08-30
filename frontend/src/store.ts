@@ -8,10 +8,23 @@ interface AppState {
   setNotice: (notice: string) => void
 }
 
+let noticeTimer: ReturnType<typeof setTimeout> | null = null
+
 export const useAppStore = create<AppState>((set) => ({
   latestRun: null,
   notice: '',
   setLatestRun: (latestRun) => set({ latestRun }),
-  setNotice: (notice) => set({ notice })
+  setNotice: (notice) => {
+    if (noticeTimer) {
+      clearTimeout(noticeTimer)
+      noticeTimer = null
+    }
+    set({ notice })
+    if (notice) {
+      noticeTimer = setTimeout(() => {
+        set({ notice: '' })
+        noticeTimer = null
+      }, 2000)
+    }
+  }
 }))
-
