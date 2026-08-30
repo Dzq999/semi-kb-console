@@ -51,7 +51,12 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 @keyframes spin { to { transform: rotate(360deg); } }
 .loop-banner { padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; gap: 14px; border: 1px solid #d6e3f4; border-radius: 12px; background: linear-gradient(120deg, #fff, #eef5ff); box-shadow: 0 6px 18px rgba(32,79,137,.07); }
 .loop-state { display: flex; align-items: center; gap: 12px; }
-.pulse-icon { width: 35px; height: 35px; display: grid; place-items: center; border-radius: 50%; color: #2864dc; background: #eaf1ff; box-shadow: 0 0 0 4px rgba(40,100,220,.1); }
+.pulse-icon { width: 38px; height: 38px; display: grid; place-items: center; flex: 0 0 38px; border: 1px solid #cfe0f6; border-radius: 12px; color: #2864dc; background: #eaf1ff; }
+.status-spin { animation: spin .9s linear infinite; }
+.loop-banner.status-completed .pulse-icon { color: #147553; border-color: #a9dec8; background: #e7f7f0; box-shadow: none; }
+.loop-banner.status-failed .pulse-icon, .loop-banner.status-round_failed .pulse-icon { color: #b72e41; border-color: #f1c3ca; background: #ffedf0; box-shadow: none; }
+.loop-banner.status-paused .pulse-icon, .loop-banner.status-between_rounds .pulse-icon { color: #80651d; border-color: #eedba3; background: #fff7dc; box-shadow: none; }
+.loop-banner.status-needs_attention .pulse-icon { color: #a15a13; border-color: #f3d0a4; background: #fff3e4; box-shadow: none; }
 .loop-state strong, .loop-state span { display: block; }
 .loop-state strong { font-size: 13px; }
 .loop-state div > span { margin-top: 3px; color: #708097; font-size: 10px; }
@@ -132,6 +137,11 @@ code { color: #31557f; font-family: Consolas, monospace; font-size: 9px; }
 .catalog-card strong, .catalog-card small { display: block; }
 .catalog-card small { margin-top: 3px; color: #708097; font-size: 9px; }
 .catalog-card pre { grid-column: 1/-1; max-height: 210px; margin: 4px 0 0; padding: 10px; overflow: auto; border-radius: 8px; color: #4b5c72; background: #f3f6fa; font-size: 9px; white-space: pre-wrap; }
+.catalog-card .card-actions { grid-column: 1/-1; min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.catalog-card .card-actions small { min-width: 0; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.catalog-card .card-actions .button { flex: 0 0 auto; white-space: nowrap; }
+.catalog-card .full-document { max-height: 440px; margin-top: 0; border: 1px solid #dce5ee; background: #fbfcfe; }
+.model-count { display: block; margin-top: 5px; color: #8796aa; font-size: 9px; }
 .article-content { margin: 0; padding: 18px; min-height: 540px; color: #33445a; background: white; font-family: "Microsoft YaHei", sans-serif; font-size: 12px; line-height: 1.8; white-space: pre-wrap; }
 .report-grid { display: grid; grid-template-columns: minmax(0,1.35fr) minmax(250px,.65fr); gap: 12px; }
 .report-editor { width: 100%; min-height: 570px; padding: 15px; resize: vertical; border: 0; border-radius: 0; background: white; font-family: Consolas,"Microsoft YaHei",monospace; font-size: 11px; line-height: 1.65; }

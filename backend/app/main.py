@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import secrets
 import uuid
@@ -91,7 +92,7 @@ app = FastAPI(title=settings.app_name, version="1.0.0", lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=[settings.frontend_origin], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 scheduler = AsyncIOScheduler(timezone=settings.timezone)
 sessions: dict[str, int] = {}
-model_cache: dict[str, object] = {"items": [], "fetched_at": None}
+model_cache: dict[str, dict[str, object]] = {}
 
 
 def current_user(session_id: Annotated[str | None, Cookie()] = None, db: Session = Depends(get_db)) -> User:
@@ -290,19 +291,21 @@ async def models(search: str = "", refresh: bool = False, user: User = Depends(c
     api_key = user_api_key(db, user.id)
     if not api_key:
         raise HTTPException(status_code=424, detail="未配置模型 API Key")
-    fetched_at = model_cache.get("fetched_at")
+    cache_key = hashlib.sha256(api_key.encode("utf-8")).hexdigest()
+    cached = model_cache.setdefault(cache_key, {"items": [], "fetched_at": None})
+    fetched_at = cached.get("fetched_at")
     stale = not fetched_at or datetime.now(timezone.utc) - fetched_at > timedelta(minutes=5)
     try:
-        if refresh or stale or not model_cache["items"]:
-            model_cache["items"] = await llm_service.list_models(api_key)
-            model_cache["fetched_at"] = datetime.now(timezone.utc)
+        if refresh or stale or not cached["items"]:
+            cached["items"] = await llm_service.list_models(api_key)
+            cached["fetched_at"] = datetime.now(timezone.utc)
     except ExternalServiceError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
-    items = model_cache["items"]
+    items = cached["items"]
     if search:
         items = [item for item in items if search.casefold() in item["id"].casefold()]
     preference = db.get(UserPreference, user.id)
-    return {"items": items, "total": len(items), "default_model_id": preference.default_model_id, "fetched_at": model_cache["fetched_at"]}
+    return {"items": items, "total": len(items), "default_model_id": preference.default_model_id, "fetched_at": cached["fetched_at"]}
 
 
 @app.patch("/api/users/me/preferences/default-model")
@@ -339,8 +342,7 @@ def save_credential(payload: CredentialUpdate, user: User = Depends(current_user
         db.add(EncryptedCredential(user_id=user.id, kind=payload.kind, ciphertext=encrypt_secret(payload.value), masked_hint=hint))
     db.commit()
     if payload.kind == "llm_api_key":
-        model_cache["items"] = []
-        model_cache["fetched_at"] = None
+        model_cache.clear()
     return {"kind": payload.kind, "configured": True, "masked_hint": hint}
 
 
@@ -350,6 +352,8 @@ def delete_credential(kind: str, user: User = Depends(current_user), db: Session
     if row:
         db.delete(row)
         db.commit()
+    if kind == "llm_api_key":
+        model_cache.clear()
     return Response(status_code=204)
 
 
