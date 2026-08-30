@@ -49,6 +49,7 @@ export interface RunInfo {
   continuous: boolean
   publish_changes: boolean
   round_interval_seconds: number
+  max_consecutive_round_failures?: number
   stop_after_round?: number | null
   orchestrator_engine: 'legacy' | 'langgraph' | string
   checkpoint_backend: 'memory' | 'postgres' | string

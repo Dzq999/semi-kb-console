@@ -64,6 +64,8 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .loop-state strong { font-size: 13px; }
 .loop-state div > span { margin-top: 3px; color: #708097; font-size: 10px; }
 .loop-state .runtime-meta { color: #2864dc; font-family: Consolas, monospace; font-size: 9px; }
+.resume-control { min-height: 34px; padding: 0 8px; display: inline-flex; align-items: center; gap: 6px; border: 1px solid #f0cf8f; border-radius: 8px; color: #875812; background: #fff8e8; font-size: 10px; }
+.resume-control input { width: 48px; min-height: 26px; padding: 0 5px; border-color: #e7c477; color: #6e4a0d; background: white; font-size: 10px; }
 .metrics-grid { display: grid; grid-template-columns: repeat(5, minmax(0,1fr)); gap: 10px; }
 .metrics-grid.metric-context { grid-template-columns: minmax(210px, 280px); }
 .metric-card { min-width: 0; padding: 12px; border: 1px solid #dce5ee; border-radius: 10px; background: white; }

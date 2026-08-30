@@ -27,7 +27,7 @@ from .config import settings
 from .db import Base, SessionLocal, engine, get_db
 from .migrations import upgrade_database
 from .models import AgentIteration, AgentRun, Article, ArticleAsset, ArticleRevision, ArticleSetting, ArticleTopic, DailyReport, DailyReportRevision, EncryptedCredential, ExportJob, LoopSetting, NotificationRecord, ReportSetting, Run, RunEvent, RunRound, User, UserPreference
-from .schemas import ArticleGenerateRequest, ArticleSettingsUpdate, ArticleUpdate, CredentialUpdate, DefaultModelUpdate, ExportCreate, LoginRequest, LoopUpdate, ReportContentUpdate, ReportSettingsUpdate, RunCreate, SetupRequest
+from .schemas import ArticleGenerateRequest, ArticleSettingsUpdate, ArticleUpdate, CredentialUpdate, DefaultModelUpdate, ExportCreate, LoginRequest, LoopUpdate, ReportContentUpdate, ReportSettingsUpdate, RunCreate, RunResumeRequest, SetupRequest
 from .security import decrypt_secret, encrypt_secret, hash_password, new_session_token, verify_password
 from .services.exports import create_export, recover_export_jobs
 from .services.llm import ExternalServiceError, llm_service, user_api_key
@@ -204,6 +204,7 @@ def run_payload(run: Run) -> dict:
         "rounds_completed": sum(item.status == "completed" for item in run.rounds),
         "continuous": config.get("continuous", True), "publish_changes": config.get("publish_changes", False),
         "round_interval_seconds": config.get("round_interval_seconds", 5),
+        "max_consecutive_round_failures": config.get("max_consecutive_round_failures", 3),
         "stop_after_round": run.stop_after_round,
         "orchestrator_engine": run.orchestrator_engine,
         "checkpoint_backend": checkpoint_runtime.backend,
@@ -539,18 +540,22 @@ def pause_run(run_id: str, user: User = Depends(current_user), db: Session = Dep
 
 
 @app.post("/api/runs/{run_id}/resume")
-def resume_run(run_id: str, user: User = Depends(current_user), db: Session = Depends(get_db)) -> dict:
+async def resume_run(run_id: str, payload: RunResumeRequest | None = None, user: User = Depends(current_user), db: Session = Depends(get_db)) -> dict:
     run = db.get(Run, run_id)
     if not run or run.user_id != user.id:
         raise HTTPException(status_code=404, detail="任务不存在")
-    if run.status == "needs_attention":
-        run.status = "pending"; run.error = None; run.pause_requested = False; run.cancel_requested = False; db.commit(); orchestrator.start(run_id)
+    if run.status in {"needs_attention", "pending", "paused"}:
+        if payload and payload.max_consecutive_round_failures is not None:
+            config = json_load(run.config_json, {})
+            config["max_consecutive_round_failures"] = payload.max_consecutive_round_failures
+            run.config_json = json.dumps(config, ensure_ascii=False)
+        run.error = None; run.pause_requested = False; run.cancel_requested = False
+        if run.status == "paused":
+            orchestrator.resume(run_id); run.status = "running"; db.commit()
+            return {"status": "running"}
+        run.status = "pending"; db.commit(); orchestrator.start(run_id)
         return {"status": "pending"}
-    if run.status != "paused":
-        raise HTTPException(status_code=409, detail="当前状态不能恢复")
-    orchestrator.resume(run_id); run.status = "running"
-    db.commit()
-    return {"status": "running"}
+    raise HTTPException(status_code=409, detail="当前状态不能恢复")
 
 
 @app.post("/api/runs/{run_id}/cancel")

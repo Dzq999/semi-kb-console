@@ -37,6 +37,10 @@ class RunCreate(BaseModel):
     max_consecutive_round_failures: int = Field(default=3, ge=1, le=20)
 
 
+class RunResumeRequest(BaseModel):
+    max_consecutive_round_failures: int | None = Field(default=None, ge=1, le=20)
+
+
 class DefaultModelUpdate(BaseModel):
     model_id: str = Field(min_length=1, max_length=160)
 

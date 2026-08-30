@@ -480,7 +480,16 @@ function Dashboard() {
   const [events, setEvents] = useState<
     Array<{ message: string; level: string; created_at: string }>
   >([]);
+  const [resumeMaxFailures, setResumeMaxFailures] = useState(3);
   const latest = data?.latest_run;
+  const canResume = Boolean(
+    latest && ["paused", "needs_attention", "pending"].includes(latest.status),
+  );
+  useEffect(() => {
+    if (latest?.max_consecutive_round_failures) {
+      setResumeMaxFailures(latest.max_consecutive_round_failures);
+    }
+  }, [latest?.id, latest?.max_consecutive_round_failures]);
   const references = useQuery<{ items: RunReference[]; total: number }>({
     queryKey: ["run-references", latest?.id],
     queryFn: () => api(`/api/runs/${latest?.id}/references`),
@@ -553,8 +562,13 @@ function Dashboard() {
     return () => stream.close();
   }, [latest?.id, latest?.status, queryClient]);
   const action = useMutation({
-    mutationFn: ({ name }: { name: string }) =>
-      api(`/api/runs/${latest?.id}/${name}`, { method: "POST" }),
+    mutationFn: ({ name, maxFailures }: { name: string; maxFailures?: number }) =>
+      api(`/api/runs/${latest?.id}/${name}`, {
+        method: "POST",
+        ...(name === "resume" && maxFailures
+          ? { body: JSON.stringify({ max_consecutive_round_failures: maxFailures }) }
+          : {}),
+      }),
     onSuccess: (_result, variables) => {
       setNotice(variables.name === "pause" ? "任务已暂停" : variables.name === "resume" ? "任务已恢复" : variables.name === "cancel" ? "任务已停止" : "已提交轮次停止请求");
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
@@ -607,6 +621,7 @@ function Dashboard() {
           {latest &&
             [
               "running",
+              "pending",
               "recovering",
               "paused",
               "between_rounds",
@@ -616,27 +631,42 @@ function Dashboard() {
               <>
                 <Button
                   disabled={action.isPending}
-                  onClick={() =>
+                  onClick={() => {
+                    const resume = canResume;
                     action.mutate({
-                      name:
-                        latest.status === "paused" ||
-                        latest.status === "needs_attention"
-                          ? "resume"
-                          : "pause",
-                    })
-                  }
+                      name: resume ? "resume" : "pause",
+                      ...(resume ? { maxFailures: resumeMaxFailures } : {}),
+                    });
+                  }}
                 >
-                  {latest.status === "paused" ||
-                  latest.status === "needs_attention" ? (
+                  {canResume ? (
                     <Play size={15} />
                   ) : (
                     <Pause size={15} />
                   )}
-                  {latest.status === "paused" ||
-                  latest.status === "needs_attention"
-                    ? "恢复"
+                  {canResume
+                    ? latest.status === "pending"
+                      ? "启动任务"
+                      : "恢复"
                     : "暂停"}
                 </Button>
+                {["needs_attention", "pending", "paused"].includes(latest.status) && (
+                  <label className="resume-control">
+                    继续失败上限
+                    <input
+                      type="number"
+                      min="1"
+                      max="20"
+                      value={resumeMaxFailures}
+                      onChange={(event) =>
+                        setResumeMaxFailures(
+                          Math.min(20, Math.max(1, Number(event.target.value))),
+                        )
+                      }
+                      aria-label="恢复后的连续失败停止阈值"
+                    />
+                  </label>
+                )}
                 {latest.status !== "needs_attention" &&
                   !latest.stop_after_round && (
                     <Button
@@ -809,6 +839,7 @@ function Orchestrator({
   const [publishChanges, setPublishChanges] = useState(true);
   const [continuous, setContinuous] = useState(true);
   const [roundInterval, setRoundInterval] = useState(5);
+  const [maxConsecutiveFailures, setMaxConsecutiveFailures] = useState(3);
   const [autoStart, setAutoStart] = useState(false);
   const [autoStartInterval, setAutoStartInterval] = useState(1440);
   const [agents, setAgents] = useState<AgentConfig[]>(() =>
@@ -828,7 +859,11 @@ function Orchestrator({
     default_model_id?: string;
     fetched_at: string;
   }>({ queryKey: ["models"], queryFn: () => api("/api/models?refresh=true") });
-  const loop = useQuery<{ enabled: boolean; interval_minutes: number }>({
+  const loop = useQuery<{
+    enabled: boolean;
+    interval_minutes: number;
+    run_config?: { max_consecutive_round_failures?: number };
+  }>({
     queryKey: ["loop"],
     queryFn: () => api("/api/loop"),
   });
@@ -840,6 +875,9 @@ function Orchestrator({
     if (loop.data) {
       setAutoStart(loop.data.enabled);
       setAutoStartInterval(loop.data.interval_minutes);
+      const configuredFailures =
+        loop.data.run_config?.max_consecutive_round_failures;
+      if (configuredFailures) setMaxConsecutiveFailures(configuredFailures);
     }
   }, [loop.data]);
   const filtered = useMemo(
@@ -855,7 +893,7 @@ function Orchestrator({
     publish_changes: publishChanges,
     continuous,
     round_interval_seconds: roundInterval,
-    max_consecutive_round_failures: 3,
+    max_consecutive_round_failures: maxConsecutiveFailures,
   });
   const start = useMutation({
     mutationFn: () =>
@@ -1046,6 +1084,23 @@ function Orchestrator({
               value={roundInterval}
               onChange={(e) => setRoundInterval(Number(e.target.value))}
             />
+          </label>
+          <label>
+            连续失败停止阈值（轮）
+            <input
+              type="number"
+              min="1"
+              max="20"
+              value={maxConsecutiveFailures}
+              onChange={(e) =>
+                setMaxConsecutiveFailures(
+                  Math.min(20, Math.max(1, Number(e.target.value))),
+                )
+              }
+            />
+            <small className="field-hint">
+              连续门禁失败达到该轮数后暂停并等待人工处理。
+            </small>
           </label>
           <label className="switch-line">
             <span>后端启动后按计划自动拉起持续任务</span>

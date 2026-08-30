@@ -132,6 +132,31 @@ def test_control_requests_are_persisted_in_database(authenticated):
     orchestrator.cancelled.discard(run_id); orchestrator.stop_after_rounds.pop(run_id, None)
 
 
+def test_resume_needs_attention_accepts_new_failure_threshold(authenticated, monkeypatch):
+    payload = RunCreate.model_validate({
+        "model_id": "gpt-test", "continuous": True,
+        "agents": [{"name": "Fab", "role": "research", "domain": "fab", "objective": "coverage", "source_mode": "model_prior"}],
+    })
+    with SessionLocal() as db:
+        user = db.scalar(select(User)); run = create_run(db, user.id, payload)
+        run.status = "needs_attention"
+        db.commit()
+        run_id = run.id
+    started: list[str] = []
+    monkeypatch.setattr(orchestrator, "start", lambda active_run_id: started.append(active_run_id))
+
+    response = authenticated.post(
+        f"/api/runs/{run_id}/resume",
+        json={"max_consecutive_round_failures": 8},
+    )
+    assert response.status_code == 200
+    assert response.json() == {"status": "pending"}
+    assert started == [run_id]
+    with SessionLocal() as db:
+        resumed = db.get(Run, run_id)
+        assert json.loads(resumed.config_json)["max_consecutive_round_failures"] == 8
+
+
 def test_restart_recovery_preserves_pause_and_only_resumes_langgraph(authenticated):
     payload = RunCreate.model_validate({
         "model_id": "gpt-test", "continuous": True,
