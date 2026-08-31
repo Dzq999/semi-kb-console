@@ -1,0 +1,19 @@
+{
+  "id": "urn:pxai:semi:knowledge:eqp.fab_monthly_variable_unit_contract",
+  "title": "晶圆厂月度产能与可销售产出单位契约",
+  "domain": "eqp",
+  "summary": "晶圆厂月度经营变量必须携带明确且一致的unitCode，以满足语义门禁并避免跨系统口径歧义。",
+  "content": "通用晶圆厂经营模型以月为核算周期，因此光刻产能变量与可销售产出变量需要明确记录月度晶圆单位。本轮将两者的unitCode补齐为wafer/month，仅用于模型语义、接口校验和结果解释，不代表任何工厂的现场实测产能、实际出货数量或改善承诺。",
+  "source_refs": [
+    "business/models/fab-baseline.yaml",
+    "business/templates/fab.yaml"
+  ],
+  "related_iris": [
+    "urn:pxai:semi:unitCode"
+  ],
+  "confidence": "medium",
+  "provenance": {
+    "source_type": "web",
+    "source_ref": "business/models/fab-baseline.yaml"
+  }
+}

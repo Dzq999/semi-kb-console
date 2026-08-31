@@ -1,0 +1,795 @@
+{
+  "source_fingerprint": "4eee10aa173bdb4dd52ddb9929c54f437c16797014a2802070e7a594ccd19931",
+  "scenario_count": 17,
+  "scenarios": [
+    {
+      "id": "scenario.ap.bonder_down_triage",
+      "title": "键合机停机排查与处置",
+      "domain": "ap",
+      "l1_capabilities": [
+        "set_alert",
+        "user_notification",
+        "tool_matching",
+        "bkm_baseline",
+        "matching_library"
+      ],
+      "l1_capability_names": [
+        "Set Alert",
+        "Info User",
+        "Tool Matching",
+        "BKM Baseline",
+        "Matching Library"
+      ],
+      "l2_scenario": "auto_tool_matching",
+      "l2_scenario_name": "Auto Tool Matching",
+      "scenario_subject": "键合机停机",
+      "customer_problem": "生产现场出现键合机停机，需要快速定位影响与处置。",
+      "pain_point": "候选原因分散，可能阻塞金线键合、QFN 金线封装主流程并影响equipment_oee、throughput、cycle_time。",
+      "candidate_causes": [
+        "EFO 电极污染/磨损",
+        "送线卡线/断线",
+        "键合头伺服/Z 轴异常",
+        "瓷嘴磨损",
+        "治具/载具短缺"
+      ],
+      "candidate_actions": [
+        "清洗/更换 EFO 电极",
+        "更换瓷嘴",
+        "调配治具/改派机台",
+        "扣留批次"
+      ],
+      "ontology_refs": [
+        "ap.anomaly.bonder_down",
+        "ap.process.wire_bond"
+      ],
+      "playbook_ref": "kb.ap.bonder_down_triage",
+      "business_model_ref": "business/models/ap-baseline.yaml",
+      "simulation_scenario_ref": "sim.ap.bonding_yield_improvement",
+      "simulation_readiness": "scenario_ready",
+      "evidence_state": "candidate",
+      "internal_feature_validation": "structural_support",
+      "vfab_validation": "awaiting_source"
+    },
+    {
+      "id": "scenario.ap.delamination_triage",
+      "title": "界面分层排查与处置",
+      "domain": "ap",
+      "l1_capabilities": [
+        "on_duty_coordination",
+        "common_tool",
+        "defect_notice",
+        "impact_lot",
+        "defect_library"
+      ],
+      "l1_capability_names": [
+        "On-duty Coordination",
+        "Common Tool",
+        "Defect Notice",
+        "Impact Lot",
+        "Defect Library"
+      ],
+      "l2_scenario": "auto_dn",
+      "l2_scenario_name": "Auto DN",
+      "scenario_subject": "界面分层",
+      "customer_problem": "生产现场出现界面分层，需要快速定位影响与处置。",
+      "pain_point": "候选原因分散，可能阻塞包装出货并影响yield、scrap_rate。",
+      "candidate_causes": [
+        "塑封料吸湿",
+        "焊垫污染",
+        "固化温度"
+      ],
+      "candidate_actions": [
+        "扣留批次",
+        "塑封料返烤",
+        "追加等离子清洁"
+      ],
+      "ontology_refs": [
+        "ap.anomaly.delamination",
+        "ap.process.aoi"
+      ],
+      "playbook_ref": "kb.ap.delamination_triage",
+      "business_model_ref": "business/models/ap-baseline.yaml",
+      "simulation_scenario_ref": "sim.ap.bonding_yield_improvement",
+      "simulation_readiness": "scenario_ready",
+      "evidence_state": "candidate",
+      "internal_feature_validation": "structural_support",
+      "vfab_validation": "awaiting_source"
+    },
+    {
+      "id": "scenario.ap.dicing_chipping_triage",
+      "title": "切割崩边超规排查与处置",
+      "domain": "ap",
+      "l1_capabilities": [
+        "on_duty_coordination",
+        "common_tool",
+        "defect_notice",
+        "impact_lot",
+        "defect_library"
+      ],
+      "l1_capability_names": [
+        "On-duty Coordination",
+        "Common Tool",
+        "Defect Notice",
+        "Impact Lot",
+        "Defect Library"
+      ],
+      "l2_scenario": "auto_dn",
+      "l2_scenario_name": "Auto DN",
+      "scenario_subject": "切割崩边超规",
+      "customer_problem": "生产现场出现切割崩边超规，需要快速定位影响与处置。",
+      "pain_point": "候选原因分散，可能阻塞装片并影响yield、scrap_rate、cost_per_unit。",
+      "candidate_causes": [
+        "刀片磨损/崩齿",
+        "切割进给速度",
+        "切割刀转速"
+      ],
+      "candidate_actions": [
+        "更换/修整切割刀",
+        "扣留批次"
+      ],
+      "ontology_refs": [
+        "ap.anomaly.dicing_chipping",
+        "ap.process.dicing"
+      ],
+      "playbook_ref": "kb.ap.dicing_chipping_triage",
+      "business_model_ref": "business/models/ap-baseline.yaml",
+      "simulation_scenario_ref": "sim.ap.bonding_yield_improvement",
+      "simulation_readiness": "scenario_ready",
+      "evidence_state": "candidate",
+      "internal_feature_validation": "structural_support",
+      "vfab_validation": "awaiting_source"
+    },
+    {
+      "id": "scenario.ap.die_crack_triage",
+      "title": "芯粒裂纹排查与处置",
+      "domain": "ap",
+      "l1_capabilities": [
+        "on_duty_coordination",
+        "common_tool",
+        "defect_notice",
+        "impact_lot",
+        "defect_library"
+      ],
+      "l1_capability_names": [
+        "On-duty Coordination",
+        "Common Tool",
+        "Defect Notice",
+        "Impact Lot",
+        "Defect Library"
+      ],
+      "l2_scenario": "auto_dn",
+      "l2_scenario_name": "Auto DN",
+      "scenario_subject": "芯粒裂纹",
+      "customer_problem": "生产现场出现芯粒裂纹，需要快速定位影响与处置。",
+      "pain_point": "候选原因分散，可能阻塞包装出货并影响yield、scrap_rate。",
+      "candidate_causes": [
+        "砂轮堵塞",
+        "切割崩边超规",
+        "装片压力",
+        "研磨进给速率"
+      ],
+      "candidate_actions": [
+        "扣留批次",
+        "更换/修整切割刀"
+      ],
+      "ontology_refs": [
+        "ap.anomaly.die_crack",
+        "ap.process.aoi"
+      ],
+      "playbook_ref": "kb.ap.die_crack_triage",
+      "business_model_ref": "business/models/ap-baseline.yaml",
+      "simulation_scenario_ref": "sim.ap.bonding_yield_improvement",
+      "simulation_readiness": "scenario_ready",
+      "evidence_state": "candidate",
+      "internal_feature_validation": "structural_support",
+      "vfab_validation": "awaiting_source"
+    },
+    {
+      "id": "scenario.ap.ft_yield_drop_triage",
+      "title": "终测良率下滑排查与处置",
+      "domain": "ap",
+      "l1_capabilities": [
+        "on_duty_coordination",
+        "common_tool",
+        "defect_notice",
+        "impact_lot",
+        "defect_library"
+      ],
+      "l1_capability_names": [
+        "On-duty Coordination",
+        "Common Tool",
+        "Defect Notice",
+        "Impact Lot",
+        "Defect Library"
+      ],
+      "l2_scenario": "auto_dn",
+      "l2_scenario_name": "Auto DN",
+      "scenario_subject": "终测良率下滑",
+      "customer_problem": "生产现场出现终测良率下滑，需要快速定位影响与处置。",
+      "pain_point": "候选原因分散，可能阻塞包装出货并影响yield、capacity_commit、cost_per_unit。",
+      "candidate_causes": [
+        "测试治具磨损",
+        "金线不粘",
+        "界面分层",
+        "芯粒裂纹",
+        "测试时间"
+      ],
+      "candidate_actions": [
+        "更换/清洗测试治具",
+        "重测",
+        "扣留批次"
+      ],
+      "ontology_refs": [
+        "ap.anomaly.ft_yield_drop",
+        "ap.process.final_test"
+      ],
+      "playbook_ref": "kb.ap.ft_yield_drop_triage",
+      "business_model_ref": "business/models/ap-baseline.yaml",
+      "simulation_scenario_ref": "sim.ap.bonding_yield_improvement",
+      "simulation_readiness": "scenario_ready",
+      "evidence_state": "candidate",
+      "internal_feature_validation": "structural_support",
+      "vfab_validation": "awaiting_source"
+    },
+    {
+      "id": "scenario.ap.missing_ball_triage",
+      "title": "缺球/连球排查与处置",
+      "domain": "ap",
+      "l1_capabilities": [
+        "on_duty_coordination",
+        "common_tool",
+        "defect_notice",
+        "impact_lot",
+        "defect_library"
+      ],
+      "l1_capability_names": [
+        "On-duty Coordination",
+        "Common Tool",
+        "Defect Notice",
+        "Impact Lot",
+        "Defect Library"
+      ],
+      "l2_scenario": "auto_dn",
+      "l2_scenario_name": "Auto DN",
+      "scenario_subject": "缺球/连球",
+      "customer_problem": "生产现场出现缺球/连球，需要快速定位影响与处置。",
+      "pain_point": "候选原因分散，可能阻塞包装出货并影响yield、rework_rate。",
+      "candidate_causes": [
+        "助焊剂印刷不良",
+        "回流曲线漂移",
+        "回流峰值温度"
+      ],
+      "candidate_actions": [
+        "扣留批次",
+        "补植/重植锡球"
+      ],
+      "ontology_refs": [
+        "ap.anomaly.missing_ball",
+        "ap.process.aoi"
+      ],
+      "playbook_ref": "kb.ap.missing_ball_triage",
+      "business_model_ref": "business/models/ap-baseline.yaml",
+      "simulation_scenario_ref": "sim.ap.bonding_yield_improvement",
+      "simulation_readiness": "scenario_ready",
+      "evidence_state": "candidate",
+      "internal_feature_validation": "structural_support",
+      "vfab_validation": "awaiting_source"
+    },
+    {
+      "id": "scenario.ap.mold_void_triage",
+      "title": "塑封空洞排查与处置",
+      "domain": "ap",
+      "l1_capabilities": [
+        "on_duty_coordination",
+        "common_tool",
+        "defect_notice",
+        "impact_lot",
+        "defect_library"
+      ],
+      "l1_capability_names": [
+        "On-duty Coordination",
+        "Common Tool",
+        "Defect Notice",
+        "Impact Lot",
+        "Defect Library"
+      ],
+      "l2_scenario": "auto_dn",
+      "l2_scenario_name": "Auto DN",
+      "scenario_subject": "塑封空洞",
+      "customer_problem": "生产现场出现塑封空洞，需要快速定位影响与处置。",
+      "pain_point": "候选原因分散，可能阻塞包装出货并影响yield、scrap_rate。",
+      "candidate_causes": [
+        "塑封料吸湿",
+        "转注速度",
+        "塑封压力",
+        "模具温度"
+      ],
+      "candidate_actions": [
+        "塑封料返烤",
+        "扣留批次"
+      ],
+      "ontology_refs": [
+        "ap.anomaly.mold_void",
+        "ap.process.aoi"
+      ],
+      "playbook_ref": "kb.ap.mold_void_triage",
+      "business_model_ref": "business/models/ap-baseline.yaml",
+      "simulation_scenario_ref": "sim.ap.bonding_yield_improvement",
+      "simulation_readiness": "scenario_ready",
+      "evidence_state": "candidate",
+      "internal_feature_validation": "structural_support",
+      "vfab_validation": "awaiting_source"
+    },
+    {
+      "id": "scenario.ap.wire_bond_wip_bubble",
+      "title": "Wire Bond 站点 WIP 堆积排查与处置",
+      "domain": "ap",
+      "l1_capabilities": [
+        "abnormal_lot",
+        "root_cause_analysis",
+        "inline_offline_analysis",
+        "wat_cp_analysis",
+        "abnormal_case"
+      ],
+      "l1_capability_names": [
+        "Abnormal Lot",
+        "Root Cause",
+        "Inline/Offline",
+        "WAT/CP",
+        "Abnormal Case"
+      ],
+      "l2_scenario": "wafer_resume",
+      "l2_scenario_name": "Wafer Resume",
+      "scenario_subject": "WIP 堆积",
+      "customer_problem": "生产现场出现WIP 堆积，需要快速定位影响与处置。",
+      "pain_point": "候选原因分散，可能阻塞后续生产并影响cycle_time、throughput、capacity_commit、equipment_oee。",
+      "candidate_causes": [
+        "键合机停机",
+        "治具/载具短缺",
+        "金线不粘",
+        "收片",
+        "扣留"
+      ],
+      "candidate_actions": [
+        "调配治具/改派机台",
+        "扣留批次",
+        "键合参数优化"
+      ],
+      "ontology_refs": [
+        "core.anomaly.wip_bubble",
+        "ap.process.wire_bond"
+      ],
+      "playbook_ref": "kb.ap.wire_bond_wip_bubble",
+      "business_model_ref": "business/models/ap-baseline.yaml",
+      "simulation_scenario_ref": "sim.ap.bonding_yield_improvement",
+      "simulation_readiness": "scenario_ready",
+      "evidence_state": "candidate",
+      "internal_feature_validation": "structural_support",
+      "vfab_validation": "awaiting_source"
+    },
+    {
+      "id": "scenario.ap.wire_nsop_triage",
+      "title": "金线不粘 NSOP 排查与处置",
+      "domain": "ap",
+      "l1_capabilities": [
+        "on_duty_coordination",
+        "common_tool",
+        "defect_notice",
+        "impact_lot",
+        "defect_library"
+      ],
+      "l1_capability_names": [
+        "On-duty Coordination",
+        "Common Tool",
+        "Defect Notice",
+        "Impact Lot",
+        "Defect Library"
+      ],
+      "l2_scenario": "auto_dn",
+      "l2_scenario_name": "Auto DN",
+      "scenario_subject": "金线不粘",
+      "customer_problem": "生产现场出现金线不粘，需要快速定位影响与处置。",
+      "pain_point": "候选原因分散，可能阻塞压模成型并影响yield、rework_rate、throughput。",
+      "candidate_causes": [
+        "瓷嘴磨损",
+        "装片胶溢流",
+        "焊垫污染",
+        "键合超声功率",
+        "键合参数漂移"
+      ],
+      "candidate_actions": [
+        "追加等离子清洁",
+        "更换瓷嘴",
+        "调整点胶参数",
+        "键合参数优化",
+        "扣留批次"
+      ],
+      "ontology_refs": [
+        "ap.anomaly.wire_nsop",
+        "ap.process.wire_bond"
+      ],
+      "playbook_ref": "kb.ap.wire_nsop_triage",
+      "business_model_ref": "business/models/ap-baseline.yaml",
+      "simulation_scenario_ref": "sim.ap.bonding_yield_improvement",
+      "simulation_readiness": "scenario_ready",
+      "evidence_state": "candidate",
+      "internal_feature_validation": "structural_support",
+      "vfab_validation": "awaiting_source"
+    },
+    {
+      "id": "scenario.fab.cd_out_of_spec_triage",
+      "title": "CD 超规排查与处置",
+      "domain": "fab",
+      "l1_capabilities": [
+        "on_duty_coordination",
+        "common_tool",
+        "defect_notice",
+        "impact_lot",
+        "defect_library"
+      ],
+      "l1_capability_names": [
+        "On-duty Coordination",
+        "Common Tool",
+        "Defect Notice",
+        "Impact Lot",
+        "Defect Library"
+      ],
+      "l2_scenario": "auto_dn",
+      "l2_scenario_name": "Auto DN",
+      "scenario_subject": "CD 超规",
+      "customer_problem": "生产现场出现CD 超规，需要快速定位影响与处置。",
+      "pain_point": "候选原因分散，可能阻塞干法蚀刻并影响yield、rework_rate、cycle_time。",
+      "candidate_causes": [
+        "曝光剂量",
+        "热板温度不均",
+        "光阻批号切换",
+        "配方误用",
+        "曝光焦距",
+        "投影镜头/光路沾污"
+      ],
+      "candidate_actions": [
+        "扣留批次",
+        "光刻重工",
+        "配方参数补偿",
+        "提高抽检率"
+      ],
+      "ontology_refs": [
+        "fab.anomaly.cd_out_of_spec",
+        "fab.process.cd_measure"
+      ],
+      "playbook_ref": "kb.fab.cd_out_of_spec_triage",
+      "business_model_ref": "business/models/fab-baseline.yaml",
+      "simulation_scenario_ref": "sim.fab.lithography_capacity_recovery",
+      "simulation_readiness": "scenario_ready",
+      "evidence_state": "candidate",
+      "internal_feature_validation": "structural_support",
+      "vfab_validation": "awaiting_source"
+    },
+    {
+      "id": "scenario.fab.cmp_scratch_triage",
+      "title": "CMP 划伤排查与处置",
+      "domain": "fab",
+      "l1_capabilities": [
+        "on_duty_coordination",
+        "common_tool",
+        "defect_notice",
+        "impact_lot",
+        "defect_library"
+      ],
+      "l1_capability_names": [
+        "On-duty Coordination",
+        "Common Tool",
+        "Defect Notice",
+        "Impact Lot",
+        "Defect Library"
+      ],
+      "l2_scenario": "auto_dn",
+      "l2_scenario_name": "Auto DN",
+      "scenario_subject": "CMP 划伤",
+      "customer_problem": "生产现场出现CMP 划伤，需要快速定位影响与处置。",
+      "pain_point": "候选原因分散，可能阻塞CVD 层间介电沉积并影响yield、scrap_rate、cost_per_unit。",
+      "candidate_causes": [
+        "研磨垫寿命末期",
+        "研磨液粒径团聚",
+        "CMP 研磨压力"
+      ],
+      "candidate_actions": [
+        "更换耗材",
+        "扣留批次"
+      ],
+      "ontology_refs": [
+        "fab.anomaly.cmp_scratch",
+        "fab.process.defect_scan"
+      ],
+      "playbook_ref": "kb.fab.cmp_scratch_triage",
+      "business_model_ref": "business/models/fab-baseline.yaml",
+      "simulation_scenario_ref": "sim.fab.lithography_capacity_recovery",
+      "simulation_readiness": "scenario_ready",
+      "evidence_state": "candidate",
+      "internal_feature_validation": "structural_support",
+      "vfab_validation": "awaiting_source"
+    },
+    {
+      "id": "scenario.fab.etch_residue_triage",
+      "title": "蚀刻残留排查与处置",
+      "domain": "fab",
+      "l1_capabilities": [
+        "on_duty_coordination",
+        "common_tool",
+        "defect_notice",
+        "impact_lot",
+        "defect_library"
+      ],
+      "l1_capability_names": [
+        "On-duty Coordination",
+        "Common Tool",
+        "Defect Notice",
+        "Impact Lot",
+        "Defect Library"
+      ],
+      "l2_scenario": "auto_dn",
+      "l2_scenario_name": "Auto DN",
+      "scenario_subject": "蚀刻残留",
+      "customer_problem": "生产现场出现蚀刻残留，需要快速定位影响与处置。",
+      "pain_point": "候选原因分散，可能阻塞PVD 金属沉积并影响yield、rework_rate。",
+      "candidate_causes": [
+        "腔体聚合物累积",
+        "终点检测失效",
+        "蚀刻时间"
+      ],
+      "candidate_actions": [
+        "配方参数补偿",
+        "腔体清洗",
+        "扣留批次"
+      ],
+      "ontology_refs": [
+        "fab.anomaly.etch_residue",
+        "fab.process.defect_scan"
+      ],
+      "playbook_ref": "kb.fab.etch_residue_triage",
+      "business_model_ref": "business/models/fab-baseline.yaml",
+      "simulation_scenario_ref": "sim.fab.lithography_capacity_recovery",
+      "simulation_readiness": "scenario_ready",
+      "evidence_state": "candidate",
+      "internal_feature_validation": "structural_support",
+      "vfab_validation": "awaiting_source"
+    },
+    {
+      "id": "scenario.fab.film_thickness_dev_triage",
+      "title": "薄膜膜厚偏移/均匀性超规排查与处置",
+      "domain": "fab",
+      "l1_capabilities": [
+        "on_duty_coordination",
+        "common_tool",
+        "defect_notice",
+        "impact_lot",
+        "defect_library"
+      ],
+      "l1_capability_names": [
+        "On-duty Coordination",
+        "Common Tool",
+        "Defect Notice",
+        "Impact Lot",
+        "Defect Library"
+      ],
+      "l2_scenario": "auto_dn",
+      "l2_scenario_name": "Auto DN",
+      "scenario_subject": "膜厚偏移/均匀性超规",
+      "customer_problem": "生产现场出现膜厚偏移/均匀性超规，需要快速定位影响与处置。",
+      "pain_point": "候选原因分散，可能阻塞金属 CMP、氧化层 CMP并影响yield、rework_rate、scrap_rate、cycle_time。",
+      "candidate_causes": [
+        "腔体壁沉积状态未预处理",
+        "靶材侵蚀轮廓演化",
+        "靶材寿命末期",
+        "配方误用",
+        "腔体压力"
+      ],
+      "candidate_actions": [
+        "扣留批次",
+        "腔体预处理（seasoning）",
+        "配方参数补偿",
+        "更换耗材"
+      ],
+      "ontology_refs": [
+        "fab.anomaly.film_thickness_dev",
+        "fab.process.pvd_metal"
+      ],
+      "playbook_ref": "kb.fab.film_thickness_dev_triage",
+      "business_model_ref": "business/models/fab-baseline.yaml",
+      "simulation_scenario_ref": "sim.fab.lithography_capacity_recovery",
+      "simulation_readiness": "scenario_ready",
+      "evidence_state": "candidate",
+      "internal_feature_validation": "structural_support",
+      "vfab_validation": "awaiting_source"
+    },
+    {
+      "id": "scenario.fab.implant_dose_drift_triage",
+      "title": "注入剂量漂移排查与处置",
+      "domain": "fab",
+      "l1_capabilities": [
+        "on_duty_coordination",
+        "common_tool",
+        "defect_notice",
+        "impact_lot",
+        "defect_library"
+      ],
+      "l1_capability_names": [
+        "On-duty Coordination",
+        "Common Tool",
+        "Defect Notice",
+        "Impact Lot",
+        "Defect Library"
+      ],
+      "l2_scenario": "auto_dn",
+      "l2_scenario_name": "Auto DN",
+      "scenario_subject": "注入剂量漂移",
+      "customer_problem": "生产现场出现注入剂量漂移，需要快速定位影响与处置。",
+      "pain_point": "候选原因分散，可能阻塞晶圆针测并影响yield、scrap_rate、capacity_commit。",
+      "candidate_causes": [
+        "束流测量漂移",
+        "配方误用",
+        "注入剂量"
+      ],
+      "candidate_actions": [
+        "扣留批次",
+        "配方参数补偿",
+        "提高抽检率"
+      ],
+      "ontology_refs": [
+        "fab.anomaly.implant_dose_drift",
+        "fab.process.wat"
+      ],
+      "playbook_ref": "kb.fab.implant_dose_drift_triage",
+      "business_model_ref": "business/models/fab-baseline.yaml",
+      "simulation_scenario_ref": "sim.fab.lithography_capacity_recovery",
+      "simulation_readiness": "scenario_ready",
+      "evidence_state": "candidate",
+      "internal_feature_validation": "structural_support",
+      "vfab_validation": "awaiting_source"
+    },
+    {
+      "id": "scenario.fab.overlay_shift_triage",
+      "title": "套刻偏移排查与处置",
+      "domain": "fab",
+      "l1_capabilities": [
+        "on_duty_coordination",
+        "common_tool",
+        "defect_notice",
+        "impact_lot",
+        "defect_library"
+      ],
+      "l1_capability_names": [
+        "On-duty Coordination",
+        "Common Tool",
+        "Defect Notice",
+        "Impact Lot",
+        "Defect Library"
+      ],
+      "l2_scenario": "auto_dn",
+      "l2_scenario_name": "Auto DN",
+      "scenario_subject": "套刻偏移",
+      "customer_problem": "生产现场出现套刻偏移，需要快速定位影响与处置。",
+      "pain_point": "候选原因分散，可能阻塞干法蚀刻并影响yield、rework_rate。",
+      "candidate_causes": [
+        "配方误用",
+        "对位标记损伤/读取不良",
+        "晶圆背面/吸盘沾污",
+        "镜头热效应场内漂移",
+        "洁净室环境超限",
+        "对位补正量"
+      ],
+      "candidate_actions": [
+        "扣留批次",
+        "配方参数补偿",
+        "清洗曝光机吸盘",
+        "光刻重工",
+        "报修并催派原厂工程师"
+      ],
+      "ontology_refs": [
+        "fab.anomaly.overlay_shift",
+        "fab.process.overlay_measure"
+      ],
+      "playbook_ref": "kb.fab.overlay_shift_triage",
+      "business_model_ref": "business/models/fab-baseline.yaml",
+      "simulation_scenario_ref": "sim.fab.lithography_capacity_recovery",
+      "simulation_readiness": "scenario_ready",
+      "evidence_state": "candidate",
+      "internal_feature_validation": "structural_support",
+      "vfab_validation": "awaiting_source"
+    },
+    {
+      "id": "scenario.fab.particle_excursion_triage",
+      "title": "颗粒突增排查与处置",
+      "domain": "fab",
+      "l1_capabilities": [
+        "on_duty_coordination",
+        "common_tool",
+        "defect_notice",
+        "impact_lot",
+        "defect_library"
+      ],
+      "l1_capability_names": [
+        "On-duty Coordination",
+        "Common Tool",
+        "Defect Notice",
+        "Impact Lot",
+        "Defect Library"
+      ],
+      "l2_scenario": "auto_dn",
+      "l2_scenario_name": "Auto DN",
+      "scenario_subject": "颗粒突增",
+      "customer_problem": "生产现场出现颗粒突增，需要快速定位影响与处置。",
+      "pain_point": "候选原因分散，可能阻塞CMOS 逻辑主流程（单金属层）并影响yield、scrap_rate、capacity_commit。",
+      "candidate_causes": [
+        "光罩雾化/沾污",
+        "腔体聚合物累积",
+        "靶材寿命末期",
+        "洁净室环境超限",
+        "研磨液粒径团聚"
+      ],
+      "candidate_actions": [
+        "扣留批次",
+        "光罩清洗",
+        "腔体清洗",
+        "提高抽检率"
+      ],
+      "ontology_refs": [
+        "fab.anomaly.particle_excursion",
+        "fab.process.defect_scan"
+      ],
+      "playbook_ref": "kb.fab.particle_excursion_triage",
+      "business_model_ref": "business/models/fab-baseline.yaml",
+      "simulation_scenario_ref": "sim.fab.lithography_capacity_recovery",
+      "simulation_readiness": "scenario_ready",
+      "evidence_state": "candidate",
+      "internal_feature_validation": "structural_support",
+      "vfab_validation": "awaiting_source"
+    },
+    {
+      "id": "scenario.fab.scanner_down_triage",
+      "title": "光刻机非计划停机排查与处置",
+      "domain": "fab",
+      "l1_capabilities": [
+        "set_alert",
+        "user_notification",
+        "tool_matching",
+        "bkm_baseline",
+        "matching_library"
+      ],
+      "l1_capability_names": [
+        "Set Alert",
+        "Info User",
+        "Tool Matching",
+        "BKM Baseline",
+        "Matching Library"
+      ],
+      "l2_scenario": "auto_tool_matching",
+      "l2_scenario_name": "Auto Tool Matching",
+      "scenario_subject": "光刻机非计划停机",
+      "customer_problem": "生产现场出现光刻机非计划停机，需要快速定位影响与处置。",
+      "pain_point": "候选原因分散，可能阻塞曝光、CMOS 逻辑主流程（单金属层）并影响throughput、capacity_commit、cycle_time、equipment_oee。",
+      "candidate_causes": [
+        "光罩台/工件台伺服异常",
+        "曝光光源功率衰减/熄灭",
+        "预防保养逾期",
+        "洁净室环境超限"
+      ],
+      "candidate_actions": [
+        "报修并催派原厂工程师",
+        "越站/改道",
+        "扣留批次"
+      ],
+      "ontology_refs": [
+        "fab.anomaly.scanner_down",
+        "fab.process.photo_exposure"
+      ],
+      "playbook_ref": "kb.fab.scanner_down_triage",
+      "business_model_ref": "business/models/fab-baseline.yaml",
+      "simulation_scenario_ref": "sim.fab.lithography_capacity_recovery",
+      "simulation_readiness": "scenario_ready",
+      "evidence_state": "candidate",
+      "internal_feature_validation": "structural_support",
+      "vfab_validation": "awaiting_source"
+    }
+  ]
+}

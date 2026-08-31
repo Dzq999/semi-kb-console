@@ -1,0 +1,78 @@
+# ap 层 · 制程段（后段封装测试）
+default_provenance:
+  source_type: model_prior
+  ref: null
+  confidence: high
+  created_at: "2026-08-26"
+  reviewed_by: null
+
+entities:
+  - id: ap.stage.wafer_prep
+    type: Stage
+    name_zh: 晶圆前处理
+    name_en: Wafer Preparation
+    aliases: [前处理, 磨切, 背磨切割]
+    domain: ap
+    description: >
+      收片、背面研磨减薄、贴膜与切割。将前段交付的完整晶圆转为独立芯粒(Die)。
+      此段的机械应力控制决定后续裂片风险。
+    economic_hooks:
+      affects: [yield, scrap_rate]
+      note: 减薄与切割造成的机械损伤在此段不可逆，且前段成本已全部沉没
+
+  - id: ap.stage.die_bond
+    type: Stage
+    name_zh: 装片
+    name_en: Die Bonding
+    aliases: [黏晶, 上片, Die Attach]
+    domain: ap
+    description: 将芯粒从蓝膜取下贴装到基板或引线框架，胶量与贴装精度为控制重点。
+    economic_hooks:
+      affects: [yield, throughput]
+      note: 装片速度是后段产能主要约束之一
+
+  - id: ap.stage.interconnect
+    type: Stage
+    name_zh: 互连
+    name_en: Interconnect
+    aliases: [键合, 打线, 焊线, Bonding]
+    domain: ap
+    description: >
+      建立芯粒与外部的电气连接。金线键合(Wire Bond)为传统主流，
+      凸块加倒装(Bumping + Flip Chip)用于高脚数高频产品。
+    economic_hooks:
+      affects: [yield, cost_per_unit, throughput]
+      note: 金线消耗为显著变动成本，线径与线长优化直接影响单颗成本
+
+  - id: ap.stage.encapsulation
+    type: Stage
+    name_zh: 封装成型
+    name_en: Encapsulation
+    aliases: [塑封, 封胶, Molding]
+    domain: ap
+    description: 塑封料包覆保护结构，含压模成型与后固化。空洞与分层为主要缺陷。
+    economic_hooks:
+      affects: [yield, scrap_rate]
+      note: 塑封后缺陷基本无法返工，属不可逆节点
+
+  - id: ap.stage.final_form
+    type: Stage
+    name_zh: 成品成型
+    name_en: Final Forming
+    aliases: [成型, 植球, 打标]
+    domain: ap
+    description: 打印标识、植球或引脚成型、切筋分离成单颗成品。
+    economic_hooks: {affects: [yield, throughput], note: 共面性不良在此段产生，影响客户端贴装}
+
+  - id: ap.stage.test
+    type: Stage
+    name_zh: 测试
+    name_en: Test
+    aliases: [终测, 成测, Final Test]
+    domain: ap
+    description: >
+      成品终测、可靠性烧机与外观检验。是后段良率结算点，
+      测试机台与治具产能通常是后段瓶颈。
+    economic_hooks:
+      affects: [yield, throughput, capacity_commit, equipment_oee]
+      note: 测试时间(Test Time)直接决定单位测试成本，缩测是后段主要降本手段

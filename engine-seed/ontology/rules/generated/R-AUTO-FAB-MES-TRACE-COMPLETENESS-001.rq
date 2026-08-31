@@ -1,0 +1,1 @@
+CONSTRUCT { ?record a <urn:pxai:semi:FabMESOperationalTraceCompletenessReview> ; <urn:pxai:semi:aboutEntity> ?record . } WHERE { ?record a <urn:pxai:semi:FabMESOperationalTraceRecord> . ?record <urn:pxai:semi:integratesEvidenceFrom> ?artifact . ?artifact <urn:pxai:semi:sourceType> "web" . }

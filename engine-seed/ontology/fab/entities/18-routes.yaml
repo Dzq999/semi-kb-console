@@ -1,0 +1,49 @@
+# fab 层 · 流程路径
+default_provenance:
+  source_type: model_prior
+  ref: null
+  confidence: high
+  created_at: "2026-08-26"
+  reviewed_by: null
+
+entities:
+  - id: fab.route.cmos_logic_main
+    type: Route
+    name_zh: CMOS 逻辑主流程（单金属层）
+    name_en: CMOS Logic Main Flow (Single Metal Layer)
+    domain: fab
+    description: >
+      成熟制程 CMOS 逻辑产品的简化主流程，从投料到 CP 结算。实际多层金属
+      产品在"光刻-蚀刻-薄膜-CMP"区段循环 6~12 轮，此处只展开一轮以保持
+      链路可读。steps 顺序与 20-flow-precedes.yaml 的 precedes 链严格一致。
+    materials: [core.material.wafer, core.material.lot]
+    metrics: [core.metric.cycle_time, core.metric.yield, core.metric.wip]
+    steps:
+      - fab.process.wafer_start
+      - fab.process.wafer_clean
+      - fab.process.thermal_oxidation
+      - fab.process.lpcvd_nitride
+      - fab.process.photo_coat
+      - fab.process.photo_exposure
+      - fab.process.photo_develop
+      - fab.process.cd_measure
+      - fab.process.overlay_measure
+      - fab.process.dry_etch
+      - fab.process.pr_strip
+      - fab.process.defect_scan
+      - fab.process.ion_implant
+      - fab.process.rta_anneal
+      - fab.process.gate_oxidation
+      - fab.process.poly_deposition
+      - fab.process.wet_etch
+      - fab.process.ald_barrier
+      - fab.process.pvd_metal
+      - fab.process.cmp_metal
+      - fab.process.cvd_ild
+      - fab.process.furnace_anneal
+      - fab.process.cmp_oxide
+      - fab.process.wat
+      - fab.process.cp_test
+    economic_hooks:
+      affects: [cycle_time, yield, capacity_commit, cost_per_unit]
+      note: 全流程 CT 与 CP 良率共同决定前段单位成本与交付能力

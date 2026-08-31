@@ -48,7 +48,7 @@ class WechatPublisher:
     @staticmethod
     def _asset_path(asset: ArticleAsset) -> Path:
         path = Path(asset.file_path).resolve()
-        root = (settings.semi_kb_root / "knowledge" / "articles").resolve()
+        root = (settings.engine_root / "knowledge" / "articles").resolve()
         if root not in path.parents or not path.is_file():
             raise WechatPublisherError("文章图片文件不存在或不在允许目录")
         if asset.mime_type not in {"image/png", "image/jpeg", "image/gif"}:

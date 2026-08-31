@@ -1,0 +1,35 @@
+# fab 层 · 主流程 Flow（precedes 链）
+# 这是"主流程 + 风险图谱"框架的正向生产链路部分。
+# 单金属层简化 CMOS 逻辑流程，多层金属实际为 21~24 步循环，此处只展开一轮。
+default_provenance:
+  source_type: model_prior
+  ref: null
+  confidence: high
+  created_at: "2026-08-26"
+  reviewed_by: null
+
+relations:
+  - {from: fab.process.wafer_start,      type: precedes, to: fab.process.wafer_clean}
+  - {from: fab.process.wafer_clean,      type: precedes, to: fab.process.thermal_oxidation}
+  - {from: fab.process.thermal_oxidation, type: precedes, to: fab.process.lpcvd_nitride}
+  - {from: fab.process.lpcvd_nitride,    type: precedes, to: fab.process.photo_coat}
+  - {from: fab.process.photo_coat,       type: precedes, to: fab.process.photo_exposure}
+  - {from: fab.process.photo_exposure,   type: precedes, to: fab.process.photo_develop}
+  - {from: fab.process.photo_develop,    type: precedes, to: fab.process.cd_measure}
+  - {from: fab.process.cd_measure,       type: precedes, to: fab.process.overlay_measure}
+  - {from: fab.process.overlay_measure,  type: precedes, to: fab.process.dry_etch}
+  - {from: fab.process.dry_etch,         type: precedes, to: fab.process.pr_strip}
+  - {from: fab.process.pr_strip,         type: precedes, to: fab.process.defect_scan}
+  - {from: fab.process.defect_scan,      type: precedes, to: fab.process.ion_implant}
+  - {from: fab.process.ion_implant,      type: precedes, to: fab.process.rta_anneal}
+  - {from: fab.process.rta_anneal,       type: precedes, to: fab.process.gate_oxidation}
+  - {from: fab.process.gate_oxidation,   type: precedes, to: fab.process.poly_deposition}
+  - {from: fab.process.poly_deposition,  type: precedes, to: fab.process.wet_etch}
+  - {from: fab.process.wet_etch,         type: precedes, to: fab.process.ald_barrier}
+  - {from: fab.process.ald_barrier,      type: precedes, to: fab.process.pvd_metal}
+  - {from: fab.process.pvd_metal,        type: precedes, to: fab.process.cmp_metal}
+  - {from: fab.process.cmp_metal,        type: precedes, to: fab.process.cvd_ild}
+  - {from: fab.process.cvd_ild,          type: precedes, to: fab.process.furnace_anneal}
+  - {from: fab.process.furnace_anneal,   type: precedes, to: fab.process.cmp_oxide}
+  - {from: fab.process.cmp_oxide,        type: precedes, to: fab.process.wat}
+  - {from: fab.process.wat,              type: precedes, to: fab.process.cp_test}

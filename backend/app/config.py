@@ -23,7 +23,10 @@ class Settings:
     host: str = os.getenv("SEMI_KB_HOST", "127.0.0.1")
     port: int = int(os.getenv("SEMI_KB_PORT", "8765"))
     data_dir: Path = Path(os.getenv("SEMI_KB_CONSOLE_DATA", PROJECT_ROOT / "data"))
-    semi_kb_root: Path = Path(os.getenv("SEMI_KB_ROOT", r"D:\AI_Coding\semi-kb"))
+    # The console owns this engine/data root.  A legacy SEMI_KB_ROOT value is
+    # intentionally ignored at runtime; use scripts\migrate-engine.ps1 for a
+    # one-time import from an older checkout.
+    engine_root: Path = Path(os.getenv("SEMI_KB_ENGINE_ROOT", PROJECT_ROOT / "data" / "engine"))
     llm_base_url: str = os.getenv("LLM_BASE_URL", "https://4sapi.com/v1").rstrip("/")
     model_catalog_url: str = os.getenv("MODEL_CATALOG_URL", "https://4sapi.org/v1/models")
     llm_api_key_env: str = os.getenv("LLM_API_KEY_ENV", "4SAPI_API_KEY")
@@ -64,6 +67,11 @@ class Settings:
     @property
     def llm_api_key(self) -> str | None:
         return os.getenv(self.llm_api_key_env)
+
+    @property
+    def semi_kb_root(self) -> Path:
+        """Compatibility alias for older integrations; always local."""
+        return self.engine_root
 
 
 settings = Settings()

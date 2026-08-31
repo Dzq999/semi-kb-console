@@ -1,0 +1,113 @@
+# fab 层 · 量测指标与物料
+default_provenance:
+  source_type: model_prior
+  ref: null
+  confidence: high
+  created_at: "2026-08-26"
+  reviewed_by: null
+
+entities:
+  - id: fab.metric.cd_uniformity
+    type: Metric
+    name_zh: 关键尺寸均匀性
+    name_en: CD Uniformity
+    domain: fab
+    unit: nm (3σ)
+    typical_range: "成熟制程 3σ < 5% of target"
+    description: >
+      关键尺寸的目标偏差与分布离散度，分片内(WIW)、片间(WTW)、批间(LTL)三层。
+      CD 是前段最核心的图形指标，直接决定器件电学参数分布。
+    economic_hooks:
+      affects: [yield, rework_rate]
+      note: CD 分布宽度决定电参良率上限，收窄分布等价于良率提升
+
+  - id: fab.metric.overlay_error
+    type: Metric
+    name_zh: 套刻误差
+    name_en: Overlay Error
+    domain: fab
+    unit: nm
+    typical_range: "成熟制程 < 15 nm；先进制程 < 3 nm"
+    description: >
+      当前层图形与前层的对位偏差，分解为平移、旋转、放大、非线性分量。
+      超规导致接触不良或短路，是多层结构的累积性风险。
+    economic_hooks:
+      affects: [yield, rework_rate]
+      note: Overlay 失效常可光刻重工挽回，前提是在蚀刻前检出
+
+  - id: fab.metric.film_thickness
+    type: Metric
+    name_zh: 膜厚
+    name_en: Film Thickness
+    domain: fab
+    unit: "Å / nm"
+    description: 沉积或生长膜层厚度及其均匀性，用椭偏仪或反射光谱量测。
+    economic_hooks:
+      affects: [yield, cost_per_unit]
+      note: 膜厚偏厚浪费材料与蚀刻时间，偏薄影响绝缘与阻挡能力
+
+  - id: fab.metric.etch_depth
+    type: Metric
+    name_zh: 蚀刻深度
+    name_en: Etch Depth
+    domain: fab
+    unit: "Å / nm"
+    description: 蚀刻去除的纵向尺寸，配合侧壁角度评估形貌。
+    economic_hooks: {affects: [yield], note: 深度不足致接触未开，过深损伤下层}
+
+  - id: fab.metric.defect_density
+    type: Metric
+    name_zh: 缺陷密度
+    name_en: Defect Density
+    domain: fab
+    unit: "ea/cm² / ea per wafer"
+    description: >
+      单位面积缺陷数。分类(颗粒、划伤、残留、桥连)与空间分布形态
+      是定位责任工序与机台的核心线索。
+    economic_hooks:
+      affects: [yield, scrap_rate]
+      note: 缺陷密度与 die 面积共同决定理论良率上限（Poisson/Murphy 模型）
+
+  - id: fab.metric.sheet_resistance
+    type: Metric
+    name_zh: 方阻
+    name_en: Sheet Resistance
+    domain: fab
+    unit: "Ω/sq"
+    description: 掺杂层或金属层的面电阻，四点探针量测。反映掺杂剂量与激活效果。
+    economic_hooks: {affects: [yield], note: 方阻偏移直接体现为器件驱动能力偏差}
+
+  - id: fab.metric.wat_vt
+    type: Metric
+    name_zh: 阈值电压
+    name_en: Threshold Voltage (Vt)
+    domain: fab
+    unit: V
+    description: >
+      WAT 关键电学参数。受栅氧厚度、通道掺杂剂量、CD 三者共同影响，
+      是多个前段工序偏移的汇总观测量。
+    economic_hooks:
+      affects: [yield, capacity_commit]
+      note: Vt 分布超规导致整批电性失效，为前段最高损失场景
+
+  - id: fab.material.photoresist
+    type: Material
+    name_zh: 光阻
+    name_en: Photoresist
+    domain: fab
+    description: >
+      感光高分子材料，有效期与储存温度敏感。批号切换是 CD 漂移的
+      常见系统性成因，需做批号对比验证。
+    economic_hooks: {affects: [cost_per_unit, yield], note: 光阻单价高，涂布用量与回收策略影响成本}
+
+  - id: fab.material.reticle
+    type: Material
+    name_zh: 光罩
+    name_en: Reticle / Photomask
+    domain: fab
+    description: >
+      承载图形的石英掩膜版。表面沾污或雾化(Haze)会在所有曝光场重复
+      出现同位置缺陷，是"规律性重复缺陷"的首要排查对象。
+    economic_hooks:
+      affects: [yield, scrap_rate]
+      note: 光罩缺陷影响全批次全场，检出延迟的损失放大最快

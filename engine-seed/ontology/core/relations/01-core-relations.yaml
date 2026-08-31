@@ -1,0 +1,100 @@
+# core 层 · 关系
+# analogous_to 是知识飞轮的载体：把本次沉淀的跨行业映射结构化落盘，
+# 使下一个行业冷启动时可直接读取，而非每次重新推演。
+# ext.* 为外部域（其他行业本体）引用，豁免本地解析校验。
+default_provenance:
+  source_type: model_prior
+  ref: null
+  confidence: high
+  created_at: "2026-08-26"
+  reviewed_by: null
+
+relations:
+  - from: core.anomaly.wip_bubble
+    type: measured_by
+    to: core.metric.wip
+    note: WIP 水位是气泡的直接观测量
+
+  - from: core.anomaly.wip_bubble
+    type: measured_by
+    to: core.metric.cycle_time
+    note: 气泡的经营后果体现为 CT 与 X-Factor 恶化
+
+  - from: core.state.hold
+    type: blocks
+    to: fab.route.cmos_logic_main
+    note: Hold 使批次退出派工，冻结在当前路径位置
+    confidence: high
+
+  - from: core.state.hold
+    type: blocks
+    to: ap.route.qfn_wirebond_main
+    note: 同上，后段路径
+
+  - from: core.state.wip_queue
+    type: may_cause
+    to: core.anomaly.wip_bubble
+    note: 队列滞留时间持续超过基线即形成堆积
+    confidence: high
+
+  # --- 跨行业类比映射（analogy 来源，可信度独立标注）---
+  - from: core.param.cleanroom_temp
+    type: analogous_to
+    to: ext.param.greenhouse_env_temp
+    note: >
+      洁净室温湿度控制 ↔ 大棚/养殖环境温控。共性：受控空间内的连续变量稳定性
+      要求、外部信号接入方式、超限的渐变型影响机制。建模范式与告警阈值逻辑可复用。
+    provenance:
+      source_type: analogy
+      ref: null
+      confidence: high
+      created_at: "2026-08-26"
+      reviewed_by: null
+
+  - from: core.material.lot
+    type: analogous_to
+    to: ext.material.livestock_batch
+    note: >
+      晶圆批次 ↔ 养殖批次。共性：成组流转、批内个体差异、批次级追溯、
+      拆批/合批策略影响周转。批次管理本体骨架可直接复用。
+    provenance:
+      source_type: analogy
+      ref: null
+      confidence: high
+      created_at: "2026-08-26"
+      reviewed_by: null
+
+  - from: core.state.scrap
+    type: analogous_to
+    to: ext.state.cull
+    note: >
+      报废 ↔ 淘汰。共性：不可逆退出、沉没成本随发生阶段递增、
+      判定依赖阈值规则。经济换算逻辑同构。
+    provenance:
+      source_type: analogy
+      ref: null
+      confidence: medium
+      created_at: "2026-08-26"
+      reviewed_by: null
+
+  - from: core.state.rework
+    type: analogous_to
+    to: ext.state.retreatment
+    note: 重工 ↔ 复养/二次处理。共性：挽回产出但占用产能，次数受累积损伤上限约束
+    provenance:
+      source_type: analogy
+      ref: null
+      confidence: medium
+      created_at: "2026-08-26"
+      reviewed_by: null
+
+  - from: core.risknode.bottleneck_station
+    type: analogous_to
+    to: ext.risknode.capacity_choke
+    note: 瓶颈站点 ↔ 产能卡口。共性：整链产出上限由单点决定，非卡口改善无效
+    provenance:
+      source_type: analogy
+      ref: null
+      confidence: high
+      created_at: "2026-08-26"
+      reviewed_by: null

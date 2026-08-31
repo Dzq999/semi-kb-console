@@ -1,0 +1,11 @@
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX semi: <urn:pxai:semi:>
+CONSTRUCT {
+  ?downEvent rdf:type semi:EquipmentDowntimeAnomaly .
+  ?downEvent semi:affectsEquipment ?equipment .
+}
+WHERE {
+  ?equipment rdf:type semi:Equipment ;
+             semi:hasStatusEvent ?downEvent .
+  ?downEvent rdf:type semi:DownEvent .
+}

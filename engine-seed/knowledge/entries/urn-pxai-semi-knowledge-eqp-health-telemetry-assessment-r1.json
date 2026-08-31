@@ -1,0 +1,21 @@
+{
+  "id": "urn:pxai:semi:knowledge:eqp-health-telemetry-assessment-r1",
+  "title": "设备遥测驱动的健康评估关联模式",
+  "domain": "eqp",
+  "summary": "将设备健康评估、遥测证据、设备异常和故障预测工作流建立可追溯关联。",
+  "content": "基于既有设备健康建模先验，可将设备遥测证据作为健康评估的依据，并将评估结果连接到设备停机异常等异常类型。传感器驱动实时监控对时间序列观测的分析，可作为故障预测工作流的输入模式；该模式需要接入真实设备、维护和生产数据后才能验证，不应直接解释为现场故障预测准确率。",
+  "source_refs": [
+    "https://link.springer.com/content/pdf/10.1007/s00170-026-18777-0.pdf"
+  ],
+  "related_iris": [
+    "urn:pxai:semi:EquipmentHealthAssessment",
+    "urn:pxai:semi:EquipmentHealthTelemetryLink",
+    "urn:pxai:semi:eqpHealthAssessmentDemo01",
+    "urn:pxai:semi:eqpMonitoringPatternDemo01"
+  ],
+  "confidence": "medium",
+  "provenance": {
+    "source_type": "web",
+    "source_ref": "https://link.springer.com/content/pdf/10.1007/s00170-026-18777-0.pdf"
+  }
+}

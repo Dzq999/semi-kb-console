@@ -1,0 +1,39 @@
+{
+  "purpose": "定义可复用 L1 原子能力与由其编排的 L2 客户业务场景",
+  "source_ref": "sources/internal/platform-capability/raw/L1-L2-Platform.png",
+  "l1_capabilities": [
+    {"id": "tool_matching", "name": "Tool Matching", "kind": "process"},
+    {"id": "common_tool", "name": "Common Tool", "kind": "process"},
+    {"id": "component_lifecycle", "name": "零部件全生命周期管理", "kind": "process"},
+    {"id": "defect_notice", "name": "Defect Notice", "kind": "process"},
+    {"id": "golden_run_path", "name": "GoldenRunPath", "kind": "process"},
+    {"id": "component_procurement", "name": "零部件采购与优化", "kind": "process"},
+    {"id": "qtime_analysis", "name": "Qtime Analysis", "kind": "process"},
+    {"id": "wat_analysis", "name": "WAT Analysis", "kind": "process"},
+    {"id": "pattern_search", "name": "Pattern Search", "kind": "tool"},
+    {"id": "commonality_chart", "name": "Commonality Chart", "kind": "tool"},
+    {"id": "backside_monitor", "name": "BackSide Monitor", "kind": "tool"},
+    {"id": "defect_key_chart", "name": "Defect Key Chart", "kind": "tool"},
+    {"id": "defect_sentinel", "name": "Defect Sentinel", "kind": "tool"},
+    {"id": "component_demand_forecast", "name": "零部件需求预测", "kind": "tool"},
+    {"id": "impact_lot", "name": "Impact Lot", "kind": "tool"},
+    {"id": "ams_dashboard", "name": "AMS Dashboard", "kind": "tool"},
+    {"id": "tool_library", "name": "Tool Library", "kind": "knowledge"},
+    {"id": "defect_library", "name": "Defect Library", "kind": "knowledge"},
+    {"id": "on_duty_coordination", "name": "On-duty Coordination", "kind": "coordination"},
+    {"id": "set_alert", "name": "Set Alert", "kind": "tool"},
+    {"id": "user_notification", "name": "Info User", "kind": "coordination"},
+    {"id": "bkm_baseline", "name": "BKM Baseline", "kind": "knowledge"},
+    {"id": "matching_library", "name": "Matching Library", "kind": "knowledge"},
+    {"id": "abnormal_lot", "name": "Abnormal Lot", "kind": "process"},
+    {"id": "root_cause_analysis", "name": "Root Cause", "kind": "tool"},
+    {"id": "inline_offline_analysis", "name": "Inline/Offline", "kind": "tool"},
+    {"id": "wat_cp_analysis", "name": "WAT/CP", "kind": "tool"},
+    {"id": "abnormal_case", "name": "Abnormal Case", "kind": "knowledge"}
+  ],
+  "l2_scenarios": [
+    {"id": "auto_dn", "name": "Auto DN", "composes": ["on_duty_coordination", "common_tool", "defect_notice", "impact_lot", "defect_library"]},
+    {"id": "auto_tool_matching", "name": "Auto Tool Matching", "composes": ["set_alert", "user_notification", "tool_matching", "bkm_baseline", "matching_library"]},
+    {"id": "wafer_resume", "name": "Wafer Resume", "composes": ["abnormal_lot", "root_cause_analysis", "inline_offline_analysis", "wat_cp_analysis", "abnormal_case"]}
+  ]
+}

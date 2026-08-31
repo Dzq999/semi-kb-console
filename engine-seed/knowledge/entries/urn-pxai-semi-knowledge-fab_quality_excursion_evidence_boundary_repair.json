@@ -1,0 +1,24 @@
+{
+  "id": "urn:pxai:semi:knowledge:fab_quality_excursion_evidence_boundary_repair",
+  "title": "晶圆厂品质异常调查与经营评估的证据边界",
+  "domain": "fab",
+  "summary": "公开行业资料支持高维制造数据、故障检测和根因分析之间的通用关系，经营影响量化仍需现场数据与既有模型验证。",
+  "content": "半导体制造中的细微偏差可能影响良率和产品可靠性，而传统监控难以处理高维、动态且跨系统的数据。图像分析、传感器时间序列、模式识别和因果建模可作为故障检测与根因调查的证据来源。公开资料只能支撑这种通用机制，不能证明特定工厂的根因、损失金额、停机时长或改善比例；经营讨论应使用既有模型开展方向性What-if，并清楚标注情景假设。",
+  "source_refs": [
+    "https://link.springer.com/article/10.1007/s00170-026-18777-0",
+    "https://datacalculus.com/en/blog/semiconductor-manufacturing/maintenance-technician/root-cause-analysis-of-equipment-failures-in-semiconductor-manufacturing"
+  ],
+  "related_iris": [
+    "urn:pxai:semi:anomaly:fab_quality_excursion_delayed_detection_repair",
+    "urn:pxai:semi:impact:economic_quality_excursion_scrap_delivery_repair",
+    "urn:pxai:semi:impactchain:fab_quality_excursion_business_impact_repair",
+    "urn:pxai:semi:pain:fab_fragmented_rca_analysis_repair",
+    "urn:pxai:semi:scenario:fab_quality_excursion_fragmented_analysis_repair",
+    "urn:pxai:semi:scenario:fab_quality_excursion_capacity_recovery_whatif_repair"
+  ],
+  "confidence": "medium",
+  "provenance": {
+    "source_type": "web",
+    "source_ref": "https://link.springer.com/article/10.1007/s00170-026-18777-0"
+  }
+}

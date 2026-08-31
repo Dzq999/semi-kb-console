@@ -1,0 +1,15 @@
+CONSTRUCT {
+  ?chain a <urn:pxai:semi:EQPAlarmMaintenanceCorrelationRecord> ;
+         <urn:pxai:semi:aboutEntity> ?equipment ;
+         <urn:pxai:semi:integratesEvidenceFrom> ?maintenanceEvidence .
+}
+WHERE {
+  ?alarm a <urn:pxai:semi:AlarmEvent> ;
+         <urn:pxai:semi:affectsEquipment> ?equipment .
+  ?downtime a <urn:pxai:semi:EquipmentDowntimeAnomaly> ;
+            <urn:pxai:semi:affectsEquipment> ?equipment .
+  ?maintenance a <urn:pxai:semi:CorrectiveMaintenanceEvent> ;
+               <urn:pxai:semi:affectsEquipment> ?equipment ;
+               <urn:pxai:semi:correlatesMaintenanceLogEvidence> ?maintenanceEvidence .
+  BIND(IRI(CONCAT("urn:pxai:semi:derived:eqp-correlation:", SHA256(CONCAT(STR(?alarm), "|", STR(?downtime), "|", STR(?maintenance), "|", STR(?maintenanceEvidence))))) AS ?chain)
+}

@@ -1,0 +1,22 @@
+{
+  "id": "urn:pxai:semi:knowledge:eqp-downtime-rca-linkage-001",
+  "title": "设备停机、报警与维护证据的根因分析关联",
+  "domain": "eqp",
+  "summary": "将设备停机异常、品质异常、报警事件、纠正性维护、SECS/GEM遥测和维护日志组织为可审计的候选根因分析链。",
+  "content": "在企业级EQP语义模型中，设备停机异常和品质异常可以通过影响设备、停机状态事件、报警事件、纠正性维护事件以及遥测和维护日志证据建立关联。该链路适合支持候选原因排序、证据完备性审查和工程师复核，但维护相关退化仅能作为候选原因，不能在缺少现场时间戳、报警上下文和维修结果时直接认定为实际根因。",
+  "source_refs": [
+    "business/models/fab-baseline.yaml"
+  ],
+  "related_iris": [
+    "urn:pxai:semi:eqp.anomaly.equipment_down_case_001",
+    "urn:pxai:semi:eqp.anomaly.quality_excursion_case_001",
+    "urn:pxai:semi:eqp.workflow.rca_001",
+    "urn:pxai:semi:eqp.evidence.secs_gem_telemetry_001",
+    "urn:pxai:semi:eqp.evidence.maintenance_log_001"
+  ],
+  "confidence": "medium",
+  "provenance": {
+    "source_type": "web",
+    "source_ref": "business/models/fab-baseline.yaml"
+  }
+}

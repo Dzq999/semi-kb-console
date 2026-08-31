@@ -1,0 +1,10 @@
+PREFIX ex: <urn:pxai:semi:>
+CONSTRUCT {
+  ?workflow ex:enablesRCAFor ?anomaly .
+}
+WHERE {
+  ?workflow a ex:AIEnabledRootCauseAnalysisWorkflow ;
+             ex:integratesEvidenceFrom ?evidence ;
+             ex:diagnosesAnomaly ?anomaly .
+  ?anomaly a ex:Anomaly .
+}

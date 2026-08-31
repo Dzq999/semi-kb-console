@@ -1,0 +1,174 @@
+# ap 层 · 工艺参数
+default_provenance:
+  source_type: model_prior
+  ref: null
+  confidence: medium
+  created_at: "2026-08-26"
+  reviewed_by: null
+
+entities:
+  - id: ap.param.grind_feed_rate
+    type: Parameter
+    name_zh: 研磨进给速率
+    name_en: Grind Feed Rate
+    domain: ap
+    unit: "μm/s"
+    typical_range: "1 ~ 10 μm/s（粗磨/精磨分段）"
+    description: 砂轮下压速率。过快引入亚表面微裂纹，是延迟型裂片的隐性来源。
+    economic_hooks: {affects: [yield, throughput], note: 降速可抑制裂纹但压低产出}
+
+  - id: ap.param.blade_rpm
+    type: Parameter
+    name_zh: 切割刀转速
+    name_en: Dicing Blade RPM
+    domain: ap
+    unit: rpm
+    typical_range: "20000 ~ 40000 rpm"
+    description: 刀轮转速，与进给速度共同决定切割负荷与崩边程度。
+    economic_hooks: {affects: [yield, cost_per_unit], note: 转速影响刀片磨损速率}
+
+  - id: ap.param.cut_feed_speed
+    type: Parameter
+    name_zh: 切割进给速度
+    name_en: Cutting Feed Speed
+    domain: ap
+    unit: mm/s
+    typical_range: "20 ~ 100 mm/s"
+    description: 切割行进速度。过快增大崩边，过慢降低产出且加剧刀片发热。
+    economic_hooks: {affects: [yield, throughput], note: 崩边率与产出的直接权衡旋钮}
+
+  - id: ap.param.epoxy_dispense_volume
+    type: Parameter
+    name_zh: 点胶量
+    name_en: Epoxy Dispense Volume
+    domain: ap
+    unit: mg
+    description: >
+      单颗装片胶量。过多溢胶污染焊垫致键合不粘，过少空洞率上升。
+      针头堵塞与胶体黏度随温度变化是主要波动源。
+    economic_hooks: {affects: [yield, cost_per_unit], note: 胶材单价高，用量优化直接影响成本}
+
+  - id: ap.param.die_bond_force
+    type: Parameter
+    name_zh: 装片压力
+    name_en: Die Bond Force
+    domain: ap
+    unit: gf
+    typical_range: "50 ~ 500 gf"
+    description: 芯粒压向基板的力。过大压裂薄芯粒，过小附着不良。
+    economic_hooks: {affects: [yield, scrap_rate], note: 薄芯粒产品的工艺窗口显著收窄}
+
+  - id: ap.param.bond_power
+    type: Parameter
+    name_zh: 键合超声功率
+    name_en: Bond Ultrasonic Power
+    domain: ap
+    unit: mW
+    description: >
+      超声能量，破除氧化层形成金属间化合物。功率不足致不粘，
+      过高致焊垫下方硅裂(Cratering)。
+    economic_hooks: {affects: [yield, rework_rate], note: 键合四参数中对不粘最敏感的旋钮}
+
+  - id: ap.param.bond_force
+    type: Parameter
+    name_zh: 键合压力
+    name_en: Bond Force
+    domain: ap
+    unit: gf
+    typical_range: "20 ~ 80 gf"
+    description: 瓷嘴压向焊垫的力，与超声功率交互决定焊球形变量。
+    economic_hooks: {affects: [yield], note: 过高致焊球过压变形，影响球剪切强度}
+
+  - id: ap.param.bond_time
+    type: Parameter
+    name_zh: 键合时间
+    name_en: Bond Time
+    domain: ap
+    unit: ms
+    typical_range: "5 ~ 30 ms"
+    description: 单点键合作用时长。延长可补偿功率不足，但压低 UPH。
+    economic_hooks: {affects: [yield, throughput], note: 直接影响键合站产能}
+
+  - id: ap.param.bond_stage_temp
+    type: Parameter
+    name_zh: 键合台温度
+    name_en: Bond Stage Temperature
+    domain: ap
+    unit: "℃"
+    typical_range: "150 ~ 250 ℃"
+    description: 加热台温度，提升金属塑性以助键合。温度不足显著抬升不粘率。
+    economic_hooks: {affects: [yield], note: 温度分布不均造成同一基板内键合品质差异}
+
+  - id: ap.param.mold_temp
+    type: Parameter
+    name_zh: 模具温度
+    name_en: Mold Temperature
+    domain: ap
+    unit: "℃"
+    typical_range: "170 ~ 185 ℃"
+    description: 模具加热温度，决定塑封料熔融黏度与固化速率。
+    economic_hooks: {affects: [yield], note: 温度偏低黏度高易产生空洞与包封不全}
+
+  - id: ap.param.mold_pressure
+    type: Parameter
+    name_zh: 塑封压力
+    name_en: Mold Pressure
+    domain: ap
+    unit: "kgf/cm²"
+    typical_range: "50 ~ 100 kgf/cm²"
+    description: 转注压力，压实塑封料排出气体。不足致空洞，过高致冲丝。
+    economic_hooks: {affects: [yield, scrap_rate], note: 空洞与冲丝的双向约束，窗口窄}
+
+  - id: ap.param.transfer_speed
+    type: Parameter
+    name_zh: 转注速度
+    name_en: Transfer Speed
+    domain: ap
+    unit: mm/s
+    description: 塑封料推进速度。过快卷入气体形成空洞并冲击金线。
+    economic_hooks: {affects: [yield, throughput], note: 降速改善空洞但延长模压周期}
+
+  - id: ap.param.cure_temp
+    type: Parameter
+    name_zh: 固化温度
+    name_en: Cure Temperature
+    domain: ap
+    unit: "℃"
+    typical_range: "150 ~ 175 ℃"
+    description: 胶体或塑封料固化烘烤温度，与时间共同决定交联度。
+    economic_hooks: {affects: [cycle_time, yield], note: 固化不足影响机械强度与可靠性}
+
+  - id: ap.param.reflow_peak_temp
+    type: Parameter
+    name_zh: 回流峰值温度
+    name_en: Reflow Peak Temperature
+    domain: ap
+    unit: "℃"
+    typical_range: "235 ~ 260 ℃（无铅制程）"
+    description: >
+      回流焊峰值温度，须高于锡膏熔点且低于封装体耐温上限。
+      配合升温速率构成回流曲线，曲线失当致连球或虚焊。
+    economic_hooks: {affects: [yield, rework_rate], note: 曲线优化是植球与倒装良率的核心}
+
+  - id: ap.param.test_time
+    type: Parameter
+    name_zh: 测试时间
+    name_en: Test Time
+    domain: ap
+    unit: s/unit
+    description: >
+      单颗测试历时。与并测数共同决定测试机 UPH，是后段单位成本的
+      最大可控变量。缩测需以覆盖率验证为前提。
+    economic_hooks:
+      affects: [cost_per_unit, throughput, capacity_commit]
+      note: 测试成本近似正比于测试时间，缩测 10% 即等比降低测试支出
+
+  - id: ap.param.burn_in_temp
+    type: Parameter
+    name_zh: 烧机温度
+    name_en: Burn-in Temperature
+    domain: ap
+    unit: "℃"
+    typical_range: "125 ~ 150 ℃"
+    description: 加速老化温度，依 Arrhenius 模型折算等效使用时长。
+    economic_hooks: {affects: [cycle_time, cost_per_unit], note: 提温可缩短烧机时长，受封装耐温限制}

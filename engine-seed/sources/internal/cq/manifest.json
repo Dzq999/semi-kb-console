@@ -1,0 +1,11 @@
+{
+  "source_id": "internal.cq.current",
+  "display_name": "当前CQ整理",
+  "canonical_file": "sources/internal/cq/raw/Current-CQ.docx",
+  "source_sha256": "cf7e82127bd8a7e075c061992595b2ab707f8f0bbfd5a574b5501c4a4e3769ea",
+  "source_size_bytes": 8368,
+  "authority": "internal_feature_team",
+  "derived_artifact": "ontology/capability-questions.json",
+  "problem_domain_count": 11,
+  "external_publication": false
+}

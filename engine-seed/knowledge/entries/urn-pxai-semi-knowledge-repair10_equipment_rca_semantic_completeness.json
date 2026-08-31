@@ -1,0 +1,22 @@
+{
+  "id": "urn:pxai:semi:knowledge:repair10_equipment_rca_semantic_completeness",
+  "title": "设备根因调查的标识与可能原因完整性要求",
+  "domain": "eqp",
+  "summary": "设备实例需要稳定代码，根因调查需要至少关联一个可追溯的可能原因候选。",
+  "content": "设备根因调查链路要通过语义完整性检查，设备实例应具有唯一且非空的equipmentCode，调查实例还应至少通过hasPossibleCause关联一个原因候选。传感器时间序列中的失效前兆模式可以作为待验证的可能原因，但在维护日志、设备遥测或其他证据完成交叉验证前，不应将其表述为已确认根因。",
+  "source_refs": [
+    "https://www.softwebsolutions.com/resources/ai-semiconductor-yield-optimization/"
+  ],
+  "related_iris": [
+    "urn:pxai:semi:equipment.web.generic_semiconductor_equipment",
+    "urn:pxai:semi:investigation:web_multisource_equipment_rca_intel_case",
+    "urn:pxai:semi:cause:web_sensor_timeseries_failure_precursor_pattern_repair10",
+    "urn:pxai:semi:equipmentCode",
+    "urn:pxai:semi:hasPossibleCause"
+  ],
+  "confidence": "medium",
+  "provenance": {
+    "source_type": "web",
+    "source_ref": "https://www.softwebsolutions.com/resources/ai-semiconductor-yield-optimization/"
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "id": "urn:pxai:semi:knowledge:eqp:predictive-maintenance-downtime-closure-001",
+  "title": "设备停机异常的预测维护闭环",
+  "domain": "eqp",
+  "summary": "设备时间序列遥测可作为停机异常诊断和预测故障预警的证据入口，并进一步关联预防维护计划与维护事件。",
+  "content": "在设备知识工程中，可将设备时间序列遥测观测、停机异常、预测故障预警、维护计划和预防维护事件组织为可追溯闭环：预测工作流分析遥测观测并生成预警，预警指向具体设备，维护计划再面向停机异常安排处置。当前内容来自model_prior，未使用现场测量值，因此只能作为建模和证据采集框架，不能直接作为实际根因、停机恢复量或维护效果结论。",
+  "source_refs": [
+    "business/models/fab-baseline.yaml",
+    "simulation/scenarios/fab-capacity-recovery.yaml"
+  ],
+  "related_iris": [
+    "urn:pxai:semi:EquipmentDowntimeAnomaly",
+    "urn:pxai:semi:PredictedEquipmentFailureWarning",
+    "urn:pxai:semi:SensorTimeSeriesEquipmentFailureForecastingWorkflow",
+    "urn:pxai:semi:MaintenancePlan",
+    "urn:pxai:semi:PreventiveMaintenanceEvent"
+  ],
+  "confidence": "medium",
+  "provenance": {
+    "source_type": "web",
+    "source_ref": "business/models/fab-baseline.yaml"
+  }
+}

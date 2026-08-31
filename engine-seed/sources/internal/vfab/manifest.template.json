@@ -1,0 +1,16 @@
+{
+  "source_id": "internal.vfab",
+  "delivered_at": null,
+  "owner": null,
+  "classification": "internal_confidential",
+  "files": [
+    {
+      "path": "raw/example.xlsx",
+      "format": "xlsx",
+      "sha256": "replace-with-64-hex-digest",
+      "target_class": "urn:pxai:semi:Equipment",
+      "entity_keys": ["equipment_code"],
+      "time_field": null
+    }
+  ]
+}

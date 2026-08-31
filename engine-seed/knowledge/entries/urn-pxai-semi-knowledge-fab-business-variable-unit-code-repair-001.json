@@ -1,0 +1,17 @@
+{
+  "id": "urn:pxai:semi:knowledge:fab-business-variable-unit-code-repair-001",
+  "title": "晶圆厂经营变量单位代码完整性修复",
+  "domain": "fab",
+  "summary": "晶圆厂经营模型中的光刻产能与可销售单元变量必须具有单位代码，以满足语义校验的最小基数约束。",
+  "content": "门禁校验显示，通用晶圆厂经营模型中的fabLithographyCapacity和fabSaleableUnits均缺少unitCode，导致语义验证的最小基数约束失败。本轮分别补充capacity_units_per_month和units_per_month两个字符串单位代码，仅用于明确变量的计量语义，不代表现场实测产能、实际销售量、改善承诺或财务预测。",
+  "source_refs": [
+    "business/models/fab-baseline.yaml",
+    "business/models/business.agent.run-c163313475f54c2f.r1.run-c163313475f54c2f-a01.1.yaml"
+  ],
+  "related_iris": [],
+  "confidence": "medium",
+  "provenance": {
+    "source_type": "web",
+    "source_ref": "business/models/fab-baseline.yaml"
+  }
+}

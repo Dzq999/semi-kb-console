@@ -1,0 +1,12 @@
+PREFIX px: <urn:pxai:semi:>
+CONSTRUCT {
+  ?workflow px:hasEvidence ?telemetry .
+}
+WHERE {
+  ?workflow a px:AIEnabledRootCauseAnalysisWorkflow .
+  ?workflow px:integratesEvidenceFrom ?telemetry .
+  ?telemetry a px:SECSGEMEquipmentTelemetryEvidence .
+  FILTER NOT EXISTS {
+    ?workflow px:hasEvidence ?telemetry .
+  }
+}

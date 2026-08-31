@@ -1,0 +1,12 @@
+PREFIX semi: <urn:pxai:semi:>
+CONSTRUCT {
+  ?investigation semi:enablesRCAFor ?anomaly .
+}
+WHERE {
+  ?investigation a semi:CrossSystemRCAInvestigation ;
+                 semi:diagnosesAnomaly ?anomaly ;
+                 semi:correlatesFactorySourceArtifact ?artifact .
+  ?anomaly a semi:QualityExcursionAnomaly .
+  ?artifact a semi:SourceArtifact .
+  FILTER NOT EXISTS { ?investigation semi:enablesRCAFor ?anomaly }
+}

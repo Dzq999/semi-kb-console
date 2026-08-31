@@ -1,0 +1,22 @@
+{
+  "id": "urn:pxai:semi:knowledge:siemens-fab-digital-twin-virtual-metrology",
+  "title": "数字孪生连接工艺设备信息并支持虚拟量测与根因识别",
+  "domain": "fab",
+  "summary": "Siemens网页资料显示，Calibre Fab Insights以数字孪生连接工艺和设备信息，提供虚拟量测、实时设备健康监控、制程漂移预测、根因识别及AI引导配方参数优化能力。",
+  "content": "Siemens Calibre Fab Insights资料将半导体智能制造数字孪生描述为连接工艺与设备信息的分析基础，可用于减少生产迭代、加快良率爬坡并提升良率达成度。其虚拟量测与实时监控能力面向机器健康、制程漂移和根因失效识别；AI引导配方设置则通过排序对目标量测影响较大的输入参数，辅助新产品或既有产品的配方优化。该证据描述的是平台能力，不代表任何特定晶圆厂的实测改善结果。",
+  "source_refs": [
+    "https://www.siemens.com/en-us/products/ic/calibre-manufacturing/fab-solutions/calibre-fab-insights/"
+  ],
+  "related_iris": [
+    "urn:pxai:semi:FacilityDigitalTwin",
+    "urn:pxai:semi:MetrologyConfiguration",
+    "urn:pxai:semi:SensorDrivenRealTimeEquipmentMonitoring",
+    "urn:pxai:semi:siemens:calibreFabInsightsDigitalTwin",
+    "urn:pxai:semi:siemens:virtualMetrologyAnalysis"
+  ],
+  "confidence": "high",
+  "provenance": {
+    "source_type": "web",
+    "source_ref": "https://www.siemens.com/en-us/products/ic/calibre-manufacturing/fab-solutions/calibre-fab-insights/"
+  }
+}

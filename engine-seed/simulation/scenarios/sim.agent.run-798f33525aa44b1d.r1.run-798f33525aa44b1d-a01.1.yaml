@@ -1,0 +1,23 @@
+schema_version: '2.0'
+scenario:
+  name: 聚合Fab模型支持的光刻产能恢复What-if
+  model_ref: business/models/fab-baseline.yaml
+  description: 基于证据中关于设备利用率、周期时间和按期交付权衡的背景，使用现有通用晶圆厂经营模型评估光刻产能增加假设对受约束投入量和可销售产出的方向性影响；情景输入为模型假设，不代表现场实测值或交付承诺。
+  interventions:
+  - target_ref: fab.equip.scanner
+    variable: lithography_capacity
+    operation: add
+    value: 1000
+  - target_ref: fab.action.recipe_adjust
+    variable: intervention_opex
+    operation: set
+    value: 2000000
+  assertions:
+  - type: nondecreasing
+    variable: constrained_input
+  - type: nondecreasing
+    variable: saleable_units
+  investment:
+    one_time: 6000000
+    unit: CNY
+  id: sim.agent.run-798f33525aa44b1d.r1.run-798f33525aa44b1d-a01.1

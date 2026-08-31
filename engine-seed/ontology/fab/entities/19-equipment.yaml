@@ -1,0 +1,233 @@
+# fab 层 · 机台设备
+# 设备是产能的实际载体：Process 说"做什么"，Equipment 说"在哪台上做、能做多快"。
+# belongs_to(Equipment -> Process) 由 Process 的 equipment 字段派生，不在此处写关系。
+# tags 约定：batch=批式（一次多片）| single_wafer=单片式 | bottleneck=典型瓶颈机台
+default_provenance:
+  source_type: model_prior
+  ref: null
+  confidence: high
+  created_at: "2026-08-27"
+  reviewed_by: null
+
+entities:
+  - id: fab.equip.scanner
+    type: Equipment
+    name_zh: 扫描式曝光机
+    name_en: Scanner / Lithography Tool
+    domain: fab
+    tags: [single_wafer, bottleneck]
+    description: >
+      分步扫描投影曝光机。单台资本支出为全厂最高，折旧摊提使其稼动率
+      直接决定单位成本。光源、镜头、对位系统三者状态共同决定 CD 与 Overlay 能力，
+      机台间差异(Tool-to-Tool)需靠 Overlay 修正参数补偿，因此不可随意换机。
+    economic_hooks:
+      affects: [capacity_commit, equipment_oee, cost_per_unit, throughput]
+      note: 全厂产能锚点，排程以 Scanner 可用工时为约束求解
+
+  - id: fab.equip.track
+    type: Equipment
+    name_zh: 涂布显影机
+    name_en: Coater / Developer Track
+    domain: fab
+    tags: [single_wafer]
+    description: >
+      涂布、烤板、显影一体的轨道式设备，通常与 Scanner 联机(In-line)。
+      热板温度均匀性是 CD 均匀性的直接来源。联机意味着 Track 故障会连带
+      锁死 Scanner，其可用性影响被放大。
+    economic_hooks:
+      affects: [equipment_oee, yield, throughput]
+      note: 与 Scanner 联机，停机影响按瓶颈机台计算而非按自身产能
+
+  - id: fab.equip.etcher_plasma
+    type: Equipment
+    name_zh: 等离子蚀刻机
+    name_en: Plasma Etcher
+    domain: fab
+    tags: [single_wafer]
+    description: >
+      多腔体(Cluster)配置，各腔体独立漂移。聚合物累积改变蚀刻速率与形貌，
+      需按 RF 累积时数排 PM 与 Seasoning。腔体是有效调度单元，
+      同机不同腔的产出需分开做 SPC。
+    economic_hooks:
+      affects: [equipment_oee, yield, rework_rate]
+      note: PM 排程与产能计划需联动，腔体清洗窗口是可规划的产能损失
+
+  - id: fab.equip.wet_bench
+    type: Equipment
+    name_zh: 湿式工作台
+    name_en: Wet Bench
+    domain: fab
+    tags: [batch]
+    description: >
+      多槽化学处理设备，一次处理整批(通常 25~50 片)。槽液随累积用量衰减，
+      按 batch count 换槽形成周期性能力波动。批式处理使其单位成本低，
+      但一次异常影响整批，损失粒度大。
+    economic_hooks:
+      affects: [cost_per_unit, scrap_rate, yield]
+      note: 批式设备的异常损失以批为单位，换槽周期是成本与均匀性的权衡点
+
+  - id: fab.equip.furnace
+    type: Equipment
+    name_zh: 立式扩散炉
+    name_en: Vertical Furnace
+    domain: fab
+    tags: [batch, bottleneck]
+    description: >
+      一次装载多舟(100+ 片)的批式热处理设备。升降温加保温的周期长达数小时，
+      是前段最长的单工序周期时间。批量大意味着排程上倾向凑满批，
+      因此常成为 WIP 堆积点 —— 等批比等机台更常见。
+    economic_hooks:
+      affects: [cycle_time, capacity_commit, equipment_oee]
+      note: 凑批策略直接决定周期时间，小批量急件与满批产能是结构性矛盾
+
+  - id: fab.equip.rtp
+    type: Equipment
+    name_zh: 快速热处理机
+    name_en: Rapid Thermal Processor (RTP)
+    domain: fab
+    tags: [single_wafer]
+    description: >
+      灯管加热的单片式热处理设备，秒级升温。相较扩散炉热预算低得多，
+      用于浅接面激活。单片式使其无凑批延迟，但产能受限于单片处理时间。
+    economic_hooks:
+      affects: [cycle_time, yield, throughput]
+      note: 单片式无凑批等待，是急件绕过扩散炉长周期的替代路径
+
+  - id: fab.equip.implanter
+    type: Equipment
+    name_zh: 离子植入机
+    name_en: Ion Implanter
+    domain: fab
+    tags: [single_wafer, bottleneck]
+    description: >
+      按能量段分中束流/高电流/高能三类机型，机型间不可互换。
+      束流稳定性决定剂量精度，换 species 需长时间清洗与调机，
+      因此排程强烈偏好同 species 连做 —— 换机成本体现为设置时间而非停机。
+    economic_hooks:
+      affects: [capacity_commit, equipment_oee, cycle_time]
+      note: Setup time 依赖前后批次组合，排程顺序直接影响有效产能
+
+  - id: fab.equip.pvd
+    type: Equipment
+    name_zh: 物理气相沉积机
+    name_en: PVD / Sputter
+    domain: fab
+    tags: [single_wafer]
+    description: >
+      溅镀金属膜的多腔体设备。靶材随消耗改变沉积速率，靶材寿命末期
+      颗粒污染风险上升。换靶是计划性停机，靶材成本进入单位成本。
+    economic_hooks:
+      affects: [cost_per_unit, equipment_oee, yield]
+      note: 靶材寿命管理同时影响耗材成本与缺陷基线
+
+  - id: fab.equip.cvd
+    type: Equipment
+    name_zh: 化学气相沉积机
+    name_en: CVD Tool
+    domain: fab
+    tags: [single_wafer]
+    description: >
+      介质膜沉积设备。腔体壁沉积物累积是颗粒主要来源，需定期
+      腔体清洗(Chamber Clean)与预镀(Pre-coat)。膜厚均匀性受
+      喷淋头状态影响，是缓变型漂移。
+    economic_hooks:
+      affects: [yield, equipment_oee, cost_per_unit]
+      note: 腔体清洗频率是缺陷率与稼动率的直接权衡
+
+  - id: fab.equip.ald
+    type: Equipment
+    name_zh: 原子层沉积机
+    name_en: ALD Tool
+    domain: fab
+    tags: [single_wafer]
+    description: >
+      自限制反应逐层沉积，厚度控制精度最高但速率最低。
+      用于高深宽比结构的阻挡层与高 k 介质。速率低使其在需要
+      厚膜时不具经济性，选用边界由膜厚需求决定。
+    economic_hooks:
+      affects: [cycle_time, yield, cost_per_unit]
+      note: 精度换速率，单位时间产出低，仅在阶梯覆盖要求高处使用
+
+  - id: fab.equip.cmp
+    type: Equipment
+    name_zh: 化学机械抛光机
+    name_en: CMP Polisher
+    domain: fab
+    tags: [single_wafer]
+    description: >
+      研磨垫加抛光液的平坦化设备。研磨垫随抛光片数磨耗，
+      去除速率随之衰减，需按片数修整(Conditioning)或换垫。
+      碟形凹陷与刮伤是主要缺陷模式，抛光后清洗能力同样关键。
+    economic_hooks:
+      affects: [yield, cost_per_unit, equipment_oee]
+      note: 耗材(垫/浆料)占单位成本比例高，速率衰减需靠时间补偿
+
+  - id: fab.equip.cd_sem
+    type: Equipment
+    name_zh: 关键尺寸扫描电镜
+    name_en: CD-SEM
+    domain: fab
+    tags: [single_wafer]
+    description: >
+      非破坏量测线宽的电子显微设备。量测本身不增值但决定是否放行，
+      抽样率是"检出速度"与"量测机台产能"的权衡。量测排队会延后
+      重工决策窗口，把可挽回的偏移变成不可挽回。
+    economic_hooks:
+      affects: [cycle_time, rework_rate, capacity_commit]
+      note: 量测产能不足会挤压重工决策窗口，抽样率下调等于放大逃逸风险
+
+  - id: fab.equip.overlay_metro
+    type: Equipment
+    name_zh: 套刻量测机
+    name_en: Overlay Metrology Tool
+    domain: fab
+    tags: [single_wafer]
+    description: >
+      量测层间对位偏差并回馈修正量给 Scanner(APC 回路)。
+      其数据质量直接决定回馈修正是否有效，量测精度不足会把
+      噪声当信号回馈，反而放大 Overlay 波动。
+    economic_hooks:
+      affects: [yield, rework_rate]
+      note: 数据质量决定 APC 回馈有效性，误回馈的代价高于不回馈
+
+  - id: fab.equip.defect_scanner
+    type: Equipment
+    name_zh: 缺陷检测机
+    name_en: Defect Inspection Tool
+    domain: fab
+    tags: [single_wafer]
+    description: >
+      光学或电子束扫描全片缺陷并分类。灵敏度与吞吐量成反比，
+      检测配方(Recipe)决定能看见什么。缺陷空间分布形态是定位
+      责任机台的核心线索，因此检测点布置决定问题可诊断性。
+    economic_hooks:
+      affects: [yield, scrap_rate, cycle_time]
+      note: 检测点布置决定异常检出延迟，延迟越长受影响批次越多
+
+  - id: fab.equip.prober
+    type: Equipment
+    name_zh: 晶圆测试机
+    name_en: Wafer Prober / Tester
+    domain: fab
+    tags: [single_wafer, bottleneck]
+    description: >
+      探针卡接触焊垫做电性测试，与测试机(Tester)配对使用。
+      测试时间由测试项数决定，是前段最后一道也是最贵的量测。
+      探针卡磨耗导致接触不良会误判为良率下降，需与真实失效区分。
+    economic_hooks:
+      affects: [capacity_commit, cycle_time, cost_per_unit]
+      note: 测试工时是产出瓶颈之一，缩短测试时间与检出能力直接冲突
+
+  - id: fab.equip.wafer_sorter
+    type: Equipment
+    name_zh: 晶圆分片机
+    name_en: Wafer Sorter
+    domain: fab
+    tags: [single_wafer]
+    description: >
+      读取晶圆 ID 并在片盒间搬运重组批次。是批次拆分合并的执行点，
+      也是 WIP 追溯的数据来源。分片错误导致的批次混料是追溯性事故，
+      影响面按后续所有工序展开。
+    economic_hooks:
+      affects: [cycle_time, scrap_rate]
+      note: 批次重组是排程灵活性的来源，也是混料风险的集中点

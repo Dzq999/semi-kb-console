@@ -1,0 +1,389 @@
+# 能力问题清单 (Competency Questions)
+#
+# 这份文件回答一个问题：**这个库的边界在哪。**
+#
+# 没有它的时候，边界只存在于建库者的判断里。用的人问一个超出范围的问题，
+# 检索返回空或不相关，分不清"库里没有"和"这事不成立"。
+# 缺口清单能说明"哪里不够细"，说不了"哪类问题根本答不了"。
+#
+# in_scope 是承诺：库必须能答，且答案是沿图遍历得到的，不是靠模型知识兜。
+# out_of_scope 是拒绝：明确答不了，`kb-query.md` 据此直接回"超出范围"而不是硬编。
+#
+# requires 不是给人看的注释，是校验依据。R016 检查每条问题依赖的实体类型与
+# 关系类型是否都存在且有实例——`Equipment` 声明了却零实例那种"声明与事实分离
+# 且分离不产生信号"的坑，靠这条挡。所以新增 in_scope 条目必须同时写 requires。
+
+meta_version: "1.0"
+updated_at: "2026-08-27"
+
+# ---------------------------------------------------------------
+# 承诺能答的问题
+# ---------------------------------------------------------------
+in_scope:
+
+  # --- 异常排查：库的主用途，风险图谱是最密的部分 ---
+  - id: CQ01
+    q: "出现某个异常症状，可能的根因有哪些，按经验概率排序？"
+    requires:
+      entity_types: [Anomaly, Cause]
+      relations: [may_cause]
+    answered_via: "kb 实例的 possible_causes（含 likelihood），回落到 may_cause 边"
+    match_terms: ["原因", "根因", "为什么", "为何", "怎么造成", "什么导致", "可能是"]
+    probe: {from_type: Anomaly, steps: [{via: may_cause, dir: in}]}
+
+  - id: CQ02
+    q: "两个表现相似的异常怎么区分？"
+    requires:
+      entity_types: [Anomaly]
+    answered_via: "kb 实例的 possible_causes[].discriminator——判别依据是知识库最有价值的字段"
+    match_terms: ["区分", "区别", "怎么分", "如何分辨", "判别", "分辨", "不一样", "差别"]
+    # 判别依据不是图上的边,而是实例字段。硬塞成关系会造出假边。
+    probe: {scope: kb, field: "possible_causes[].discriminator"}
+
+  - id: CQ03
+    q: "这个异常会引发哪些下游异常（级联）？"
+    requires:
+      entity_types: [Anomaly]
+      relations: [may_cause]
+    answered_via: "may_cause 的 Anomaly -> Anomaly 边，沿图前向遍历"
+    match_terms: ["级联", "会引发", "会导致", "下游", "连带", "会造成", "波及"]
+    probe: {from_type: Anomaly, steps: [{via: may_cause, dir: out, to_type: Anomaly}]}
+
+  - id: CQ04
+    q: "这个异常在哪道工序能被检出，用什么指标、什么信号形态？"
+    requires:
+      entity_types: [Anomaly, Process, Metric]
+      relations: [detected_at]
+    answered_via: "detected_at 边定位工序，kb 实例的 detection[].signal 给信号形态"
+    match_terms: ["哪里检出", "怎么发现", "如何检出", "在哪发现", "什么指标", "检出点", "怎么查出", "哪道工序发现"]
+    probe: {from_type: Anomaly, steps: [{via: detected_at, dir: out}]}
+
+  - id: CQ05
+    q: "确认了根因，该做什么处置，按什么顺序，各自的适用前提是什么？"
+    requires:
+      entity_types: [Anomaly, Action]
+      relations: [mitigated_by]
+    answered_via: "mitigated_by 边给候选动作，kb 实例的 actions[].order / .condition 给顺序与前提"
+    match_terms: ["怎么处置", "怎么处理", "该做什么", "如何处理", "对策", "措施", "怎么办", "处置动作"]
+    probe: {from_type: Anomaly, steps: [{via: mitigated_by, dir: out}]}
+
+  - id: CQ06
+    q: "这个异常会阻塞哪些工序或路径，影响面多大？"
+    requires:
+      entity_types: [Anomaly, Process, Route]
+      relations: [blocks]
+    answered_via: "blocks 边 + kb 实例的 impact.blocked_processes"
+    match_terms: ["阻塞", "卡住", "影响面", "会挡", "停线", "影响哪些工序", "封锁"]
+    probe: {from_type: Anomaly, steps: [{via: blocks, dir: out}]}
+
+  # --- 流程结构：主流程骨架 ---
+  - id: CQ07
+    q: "某道工序的前置和后续工序是什么？"
+    requires:
+      entity_types: [Process]
+      relations: [precedes]
+    answered_via: "precedes 前向/后向遍历"
+    match_terms: ["前置", "后续", "上一道", "下一道", "前一步", "后一步", "前后工序", "接下来",
+                  "之后是哪道", "之前是哪道", "后面是什么", "紧接着", "之后做什么", "下游工序", "上游工序"]
+    probe: {from_type: Process, steps: [{via: precedes, dir: out}]}
+
+  - id: CQ08
+    q: "某个封装型体或制程的完整流程有哪些步骤，顺序如何？"
+    requires:
+      entity_types: [Route, Process]
+      relations: [precedes]
+    answered_via: "Route.steps（有序），与 precedes 边一致（R010 保证）"
+    match_terms: ["完整流程", "流程步骤", "有哪些步骤", "走哪些工序", "流程是", "工艺流程", "整条线"]
+    probe: {from_type: Route, field: steps}
+
+  - id: CQ09
+    q: "某道工序属于哪个制程段，同段还有哪些工序？"
+    requires:
+      entity_types: [Process, Stage]
+      relations: [belongs_to]
+    answered_via: "belongs_to 派生边（来自 Process.stage 字段）"
+    match_terms: ["属于哪个", "哪个制程段", "同段", "一个段", "制程段",
+                  "哪些工序", "这个段", "段里有", "同一个段", "段包含"]
+    # 双向：问工序属于哪段（Process 起）或某段有哪些工序（Stage 起）。
+    probe:
+      - {from_type: Process, steps: [{via: belongs_to, dir: out, to_type: Stage}]}
+      - {from_type: Stage,   steps: [{via: belongs_to, dir: in,  to_type: Process}]}
+
+  - id: CQ10
+    q: "两条流程路径的差异在哪（例如金线封装 vs 倒装封装）？"
+    requires:
+      entity_types: [Route, Process]
+    answered_via: "对比两个 Route 的 steps 集合"
+    match_terms: ["差异", "对比", "有什么不同", "比较", "两条流程", "区别在哪",
+                  "差在哪", "流程差", "有什么区别", "差别在", "哪里不同"]
+    probe: {from_type: Route, field: steps}   # 对比靠两个 Route 的 steps,探测只保证字段非空
+
+  # --- 参数与量测：控制回路 ---
+  - id: CQ11
+    q: "某道工序有哪些可调参数，各自的工艺窗口是什么？"
+    requires:
+      entity_types: [Process, Parameter]
+      relations: [controls]
+    answered_via: "controls 派生边 + Parameter 的 unit / typical_range"
+    match_terms: ["可调参数", "有哪些参数", "参数范围", "工艺窗口", "参数窗口", "能调什么"]
+    probe: {from_type: Process, steps: [{via: controls, dir: in}]}
+
+  - id: CQ12
+    q: "某个参数偏移会导致哪些异常？"
+    requires:
+      entity_types: [Parameter, Anomaly]
+      relations: [may_cause]
+    answered_via: "may_cause 的 Parameter -> Anomaly 边"
+    match_terms: ["参数偏移", "偏移会", "调高", "调低", "偏高", "偏低", "超出窗口", "参数异常",
+                  "调高会", "调低会", "参数调", "偏移导致"]
+    probe: {from_type: Parameter, steps: [{via: may_cause, dir: out}]}
+
+  - id: CQ13
+    q: "某道工序用哪些指标监控？某个指标监控哪些工序？"
+    requires:
+      entity_types: [Process, Metric]
+      relations: [measured_by]
+    answered_via: "measured_by 派生边（来自 Process.metrics 字段），双向可查"
+    match_terms: ["什么指标监控", "用什么指标", "监控指标", "量测什么", "哪些指标",
+                  "测什么"]
+    probe: {from_type: Process, steps: [{via: measured_by, dir: out}]}
+
+  # --- 设备与产能：定性层面 ---
+  - id: CQ14
+    q: "某道工序在哪类机台上做？某台机台服务哪些工序？"
+    requires:
+      entity_types: [Process, Equipment]
+      relations: [belongs_to]
+    answered_via: "belongs_to 派生边（来自 Process.equipment 字段），双向可查"
+    match_terms: ["哪类机台", "哪些机台", "什么机台", "哪台机", "用什么机", "什么设备",
+                  "哪些设备", "机台上做", "设备服务", "在哪台",
+                  "服务哪些", "哪些工序用", "跑在哪"]
+    probe:
+      - {from_type: Process,   steps: [{via: belongs_to, dir: in,  to_type: Equipment}]}
+      - {from_type: Equipment, steps: [{via: belongs_to, dir: out, to_type: Process}]}
+
+  - id: CQ15
+    q: "哪些机台是典型瓶颈，瓶颈的性质是什么（批式凑批 / 换型 / 测试工时）？"
+    requires:
+      entity_types: [Equipment]
+    answered_via: "Equipment.tags 含 bottleneck，性质见 description 与 economic_hooks.note"
+    match_terms: ["瓶颈", "瓶颈机台", "产能瓶颈", "卡产能", "最慢", "限制产能"]
+    probe: {from_type: Equipment, field: tags, contains: bottleneck}
+
+  - id: CQ16
+    q: "某台量测/测试机台的能力下滑，会影响哪些异常的检出？"
+    requires:
+      entity_types: [Equipment, Process, Anomaly]
+      relations: [belongs_to, detected_at]
+    answered_via: "Equipment -belongs_to-> Process <-detected_at- Anomaly 两跳"
+    caveat: >
+      只对量测与测试机台成立。detected_at 覆盖的是检出点（量测站、测试站），
+      不是全部工序，所以加工类机台走这条路径命中不到东西——那不是数据缺失，
+      是"异常在量测站被检出"这件事本身。加工机台状态引发的质量异常见 CQ22，
+      停机的产出后果见 OOS11。
+    match_terms: ["量测能力", "检出能力", "量测机台", "测试机台", "影响检出", "量测停机"]
+    probe: {from_type: Equipment, steps: [{via: belongs_to, dir: out, to_type: Process}, {via: detected_at, dir: in}]}
+
+  # --- WIP 与流动 ---
+  - id: CQ17
+    q: "WIP 堆积在某个站点，可能是什么原因？"
+    requires:
+      entity_types: [Anomaly, State, Process]
+      relations: [may_cause, blocks]
+    answered_via: "core.anomaly.wip_bubble 的 kb 实例；State -blocks-> Process 给状态性阻塞"
+    match_terms: ["wip", "堆积", "在制", "排队", "积压", "堵住", "堆在",
+                  "堵", "卡在", "站点堵", "容易堵", "排不动"]
+    probe: [{from_type: State, steps: [{via: blocks, dir: out}]},
+            {scope: kb, field: "possible_causes[].cause_ref"}]
+
+  - id: CQ18
+    q: "批次处于扣留/重工/报废状态，意味着什么，会阻塞什么？"
+    requires:
+      entity_types: [State, Process]
+      relations: [blocks]
+    answered_via: "core.state.* 实体 + blocks 边"
+    match_terms: ["扣留", "重工", "报废", "hold", "rework", "scrap", "状态意味"]
+    probe: {from_type: State, steps: [{via: blocks, dir: out}]}
+
+  # --- 经营传导：定性，非量化 ---
+  - id: CQ19
+    q: "某个异常或工序的波动会传导到哪些经营变量？"
+    requires:
+      entity_types: [Process, Anomaly]
+    answered_via: "economic_hooks.affects（8 个允许值之一）+ note 给传导机制"
+    caveat: "只答传导到哪，答不出传导多少——见 out_of_scope OOS02"
+    match_terms: ["经营变量", "传导", "影响什么", "影响哪些", "经营影响", "传导到",
+                  "对成本", "成本影响", "影响成本", "对良率的影响", "对交期", "影响交期", "对产出"]
+    probe: {field: "economic_hooks[].affects"}
+
+  # --- 抽象与类比 ---
+  - id: CQ20
+    q: "某个前段概念在后段的对应物是什么，或反过来？"
+    requires:
+      entity_types: [Process, Anomaly, Metric]
+      relations: [refines]
+    answered_via: "两域各自 refines 到同一个 core 实体，经 core 中转"
+    match_terms: ["前段对应", "后段对应", "对应物", "对应概念", "前后段对应", "相当于"]
+    probe: {from_type: Anomaly, steps: [{via: refines, dir: out}]}
+
+  - id: CQ21
+    q: "某个半导体概念在其他行业的类比是什么？"
+    requires:
+      relations: [analogous_to]
+    answered_via: "analogous_to 边，目标多为 ext.*"
+    caveat: "ext.* 豁免本地解析，类比目标只有 ID 与说明，对不对无法校验——见 OOS07"
+    match_terms: ["跨行业", "其他行业", "类比", "别的行业", "行业对照"]
+    probe: {from_type: Anomaly, steps: [{via: analogous_to, dir: out}]}
+
+  - id: CQ22
+    q: "某台加工机台状态劣化（老化、PM 逾期、腔体/耗材条件），会引发哪些质量异常？"
+    requires:
+      entity_types: [Equipment, Anomaly]
+      relations: [may_cause]
+    answered_via: "Equipment -may_cause-> Anomaly 单跳"
+    caveat: >
+      只覆盖"机台自身状态引发质量异常"。两件事刻意不在范围内：
+      一是停机的产出后果（停机 -> WIP 堆积 -> 交期），那要产能与时间维度，见 OOS11；
+      二是腔体级差异，多腔机台的边挂在机台上，同机不同腔分不开，见 OOS04。
+      这些边的 likelihood 全部留空——机台维度的先验频度需现场 PM 与稼动数据，
+      当前无 kb 实例支撑，留空表示未评估，不是低概率。
+    # 耗材/机件的"磨损、老化、寿命末期"是这条的核心问法，因此除了部件名
+    # 还写出复合词：单独的"抛光垫"只得 1 个意图分，会与 CQ03（级联）的
+    # "会导致"打平，靠 ID 字典序被压掉。复合词让具体问法拿到更高的分。
+    match_terms: ["机台老化", "机台状态", "pm 逾期", "pm逾期", "保养逾期", "腔体污染",
+                  "耗材寿命", "寿命末期", "靶材", "靶材寿命", "抛光垫", "抛光垫磨损",
+                  "刀片磨损", "砂轮", "吸嘴磨损", "喷淋头", "槽液", "机台劣化",
+                  "机台引发", "哪台机造成", "机台导致", "换能器"]
+    probe: {from_type: Equipment, steps: [{via: may_cause, dir: out}]}
+
+# ---------------------------------------------------------------
+# 明确答不了的问题
+#
+# 这一节是边界声明，不是待办清单。`kb-query.md` 命中这里应直接回
+# "超出当前本体范围"并说明缺什么，**不要用模型知识硬编答案**——
+# 那会让库外知识伪装成库内知识，溯源链断掉且无人知晓。
+#
+# missing 写缺的是什么，precondition 写要答得了得先建什么。
+# ---------------------------------------------------------------
+out_of_scope:
+
+  - id: OOS01
+    q: "第 N 层金属的图形缺陷会不会影响接触电阻？某层的层叠结构是什么？"
+    missing: "产品对象轴。被制造的东西没有内部结构——没有层叠、器件结构、封装剖面"
+    precondition: "新增 Layer / Device / PackageCrossSection 类实体，并与 Process 建立关系"
+    note: >
+      Material 只有 8 个，其中 6 个是耗材（光阻、光罩、键合线、装片胶、塑封料、切割膜），
+      产品本体只有 core.material.wafer 和 core.material.lot 两个单节点。
+      "金属层 1"目前只是 fab.process.pvd_metal 描述里的文字，不是实体。
+    match_terms: ["层叠", "金属层", "器件结构", "封装剖面", "第几层", "栅极结构", "接触电阻", "层结构"]
+
+  - id: OOS02
+    q: "这个异常造成多少损失？CD 收窄 1 nm 能提升多少良率？缩短 CT 一天值多少钱？"
+    missing: "量化系数。economic_hooks 只有 affects 与 note，没有弹性系数、单位成本、金额"
+    precondition: "第三层经营模型定义换算语义后再填，本体层随手填系数会让不可信的数字获得与工艺知识同等地位"
+    match_terms: ["多少损失", "值多少", "多少钱", "提升多少", "降低多少", "量化", "几个点", "多少良率"]
+
+  - id: OOS03
+    q: "这条产线一天能出多少片？某机台的 UPH 是多少？换型要多久？"
+    missing: "产能数值。Equipment 无 UPH / 并测数 / 换型时间字段；45 个 Process 均无加工节拍"
+    precondition: "Equipment 与 Process 增加产能与工时字段"
+    note: >
+      core.metric.cycle_time 有 typical_range（前段 40~90 天）但那是整体经验值，
+      不是可累加的工序节拍。带时间量纲的只有 fab.param.furnace_time，
+      而它是工艺参数不是节拍。
+    match_terms: ["一天能出", "多少片", "uph", "产能是多少", "节拍", "换型要多久", "多少产出",
+                  "稼动率", "稼动", "利用率", "oee", "开机率", "多少小时", "产能多少"]
+
+  - id: OOS04
+    q: "蚀刻机 3 号腔的漂移和 1 号腔一样吗？这台机的哪个腔该排 PM 了？"
+    missing: "腔体粒度。设备只到机台，多腔体机台的实际调度单元是腔体，同机不同腔需分开做 SPC"
+    precondition: "Equipment 下增加 Chamber 层级或允许 Equipment 自引用 refines"
+    match_terms: ["腔体", "几号腔", "chamber", "哪个腔", "腔间",
+                  "号腔", "腔室", "这个腔"]
+
+  - id: OOS05
+    q: "这个异常是哪个班别、哪位操作员、哪套治具做的？夜班良率是不是更差？"
+    missing: "组织与资源轴。班别、操作员、治具、工装均非实体"
+    precondition: "新增 Shift / Operator / Fixture 类实体"
+    match_terms: ["班别", "操作员", "夜班", "白班", "治具", "谁做的", "人员"]
+
+  - id: OOS06
+    q: "这批来料是哪个供应商的？这个失效在客户端的代价是多少？"
+    missing: "供应链与客户轴。来料批次谱系、供应商、客户端失效均非实体"
+    precondition: "新增 Supplier / IncomingLot / CustomerReturn 类实体"
+    note: >
+      ap.anomaly.delamination 的 economic_hooks.note 提到"漏出至客户端的代价远高于
+      内部拦截"——这句话成立，但"客户"在本体里不存在，所以这个判断查不到支撑。
+    match_terms: ["供应商", "来料", "客户端", "客户退", "退货", "进料批次"]
+
+  - id: OOS07
+    q: "这个跨行业类比对不对？其他行业那边的实体长什么样？"
+    missing: "类比的另一端。ext.* 目标豁免本地解析，只有 ID 与说明"
+    precondition: "第二个行业的本体落库，跨库联查打通后 analogous_to 才能闭环"
+    match_terms: ["类比对不对", "其他行业那边", "对面实体", "ext"]
+
+  - id: OOS08
+    q: "这个设计规则会不会导致制程问题？DFM 该怎么改？"
+    missing: "设计域。本体从投料开始，设计与制程交互（DFM/DFT）不在范围内"
+    precondition: "OOS01 的产品结构轴先建起来，DFM 才有挂载点"
+    match_terms: ["设计规则", "dfm", "dft", "设计改", "版图"]
+
+  - id: OOS09
+    q: "某具体厂某具体产品的实际配方参数是多少？"
+    missing: "非缺口，是有意排除。参数区间是公开资料与模型知识的典型值"
+    precondition: "无。厂内实配方属于客户数据，不进本库"
+    match_terms: ["实际配方", "具体厂", "真实参数", "厂内参数", "实配方"]
+
+  - id: OOS10
+    q: "把这批 WIP 按当前瓶颈重排，交期能提前几天？"
+    missing: "仿真能力。这是第四层仿真引擎的职责，前两层只提供结构与知识"
+    precondition: "OOS02 与 OOS03 的量化数据齐备后，第四层才有输入"
+    match_terms: ["重排", "排程优化", "交期能提前", "仿真", "模拟一下", "调度优化"]
+
+  - id: OOS11
+    q: "某台加工机台（扩散炉、蚀刻机、塑封机）停机，会引发哪些异常？"
+    missing: >
+      产能与时间维度。"停机会引发什么"问的是产出后果——停多久、损失多少片、
+      WIP 往哪堆、交期推几天。Equipment 上没有 UPH、并测数、换型时间、
+      MTTR 字段，这条链算不出来。
+      注意与 CQ22 的分界：机台状态引发**质量**异常已经可答（Equipment
+      -may_cause-> Anomaly，2026-08-28 补上）；这里缺的是**产出**后果那一支。
+    precondition: >
+      Equipment 增加产能字段（UPH / 并测数 / 换型时间 / MTTR），
+      并把停机时长与 WIP、CT 的传导关系量化——即 OOS02、OOS03 的量化数据
+    note: >
+      刻意不建 Equipment -may_cause-> *_down 这类边：scanner_down 的语义就是
+      "扫描机失去产出能力"，再写"扫描机可能导致扫描机停机"是同义反复，
+      会让图里多一批不携带信息的边。停机异常与设备实体之间该有的不是因果边，
+      而是"这次停机发生在哪台机上"的实例级归属——那属于第二层 kb 的字段，
+      不是本体关系。
+    match_terms: ["加工机台停机", "炉停机", "炉子停机", "蚀刻机停机", "塑封机停机",
+                  "机台停机", "设备停机", "停机会引发", "停机引发", "停机导致",
+                  "停机会造成", "机器坏了", "机台故障导致"]
+
+  - id: OOS12
+    q: "这个异常谁负责？该升级给谁？处置动作由哪个岗位执行？"
+    missing: >
+      组织维度整个没建。Action 有 18 条，全部只有动作本身，没有 owner_role；
+      kb 实例也没有 escalation 字段。"做什么"建了，"谁做、做不完找谁"没建。
+    precondition: >
+      Action 增加 owner_role 字段（工艺/设备/品保/生产等），或新增
+      Role 实体类型与 responsible_for 关系；kb 实例增加升级路径字段
+    note: >
+      与 OOS05 不同：OOS05 是把异常归因到某个班别或操作员（要人员级数据），
+      这条只要岗位级建模，成本低得多，是当前最容易补的一个维度。
+    match_terms: ["谁负责", "谁来处理", "责任人", "升级给谁", "找谁", "哪个岗位",
+                  "谁执行", "该谁做", "归谁管", "汇报给"]
+
+  - id: OOS13
+    q: "预测下周良率会怎样？这个趋势会发展成什么？照这样下去会怎么样？"
+    missing: >
+      预测需要时序数据与量化模型，两样都不在本体与知识库范围内。
+      库描述的是结构（什么会导致什么、在哪检出、怎么处置），不含任何历史序列。
+    precondition: >
+      属于第三层经营模型与第四层仿真引擎的职责，不是补几个实体能解决的
+    note: >
+      与 OOS10 相邻但不同：OOS10 是排程重排（给定当前状态求更优方案），
+      这条是时序外推。两者都要量化层，本体只能给它们提供结构与因果先验。
+    match_terms: ["预测", "趋势", "照这样", "未来", "下周", "下个月",
+                  "推演", "会不会恶化", "估计能到"]

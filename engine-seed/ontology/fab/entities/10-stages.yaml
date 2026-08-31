@@ -1,0 +1,112 @@
+# fab 层 · 制程段
+default_provenance:
+  source_type: model_prior
+  ref: null
+  confidence: high
+  created_at: "2026-08-26"
+  reviewed_by: null
+
+entities:
+  - id: fab.stage.diffusion
+    type: Stage
+    name_zh: 扩散/热制程
+    name_en: Diffusion & Thermal
+    aliases: [热制程, 炉管, 扩散区, Furnace]
+    domain: fab
+    description: >
+      高温炉管类工序集合，含氧化、退火、LPCVD 薄膜。批式加工(Batch Furnace)
+      为主，单批 100~150 片，热预算(Thermal Budget)为核心约束。
+    economic_hooks:
+      affects: [cycle_time, throughput, equipment_oee]
+      note: 批式设备装载率决定单位产出成本，小批投料显著抬高摊销
+
+  - id: fab.stage.photo
+    type: Stage
+    name_zh: 光刻
+    name_en: Photolithography
+    domain: fab
+    # 现场几乎只说"黄光"：光阻对短波敏感，该区照黄光。俗称进 aliases 而不进
+    # CQ 词表——本体认得的词，ask.py 自动认得。
+    aliases: [黄光, 黄光区, 光罩制程, Litho]
+    description: >
+      图形转移制程段，涂胶-曝光-显影三段联动。是前段最贵、通常最紧的产能
+      环节，CD 与 Overlay 两项指标决定后续所有图形精度。
+    economic_hooks:
+      affects: [yield, throughput, capacity_commit, equipment_oee]
+      note: 光刻机为典型瓶颈设备，其稼动直接锚定全厂产能
+
+  - id: fab.stage.etch
+    type: Stage
+    name_zh: 蚀刻
+    name_en: Etch
+    aliases: [蚀刻区, 干蚀, Dry Etch]
+    domain: fab
+    description: >
+      按光阻图形去除材料。干法(等离子)为主流，湿法用于特定选择性需求。
+      关键指标为蚀刻速率、选择比、侧壁形貌与均匀性。
+    economic_hooks:
+      affects: [yield, rework_rate]
+      note: 蚀刻不足可返工，过蚀通常不可逆
+
+  - id: fab.stage.thinfilm
+    type: Stage
+    name_zh: 薄膜沉积
+    name_en: Thin Film Deposition
+    aliases: [薄膜, 镀膜, 沉积]
+    domain: fab
+    description: PVD/CVD/ALD 沉积导体与介电层。膜厚均匀性与应力控制为核心。
+    economic_hooks:
+      affects: [yield, cost_per_unit]
+      note: 靶材与前驱体消耗构成主要变动成本
+
+  - id: fab.stage.implant
+    type: Stage
+    name_zh: 离子注入
+    name_en: Ion Implantation
+    aliases: [植入, 离子布植, Implant]
+    domain: fab
+    description: >
+      注入掺杂离子形成结区。剂量(Dose)与能量(Energy)决定电学参数，
+      注入后需退火激活并修复晶格损伤。
+    economic_hooks:
+      affects: [yield, equipment_oee]
+      note: 剂量漂移影响电参一致性，波及 WAT 电性良率
+
+  - id: fab.stage.cmp
+    type: Stage
+    name_zh: 化学机械研磨
+    name_en: CMP
+    aliases: [研磨, 平坦化, 抛光]
+    domain: fab
+    description: >
+      平坦化制程，为后续光刻提供焦深余量。消耗研磨垫与研磨液，
+      划伤(Scratch)与碟形凹陷(Dishing)为典型缺陷。
+    economic_hooks:
+      affects: [yield, cost_per_unit, rework_rate]
+      note: 耗材寿命曲线与缺陷率强相关，换垫时机是成本-良率权衡点
+
+  - id: fab.stage.metrology
+    type: Stage
+    name_zh: 量测与缺陷检测
+    name_en: Metrology & Inspection
+    aliases: [量测区, 量测, 缺陷检测, QC 站]
+    domain: fab
+    description: >
+      非增值但决定可观测性的工序段。含 CD/膜厚/Overlay 量测与
+      明场/暗场缺陷扫描。抽检率是产能与风险暴露的权衡。
+    economic_hooks:
+      affects: [cycle_time, yield]
+      note: 抽检率下调可释放产能，但延长异常发现窗口、放大批量风险
+
+  - id: fab.stage.wat_cp
+    type: Stage
+    name_zh: 电性测试
+    name_en: WAT / CP
+    aliases: [电性, 电测, 中测, WAT]
+    domain: fab
+    description: >
+      WAT(Wafer Acceptance Test) 测 Scribe Line 上的工艺控制结构，
+      CP(Circuit Probe) 逐 die 测功能。前段良率在此结算。
+    economic_hooks:
+      affects: [yield, capacity_commit]
+      note: CP 良率是前段交付验收依据，也是后段投料决策输入

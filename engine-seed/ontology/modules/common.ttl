@@ -1,0 +1,75 @@
+@prefix semi: <urn:pxai:semi:> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix prov: <http://www.w3.org/ns/prov#> .
+
+<urn:pxai:semi:common> a owl:Ontology ;
+  rdfs:label "Semiconductor common ontology"@en ;
+  owl:versionInfo "current" .
+
+semi:Entity a owl:Class .
+semi:PhysicalEntity a owl:Class ; rdfs:subClassOf semi:Entity .
+semi:InformationEntity a owl:Class ; rdfs:subClassOf semi:Entity .
+semi:Event a owl:Class ; rdfs:subClassOf semi:Entity .
+semi:Observation a owl:Class ; rdfs:subClassOf semi:InformationEntity .
+semi:Status a owl:Class ; rdfs:subClassOf semi:InformationEntity .
+semi:SourceField a owl:Class ; rdfs:subClassOf semi:InformationEntity .
+semi:FieldMappingAssertion a owl:Class ; rdfs:subClassOf semi:ValidationAssertion .
+semi:Evidence a owl:Class ; rdfs:subClassOf semi:InformationEntity .
+semi:Hypothesis a owl:Class ; rdfs:subClassOf semi:InformationEntity .
+semi:SourceArtifact a owl:Class ; rdfs:subClassOf prov:Entity .
+semi:ValidationAssertion a owl:Class ; rdfs:subClassOf prov:Entity .
+semi:CatalogConcept a owl:Class ; rdfs:subClassOf semi:InformationEntity, skos:Concept .
+
+[] a owl:AllDisjointClasses ;
+  owl:members (semi:PhysicalEntity semi:Event semi:InformationEntity) .
+
+semi:identifier a owl:DatatypeProperty ;
+  rdfs:domain semi:Entity ; rdfs:range xsd:string .
+semi:legacyId a owl:DatatypeProperty, owl:FunctionalProperty ;
+  rdfs:range xsd:string .
+semi:nameZh a owl:DatatypeProperty ; rdfs:range rdf:langString .
+semi:nameEn a owl:DatatypeProperty ; rdfs:range rdf:langString .
+semi:description a owl:DatatypeProperty ; rdfs:range rdf:langString .
+semi:confidence a owl:DatatypeProperty ; rdfs:range xsd:string .
+semi:validationStatus a owl:DatatypeProperty ; rdfs:range xsd:string .
+semi:sourceRef a owl:DatatypeProperty ; rdfs:range xsd:string .
+semi:sourceType a owl:DatatypeProperty ; rdfs:range xsd:string .
+semi:domainCode a owl:DatatypeProperty ; rdfs:range xsd:string .
+semi:statusCode a owl:DatatypeProperty ; rdfs:range xsd:string .
+semi:sourceFeatureCode a owl:DatatypeProperty ; rdfs:domain semi:SourceField ; rdfs:range xsd:string .
+semi:createdAt a owl:DatatypeProperty ; rdfs:range xsd:dateTime .
+semi:observedAt a owl:DatatypeProperty ; rdfs:range xsd:dateTime .
+semi:validFrom a owl:DatatypeProperty ; rdfs:range xsd:dateTime .
+semi:validTo a owl:DatatypeProperty ; rdfs:range xsd:dateTime .
+semi:numericValue a owl:DatatypeProperty ; rdfs:range xsd:decimal .
+semi:unitCode a owl:DatatypeProperty ; rdfs:range xsd:string .
+
+semi:partOf a owl:ObjectProperty, owl:TransitiveProperty ;
+  rdfs:domain semi:Entity ; rdfs:range semi:Entity .
+semi:hasPart a owl:ObjectProperty ; owl:inverseOf semi:partOf .
+semi:locatedIn a owl:ObjectProperty, owl:TransitiveProperty ;
+  rdfs:domain semi:PhysicalEntity ; rdfs:range semi:PhysicalEntity .
+semi:hasLocation a owl:ObjectProperty ; owl:inverseOf semi:locatedIn .
+semi:hasEvent a owl:ObjectProperty ; rdfs:range semi:Event .
+semi:aboutEntity a owl:ObjectProperty ; rdfs:range semi:Entity .
+semi:hasEvidence a owl:ObjectProperty ; rdfs:range semi:Evidence .
+semi:derivedFrom a owl:ObjectProperty ; rdfs:range prov:Entity .
+semi:generatedByRule a owl:ObjectProperty ; rdfs:range semi:InformationEntity .
+semi:analogousTo a owl:ObjectProperty ; rdfs:domain semi:Entity ; rdfs:range semi:Entity .
+semi:hasCurrentStatus a owl:ObjectProperty, owl:FunctionalProperty ;
+  rdfs:domain semi:Entity ; rdfs:range semi:Status .
+semi:hasStatusEvent a owl:ObjectProperty ;
+  rdfs:domain semi:Entity ; rdfs:range semi:Event .
+
+semi:confirmed a skos:Concept ; skos:prefLabel "confirmed"@en .
+semi:singleSourceConfirmed a skos:Concept ; skos:prefLabel "single_source_confirmed"@en .
+semi:partiallySupported a skos:Concept ; skos:prefLabel "partially_supported"@en .
+semi:conflicting a skos:Concept ; skos:prefLabel "conflicting"@en .
+semi:notCovered a skos:Concept ; skos:prefLabel "not_covered"@en .
+semi:externalOnly a skos:Concept ; skos:prefLabel "external_only"@en .
+semi:candidate a skos:Concept ; skos:prefLabel "candidate"@en .
+semi:deprecated a skos:Concept ; skos:prefLabel "deprecated"@en .

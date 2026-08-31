@@ -1,0 +1,23 @@
+{
+  "id": "urn:pxai:semi:knowledge:fab-equipment-recovery-business-model-prior-r1",
+  "title": "设备恢复代理变量与晶圆厂经营输出的方向性连接",
+  "domain": "fab",
+  "summary": "既有Fab模型支持用光刻产能增加作为设备恢复的代理变量，分析受约束投入量和可销售产出的方向性变化。",
+  "content": "在缺少现场停机时长、设备恢复效率和实际良率数据时，可复用既有通用晶圆厂月度经营模型，将光刻产能增加作为设备恢复的代理干预，并检查受约束投入量与可销售产出是否呈非递减方向。该方法只能用于经营讨论和假设比较，不能推断真实根因、现场改善幅度、交付承诺或财务预测。",
+  "source_refs": [
+    "business/models/fab-baseline.yaml",
+    "simulation/scenarios/fab-capacity-recovery.yaml",
+    "business/datasets/fab-demo-assumptions.yaml"
+  ],
+  "related_iris": [
+    "urn:pxai:semi:BusinessModel",
+    "urn:pxai:semi:SimulationScenario",
+    "urn:pxai:semi:Bottleneck",
+    "urn:pxai:semi:EquipmentDowntimeAnomaly"
+  ],
+  "confidence": "medium",
+  "provenance": {
+    "source_type": "web",
+    "source_ref": "business/models/fab-baseline.yaml"
+  }
+}

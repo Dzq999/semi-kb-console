@@ -1,0 +1,406 @@
+# fab 层 · 根因与处置动作
+default_provenance:
+  source_type: model_prior
+  ref: null
+  confidence: medium
+  created_at: "2026-08-26"
+  reviewed_by: null
+
+entities:
+  # ---------------- 根因 ----------------
+  - id: fab.cause.lens_contamination
+    type: Cause
+    name_zh: 投影镜头/光路沾污
+    name_en: Lens & Optics Contamination
+    domain: fab
+    description: 光学元件沾污衰减有效照度并产生局部像差，表现为固定位置 CD 偏移。
+    economic_hooks: {affects: [yield, equipment_oee], note: 需停机清洗或校正，占用瓶颈机台时间}
+
+  - id: fab.cause.hotplate_nonuniform
+    type: Cause
+    name_zh: 热板温度不均
+    name_en: Hotplate Temperature Non-uniformity
+    domain: fab
+    description: 涂布/烘烤模块热板温区偏差，产生片内 CD 梯度型分布。
+    economic_hooks: {affects: [yield], note: 缺陷签名呈稳定空间梯度，可与随机型区分}
+
+  - id: fab.cause.resist_lot_change
+    type: Cause
+    name_zh: 光阻批号切换
+    name_en: Photoresist Lot Change
+    domain: fab
+    description: >
+      新批号光阻感光度差异造成全片均匀 CD 偏移。是典型的"材料引入型"
+      系统偏移，与设备型偏移的判别在于是否跨机台同步出现。
+    economic_hooks: {affects: [yield, rework_rate], note: 换批需先做验证片确认剂量补偿量}
+
+  - id: fab.cause.reticle_haze
+    type: Cause
+    name_zh: 光罩雾化/沾污
+    name_en: Reticle Haze / Contamination
+    domain: fab
+    description: 光罩表面结晶或颗粒，在每个曝光场同一相对位置重复出现缺陷。
+    economic_hooks: {affects: [yield, scrap_rate], note: 影响全批全场，是重复性缺陷的首查项}
+
+  - id: fab.cause.chamber_polymer_buildup
+    type: Cause
+    name_zh: 腔体聚合物累积
+    name_en: Chamber Polymer Buildup
+    domain: fab
+    description: >
+      蚀刻腔内壁反应产物累积，改变等离子体阻抗与选择比，造成蚀刻速率漂移
+      与颗粒剥落。表现为随 RF Hours 增长的渐变型恶化。
+    economic_hooks: {affects: [yield, equipment_oee], note: 需按 RF Hours 排定清洗，清洗占用产能}
+
+  - id: fab.cause.epd_failure
+    type: Cause
+    name_zh: 终点检测失效
+    name_en: Endpoint Detection Failure
+    domain: fab
+    description: 光学终点信号窗口沾污或信噪比不足，导致蚀刻在错误时点停止。
+    economic_hooks: {affects: [yield, scrap_rate], note: 失效批次蚀刻量失控，残留或过蚀均可能}
+
+  - id: fab.cause.slurry_agglomeration
+    type: Cause
+    name_zh: 研磨液粒径团聚
+    name_en: Slurry Particle Agglomeration
+    domain: fab
+    description: 研磨液储存或输送中颗粒团聚成大粒径硬颗粒，成为划伤直接来源。
+    economic_hooks: {affects: [yield, cost_per_unit], note: 加装过滤与缩短存放期可抑制，增加耗材成本}
+
+  - id: fab.cause.pad_end_of_life
+    type: Cause
+    name_zh: 研磨垫寿命末期
+    name_en: CMP Pad End of Life
+    domain: fab
+    description: 研磨垫沟槽磨平、表面硬化，去除率下降且划伤率上升。
+    economic_hooks: {affects: [yield, cost_per_unit, rework_rate], note: 换垫周期直接决定良率-耗材成本平衡点}
+
+  - id: fab.cause.beam_current_drift
+    type: Cause
+    name_zh: 束流测量漂移
+    name_en: Beam Current Measurement Drift
+    domain: fab
+    description: 法拉第杯沾污或离子源老化导致束流读数偏离实际，剂量随之失准。
+    economic_hooks: {affects: [yield, scrap_rate], note: 无在线量测反馈，依赖定期剂量校验片}
+
+  - id: fab.cause.env_excursion
+    type: Cause
+    name_zh: 洁净室环境超限
+    name_en: Cleanroom Environment Excursion
+    domain: fab
+    description: >
+      温湿度或粒子等级超出控制界限。影响面广且跨工序同步出现，
+      是"多站点同时异常"场景的首要排查方向。
+    economic_hooks: {affects: [yield, scrap_rate], note: 环境型异常波及全区，损失面最广}
+
+  - id: fab.cause.recipe_misload
+    type: Cause
+    name_zh: 配方误用
+    name_en: Recipe Misload
+    domain: fab
+    description: >
+      加载错误配方或参数版本，造成批间跳变型偏移。与渐变型设备漂移的
+      判别在于异常是否在特定批次上突然出现且边界清晰。
+    economic_hooks: {affects: [yield, scrap_rate], note: 单批影响明确，但可能整批全失效}
+
+  - id: fab.cause.target_end_of_life
+    type: Cause
+    name_zh: 靶材寿命末期
+    name_en: PVD Target End of Life
+    domain: fab
+    description: 靶材侵蚀至极限，膜厚均匀性恶化且剥落颗粒风险显著上升。
+    economic_hooks: {affects: [yield, cost_per_unit], note: 延用靶材省耗材但抬升颗粒风险}
+
+  # ---------------- 处置动作 ----------------
+  - id: fab.action.hold_lot
+    type: Action
+    name_zh: 扣留批次
+    name_en: Hold Lot
+    domain: fab
+    description: 立即冻结受影响批次防止扩散，同时圈定同机台同时段的关联批次。
+    economic_hooks: {affects: [cycle_time, capacity_commit], note: 止损优先，代价是 CT 延长}
+
+  - id: fab.action.photo_rework
+    type: Action
+    name_zh: 光刻重工
+    name_en: Photolithography Rework
+    domain: fab
+    description: >
+      去光阻后重新涂布曝光。仅在蚀刻前可行，且重工次数受膜层损伤与
+      产品规范上限约束。
+    economic_hooks: {affects: [rework_rate, cycle_time, equipment_oee], note: 挽回良率但占用瓶颈机台产能}
+
+  - id: fab.action.chamber_clean
+    type: Action
+    name_zh: 腔体清洗
+    name_en: Chamber Clean / Wet Clean
+    domain: fab
+    description: 原位或离线清除腔体累积物，清洗后需跑验证片确认恢复。
+    economic_hooks: {affects: [equipment_oee, throughput], note: 计划外清洗直接扣减可用产能}
+
+  - id: fab.action.recipe_adjust
+    type: Action
+    name_zh: 配方参数补偿
+    name_en: Recipe Parameter Adjustment
+    domain: fab
+    description: 依偏移量反算补偿值（如剂量补偿 CD 漂移），须留变更记录与验证数据。
+    economic_hooks: {affects: [yield, rework_rate], note: 见效快，但掩盖根因时会累积隐患}
+
+  - id: fab.action.replace_consumable
+    type: Action
+    name_zh: 更换耗材
+    name_en: Replace Consumable
+    domain: fab
+    description: 更换研磨垫、靶材、过滤器等寿命件，换后需跑首件确认。
+    economic_hooks: {affects: [cost_per_unit, yield, equipment_oee], note: 提前换降低风险但抬高耗材成本}
+
+  - id: fab.action.reticle_clean
+    type: Action
+    name_zh: 光罩清洗
+    name_en: Reticle Clean
+    domain: fab
+    description: 送洗光罩并复检，期间需备用光罩或排程避让。
+    economic_hooks: {affects: [yield, capacity_commit], note: 无备罩时造成产品线停摆}
+
+  - id: fab.action.skip_ahead
+    type: Action
+    name_zh: 越站/改道
+    name_en: Skip Ahead / Reroute
+    domain: fab
+    description: >
+      将批次绕过故障机台改派至替代机台或调整工序顺序，用于缓解 WIP 堆积。
+      需评估替代机台的工艺等价性(Tool Matching)。
+    economic_hooks: {affects: [cycle_time, throughput], note: 缓解堆积，但机台差异可能引入新变异}
+
+  - id: fab.action.expand_sampling
+    type: Action
+    name_zh: 提高抽检率
+    name_en: Expand Sampling Rate
+    domain: fab
+    description: 异常期间加严量测抽样，缩短检出窗口以限制受影响批次数。
+    economic_hooks: {affects: [cycle_time, yield], note: 以量测产能换风险暴露收窄}
+  - id: fab.cause.reticle_stage_error
+    type: Cause
+    name_zh: 光罩台/工件台伺服异常
+    name_en: Reticle & Wafer Stage Servo Error
+    domain: fab
+    description: '双工件台同步扫描依赖纳米级伺服跟随，编码器、气浮或温控偏差会触发 扫描中断报警并锁机。特征是报警集中于扫描动作阶段而非曝光光源侧， 且常伴随特定 slit 位置重复出现。
+
+      '
+    economic_hooks:
+      affects:
+      - equipment_oee
+      - throughput
+      - capacity_commit
+      note: 停机时长直接扣减瓶颈机台可用工时，产能承诺随之失守
+    provenance:
+      source_type: model_prior
+      ref: null
+      confidence: medium
+      created_at: '2026-08-28'
+      reviewed_by: null
+  - id: fab.cause.light_source_degradation
+    type: Cause
+    name_zh: 曝光光源功率衰减/熄灭
+    name_en: Light Source Power Degradation
+    domain: fab
+    description: '准分子激光或 EUV 光源功率随累积脉冲衰减，跌破配方所需剂量下限时 曝光被拒或需延长扫描时间。区别于伺服类停机：产出率先缓慢下降， 再转为硬停机，属可预测型劣化。
+
+      '
+    economic_hooks:
+      affects:
+      - equipment_oee
+      - throughput
+      - cost_per_unit
+      note: 换管/换模块为计划性支出，提前换损失产能、延后换风险硬停机
+    provenance:
+      source_type: model_prior
+      ref: null
+      confidence: medium
+      created_at: '2026-08-28'
+      reviewed_by: null
+  - id: fab.cause.pm_overdue
+    type: Cause
+    name_zh: 预防保养逾期
+    name_en: Preventive Maintenance Overdue
+    domain: fab
+    description: '瓶颈机台的 PM 常因赶产被推迟，逾期后非计划停机概率显著上升。 判别依据是停机前 PM 计划已超期，而非任何硬件突发信号—— 这类停机本质是排程决策的后果，不是设备故障。
+
+      '
+    economic_hooks:
+      affects:
+      - equipment_oee
+      - rework_rate
+      note: 用计划停机换非计划停机，是可主动选择的权衡而非不可控事件
+    provenance:
+      source_type: model_prior
+      ref: null
+      confidence: medium
+      created_at: '2026-08-28'
+      reviewed_by: null
+  - id: fab.action.dispatch_field_service
+    type: Action
+    name_zh: 报修并催派原厂工程师
+    name_en: Dispatch Field Service Engineer
+    domain: fab
+    description: '开设备工单并按合约响应等级升级催派。适用于原厂锁定模块， 厂内自行处理会失去保修或造成二次损伤的情形。
+
+      '
+    economic_hooks:
+      affects:
+      - equipment_oee
+      - capacity_commit
+      note: 响应等级在合约签订时就已决定，停机当下无法改变
+    provenance:
+      source_type: model_prior
+      ref: null
+      confidence: medium
+      created_at: '2026-08-28'
+      reviewed_by: null
+  - id: fab.cause.alignment_mark_damage
+    type: Cause
+    name_zh: 对位标记损伤/读取不良
+    name_en: Alignment Mark Damage & Poor Readability
+    domain: fab
+    description: '晶圆对位标记被前层工艺（CMP 过抛、蚀刻、厚膜沉积）破坏或覆盖， 导致对位信号强度不足或重心判读偏移，机台按错误的基准曝光。 特征是同一片内对位残差异常但曝光成像质量正常，且问题随前层工艺
+      批次相关而非随曝光机台相关——换机台重曝仍复现是强判别信号。
+
+      '
+    economic_hooks:
+      affects:
+      - yield
+      - rework_rate
+      - cycle_time
+      note: 可返工层的损失是重工成本，不可返工层直接报废
+    provenance:
+      source_type: model_prior
+      ref: null
+      confidence: medium
+      created_at: '2026-08-28'
+      reviewed_by: null
+  - id: fab.cause.wafer_backside_contamination
+    type: Cause
+    name_zh: 晶圆背面/吸盘沾污
+    name_en: Wafer Backside & Chuck Contamination
+    domain: fab
+    description: '晶圆背面或曝光机吸盘表面附着颗粒，晶圆被真空吸附后局部抬升， 造成平面度偏差与离焦，同时在该处引入套刻偏移。 判别特征是偏移呈局部化的不规则分布（而非全片线性或旋转分量），
+      且同一吸盘上不同晶圆的偏移位置重复出现——指向吸盘而非晶圆。
+
+      '
+    economic_hooks:
+      affects:
+      - yield
+      - rework_rate
+      - equipment_oee
+      note: 吸盘清洗需停机，与继续生产之间存在权衡
+    provenance:
+      source_type: model_prior
+      ref: null
+      confidence: medium
+      created_at: '2026-08-28'
+      reviewed_by: null
+  - id: fab.cause.lens_heating_drift
+    type: Cause
+    name_zh: 镜头热效应场内漂移
+    name_en: Lens Heating Induced Intra-field Drift
+    domain: fab
+    description: '高强度曝光使投影物镜局部升温，折射率与面形随曝光量累积变化， 引起场内（intra-field）套刻分量漂移。 与光路沾污的区别在于：热漂移随批次内曝光片数递进、停机冷却后自行恢复；
+      沾污是持续性的且伴随成像对比度下降。
+
+      '
+    economic_hooks:
+      affects:
+      - yield
+      - throughput
+      note: 可用曝光节奏或场内补偿模型缓解，属可建模的系统性偏差
+    provenance:
+      source_type: model_prior
+      ref: null
+      confidence: medium
+      created_at: '2026-08-28'
+      reviewed_by: null
+  - id: fab.action.clean_chuck
+    type: Action
+    name_zh: 清洗曝光机吸盘
+    name_en: Clean Exposure Chuck
+    domain: fab
+    description: '停机清洗曝光机晶圆吸盘并复测平面度，消除背面颗粒引起的局部抬升。 与已有的腔体清洗、光罩清洗不同：对象是承片吸盘， 验证方式是平面度与套刻复测，而非颗粒计数或成像质量。
+
+      '
+    economic_hooks:
+      affects:
+      - equipment_oee
+      - yield
+      note: 短时计划停机换取套刻恢复，通常优于带病生产
+    provenance:
+      source_type: model_prior
+      ref: null
+      confidence: medium
+      created_at: '2026-08-28'
+      reviewed_by: null
+  - id: fab.cause.target_erosion_profile
+    type: Cause
+    name_zh: 靶材侵蚀轮廓演化
+    name_en: Target Erosion Groove Evolution
+    domain: fab
+    description: '磁场把等离子体约束在闭合跑道区，靶面被局部而非均匀溅蚀，随使用 形成并加深侵蚀沟槽。沟槽尺寸变化会改变有效溅射源的几何与出射角 分布，从而改变基片上的膜厚径向剖面——文献中随源尺寸/靶基距变化
+      可从中心厚的钟形转为边缘厚的鞍形，再趋于平坦。与靶材寿命末期的 判别在于：本项是渐变的剖面形状改变，寿命末期是均匀性恶化叠加 剥落颗粒风险跃升。
+
+      '
+    economic_hooks:
+      affects:
+      - yield
+      - cost_per_unit
+      - equipment_oee
+      note: '可用靶基距或功率补偿一段时间，代价是沉积速率下降（产能）； 换靶恢复剖面但消耗耗材成本与停机时间——这是耗材利用率与 均匀性之间的显式权衡点
+
+        '
+    provenance:
+      source_type: web
+      ref: https://doi.org/10.3390/molecules28227660
+      confidence: medium
+      created_at: '2026-08-28'
+      reviewed_by: null
+  - id: fab.cause.chamber_wall_condition
+    type: Cause
+    name_zh: 腔体壁沉积状态未预处理
+    name_en: Unconditioned Chamber Wall State
+    domain: fab
+    description: '清洗后未做 seasoning、或 seasoning 膜与后续制程不匹配时，腔体内壁与 零件的残留状态会同时影响片间沉积速率与片内均匀性，残留物脱落还会 转为颗粒污染。表现签名是清洗或长时间待机后的首片偏离、随后逐片
+      回稳。与腔体聚合物累积的判别在于时点与方向：本项出现在清洗/待机 之后且随加工片数收敛，累积类出现在长时间连续生产中且随片数发散。
+
+      '
+    economic_hooks:
+      affects:
+      - yield
+      - equipment_oee
+      - cost_per_unit
+      note: 'seasoning 消耗机时与气体但不产出产品，属显式的良率换产能取舍； 省掉它换来的产能会以首片报废和颗粒风险的形式还回去
+
+        '
+    provenance:
+      source_type: web
+      ref: https://patents.google.com/patent/US20060093756A1/en
+      confidence: medium
+      created_at: '2026-08-28'
+      reviewed_by: null
+  - id: fab.action.chamber_season
+    type: Action
+    name_zh: 腔体预处理（seasoning）
+    name_en: Chamber Seasoning
+    domain: fab
+    description: '清洗后按制程配方在腔体内壁与零件上沉积一层预处理膜，封住残留 污染物并使腔体热态与沉积环境回到稳态，之后跑验证片确认膜厚与 均匀性恢复再放行量产。是清洗之后的独立步骤，不是清洗的一部分。
+
+      '
+    economic_hooks:
+      affects:
+      - equipment_oee
+      - yield
+      note: 占用机时且不产出，但省略它会把成本转移成首片报废与颗粒缺陷
+    provenance:
+      source_type: web
+      ref: https://patents.google.com/patent/US20060093756A1/en
+      confidence: medium
+      created_at: '2026-08-28'
+      reviewed_by: null

@@ -1,0 +1,20 @@
+{
+  "id": "urn:pxai:semi:knowledge:model:fab_capacity_proxy_boundary_02",
+  "title": "设备停机恢复经营仿真的代理变量边界",
+  "domain": "fab",
+  "summary": "既有Fab模型可用光刻产能增量开展方向性分析，但不能替代现场停机测量。",
+  "content": "business/models/fab-baseline.yaml定义的经营输出包括受约束投入量和可销售单元。现有示例使用lithography_capacity及intervention_opex表达恢复情景，因此可复用这些变量进行方向性What-if；该代理关系不能解释为现场停机时长、设备可用率、真实恢复产能或确定性收益。",
+  "source_refs": [
+    "https://ai-mst.com/insight/en-semiconductor-yield-improvement-ai/"
+  ],
+  "related_iris": [
+    "urn:pxai:semi:EquipmentDowntimeAnomaly",
+    "urn:pxai:semi:BusinessModel",
+    "urn:pxai:semi:SimulationScenario"
+  ],
+  "confidence": "high",
+  "provenance": {
+    "source_type": "web",
+    "source_ref": "https://ai-mst.com/insight/en-semiconductor-yield-improvement-ai/"
+  }
+}

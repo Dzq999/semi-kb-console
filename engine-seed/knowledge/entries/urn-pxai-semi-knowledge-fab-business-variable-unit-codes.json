@@ -1,0 +1,17 @@
+{
+  "id": "urn:pxai:semi:knowledge:fab-business-variable-unit-codes",
+  "title": "Fab经营变量单位代码补齐规则",
+  "domain": "fab",
+  "summary": "Fab经营模型中的光刻产能与可销售单元变量需要具有明确单位代码，才能满足语义校验并支持后续经营分析。",
+  "content": "既有通用晶圆厂经营模型按月输出process_yield、constrained_input、saleable_units、revenue、variable_cost、unit_cost和profit。与该模型变量语义对应时，光刻产能采用wafers_per_month作为单位代码，可销售单元采用units_per_month作为单位代码。该补齐仅完善数据语义和校验完整性，不表示现场产能、销量或任何经营结果。",
+  "source_refs": [
+    "business/models/fab-baseline.yaml",
+    "business/templates/fab.yaml"
+  ],
+  "related_iris": [],
+  "confidence": "medium",
+  "provenance": {
+    "source_type": "web",
+    "source_ref": "business/models/fab-baseline.yaml"
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "id": "urn:pxai:semi:knowledge:gate-repair-equipment-rca-20260830",
+  "title": "设备编码与根因候选关系的语义门禁修复",
+  "domain": "fab",
+  "summary": "补齐通用设备个体的设备编码，并为多源设备根因分析调查关联Web支持的时间序列故障前兆候选原因。",
+  "content": "本次修复严格对应语义门禁报告：通用半导体设备个体补充equipmentCode字符串，以满足设备标识完整性约束；多源设备根因分析调查补充hasPossibleCause关系，连接到传感器时间序列设备故障前兆候选原因。Springer来源仅支持设备故障预测、时间序列分析和根因分析作为方法方向，不证明任何特定工厂的现场根因或实测结果。",
+  "source_refs": [
+    "https://link.springer.com/article/10.1007/s00170-026-18777-0"
+  ],
+  "related_iris": [
+    "urn:pxai:semi:equipment.web.generic_semiconductor_equipment",
+    "urn:pxai:semi:investigation:web_multisource_equipment_rca_intel_case",
+    "urn:pxai:semi:web:sensor_time_series_failure_precursor_cause_20260830"
+  ],
+  "confidence": "medium",
+  "provenance": {
+    "source_type": "web",
+    "source_ref": "https://link.springer.com/article/10.1007/s00170-026-18777-0"
+  }
+}

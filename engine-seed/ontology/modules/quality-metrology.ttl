@@ -1,0 +1,38 @@
+@prefix semi: <urn:pxai:semi:> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+<urn:pxai:semi:quality-metrology> a owl:Ontology ;
+  owl:imports <urn:pxai:semi:common>, <urn:pxai:semi:equipment>,
+              <urn:pxai:semi:material-product> .
+
+semi:Metric a owl:Class ; rdfs:subClassOf semi:InformationEntity .
+semi:Measurement a owl:Class ; rdfs:subClassOf semi:Observation .
+semi:MetrologyObservation a owl:Class ; rdfs:subClassOf semi:Measurement .
+semi:WATObservation a owl:Class ; rdfs:subClassOf semi:Measurement .
+semi:CPObservation a owl:Class ; rdfs:subClassOf semi:Measurement .
+semi:DefectObservation a owl:Class ; rdfs:subClassOf semi:Measurement .
+semi:MetrologyConfiguration a owl:Class ; rdfs:subClassOf semi:InformationEntity .
+semi:Defect a owl:Class ; rdfs:subClassOf semi:InformationEntity .
+semi:DefectBin a owl:Class ; rdfs:subClassOf semi:InformationEntity .
+semi:ChamberDefectBin a owl:Class ; rdfs:subClassOf semi:DefectBin .
+semi:ChartLimit a owl:Class ; rdfs:subClassOf semi:InformationEntity .
+semi:SpecLimit a owl:Class ; rdfs:subClassOf semi:InformationEntity .
+semi:DefectLibraryEntry a owl:Class ; rdfs:subClassOf semi:InformationEntity .
+semi:DefectNoticeCase a owl:Class ; rdfs:subClassOf semi:InformationEntity .
+semi:ChamberMetric a owl:Class ; rdfs:subClassOf semi:Metric .
+semi:ChamberStep a owl:Class ; rdfs:subClassOf semi:InformationEntity .
+semi:WATMetric a owl:Class ; rdfs:subClassOf semi:Metric .
+semi:MetrologyMetric a owl:Class ; rdfs:subClassOf semi:Metric .
+semi:CPMetric a owl:Class ; rdfs:subClassOf semi:Metric .
+
+semi:measuresMetric a owl:ObjectProperty ; rdfs:domain semi:Measurement ; rdfs:range semi:Metric .
+semi:observesWafer a owl:ObjectProperty ; rdfs:domain semi:Measurement ; rdfs:range semi:Wafer .
+semi:observesEquipment a owl:ObjectProperty ; rdfs:domain semi:Measurement ; rdfs:range semi:Equipment .
+semi:classifiedAsDefect a owl:ObjectProperty ; rdfs:domain semi:DefectObservation ; rdfs:range semi:Defect .
+semi:assignedDefectBin a owl:ObjectProperty ; rdfs:domain semi:DefectObservation ; rdfs:range semi:DefectBin .
+semi:usesChartLimit a owl:ObjectProperty ; rdfs:domain semi:Measurement ; rdfs:range semi:ChartLimit .
+semi:lowerControlLimit a owl:DatatypeProperty ; rdfs:domain semi:ChartLimit ; rdfs:range xsd:decimal .
+semi:upperControlLimit a owl:DatatypeProperty ; rdfs:domain semi:ChartLimit ; rdfs:range xsd:decimal .
+semi:targetValue a owl:DatatypeProperty ; rdfs:domain semi:ChartLimit ; rdfs:range xsd:decimal .

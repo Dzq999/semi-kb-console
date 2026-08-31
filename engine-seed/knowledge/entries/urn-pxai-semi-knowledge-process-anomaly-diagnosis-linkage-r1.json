@@ -1,0 +1,23 @@
+{
+  "id": "urn:pxai:semi:knowledge:process:anomaly-diagnosis-linkage-r1",
+  "title": "品质异常与设备停机的工艺诊断关系模式",
+  "domain": "fab",
+  "summary": "将品质异常突发和设备停机异常统一连接到检测指标、根因分析工作流及调查状态，便于后续接入受控证据。",
+  "content": "在工艺知识建模中，品质异常突发可通过检测指标进入AI辅助根因分析工作流，设备停机异常可通过跨系统故障追溯工作流进入调查流程。两类异常均应保留严重度和调查状态，但具体根因、设备影响、指标观测值及经营后果必须由现场工艺、设备、维护或质量系统证据确认。本条目仅沉淀可复用语义模式，不构成现场事实判断。",
+  "source_refs": [
+    "business/models/fab-baseline.yaml"
+  ],
+  "related_iris": [
+    "urn:pxai:semi:QualityExcursionAnomaly",
+    "urn:pxai:semi:EquipmentDowntimeAnomaly",
+    "urn:pxai:semi:AIEnabledRootCauseAnalysisWorkflow",
+    "urn:pxai:semi:CrossSystemEquipmentFailureTracing",
+    "urn:pxai:semi:instance:QualityExcursionAnomalyProcessPattern",
+    "urn:pxai:semi:instance:EquipmentDowntimeAnomalyProcessPattern"
+  ],
+  "confidence": "medium",
+  "provenance": {
+    "source_type": "web",
+    "source_ref": "business/models/fab-baseline.yaml"
+  }
+}

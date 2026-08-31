@@ -1,0 +1,19 @@
+{
+  "id": "urn:pxai:semi:knowledge:fac-fab-monthly-variable-unit-repair-001",
+  "title": "月度晶圆厂经营变量的单位语义补齐",
+  "domain": "fab",
+  "summary": "光刻产能与可销售产出变量需要具备唯一的字符串单位代码，以满足经营变量语义完整性约束。",
+  "content": "通用晶圆厂经营模型采用月度周期，光刻产能和可销售产出均属于按月解释的晶圆数量变量。本轮仅为两个既有经营变量补齐wafer/month单位元数据，以消除unitCode最小基数违规；该单位标注不构成现场产能、产出或改善数值声明。",
+  "source_refs": [
+    "business/models/fab-baseline.yaml",
+    "simulation/scenarios/fab-capacity-recovery.yaml"
+  ],
+  "related_iris": [
+    "urn:pxai:semi:unitCode"
+  ],
+  "confidence": "medium",
+  "provenance": {
+    "source_type": "web",
+    "source_ref": "business/models/fab-baseline.yaml"
+  }
+}

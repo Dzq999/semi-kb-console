@@ -1,0 +1,58 @@
+@prefix semi: <urn:pxai:semi:> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+<urn:pxai:semi:risk-diagnosis> a owl:Ontology ;
+  owl:imports <urn:pxai:semi:common>, <urn:pxai:semi:process-route>,
+              <urn:pxai:semi:quality-metrology> .
+
+semi:Anomaly a owl:Class ; rdfs:subClassOf semi:InformationEntity .
+semi:Cause a owl:Class ; rdfs:subClassOf semi:InformationEntity .
+semi:Action a owl:Class ; rdfs:subClassOf semi:InformationEntity .
+semi:Symptom a owl:Class ; rdfs:subClassOf semi:InformationEntity .
+semi:DiagnosticPlaybook a owl:Class ; rdfs:subClassOf semi:InformationEntity .
+semi:PossibleCauseAssertion a owl:Class ; rdfs:subClassOf semi:InformationEntity .
+semi:ActionInstruction a owl:Class ; rdfs:subClassOf semi:InformationEntity .
+semi:DetectionInstruction a owl:Class ; rdfs:subClassOf semi:InformationEntity .
+semi:RootCauseHypothesis a owl:Class ; rdfs:subClassOf semi:Hypothesis .
+semi:RiskNode a owl:Class ; rdfs:subClassOf semi:InformationEntity .
+
+semi:mayCause a owl:ObjectProperty ; rdfs:range semi:Anomaly .
+semi:detectedAt a owl:ObjectProperty ; rdfs:domain semi:Anomaly ; rdfs:range semi:Process .
+semi:detectedByMetric a owl:ObjectProperty ; rdfs:domain semi:Anomaly ; rdfs:range semi:Metric .
+semi:mitigatedBy a owl:ObjectProperty ; rdfs:domain semi:Anomaly ; rdfs:range semi:Action .
+semi:blocks a owl:ObjectProperty ; rdfs:domain semi:Entity .
+semi:diagnosesAnomaly a owl:ObjectProperty ;
+  rdfs:domain semi:DiagnosticPlaybook ; rdfs:range semi:Anomaly .
+semi:hasPossibleCause a owl:ObjectProperty ;
+  rdfs:domain semi:DiagnosticPlaybook ; rdfs:range semi:Entity .
+semi:hasDiagnosticAction a owl:ObjectProperty ;
+  rdfs:domain semi:DiagnosticPlaybook ; rdfs:range semi:Action .
+semi:hasCauseAssertion a owl:ObjectProperty ;
+  rdfs:domain semi:DiagnosticPlaybook ; rdfs:range semi:PossibleCauseAssertion .
+semi:assertsCause a owl:ObjectProperty ;
+  rdfs:domain semi:PossibleCauseAssertion ; rdfs:range semi:Entity .
+semi:hasActionInstruction a owl:ObjectProperty ;
+  rdfs:domain semi:DiagnosticPlaybook ; rdfs:range semi:ActionInstruction .
+semi:instructsAction a owl:ObjectProperty ;
+  rdfs:domain semi:ActionInstruction ; rdfs:range semi:Action .
+semi:hasDetectionInstruction a owl:ObjectProperty ;
+  rdfs:domain semi:DiagnosticPlaybook ; rdfs:range semi:DetectionInstruction .
+semi:detectsWithMetric a owl:ObjectProperty ;
+  rdfs:domain semi:DetectionInstruction ; rdfs:range semi:Metric .
+semi:hasDetectionMetric a owl:ObjectProperty ;
+  rdfs:domain semi:DiagnosticPlaybook ; rdfs:range semi:Metric .
+semi:hasDetectionProcess a owl:ObjectProperty ;
+  rdfs:domain semi:DiagnosticPlaybook ; rdfs:range semi:Process .
+semi:hypothesizesCause a owl:ObjectProperty ;
+  rdfs:domain semi:RootCauseHypothesis ; rdfs:range semi:Cause .
+semi:hypothesizesAnomaly a owl:ObjectProperty ;
+  rdfs:domain semi:RootCauseHypothesis ; rdfs:range semi:Anomaly .
+semi:symptomText a owl:DatatypeProperty .
+semi:discriminatorText a owl:DatatypeProperty .
+semi:actionConditionText a owl:DatatypeProperty .
+semi:economicImpactText a owl:DatatypeProperty .
+semi:severity a owl:DatatypeProperty .
+semi:likelihood a owl:DatatypeProperty .
+semi:signalText a owl:DatatypeProperty .
+semi:actionOrder a owl:DatatypeProperty .

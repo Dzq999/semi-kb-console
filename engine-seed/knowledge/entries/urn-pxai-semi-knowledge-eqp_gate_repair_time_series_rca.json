@@ -1,0 +1,19 @@
+{
+  "id": "urn:pxai:semi:knowledge:eqp_gate_repair_time_series_rca",
+  "title": "设备时间序列预测与根因分析的证据边界",
+  "domain": "eqp",
+  "summary": "公开综述指出，设备传感器时间序列可用于故障预测和根因分析，但不能替代现场验证。",
+  "content": "公开综述总结了半导体制造中图像分析、传感器驱动分析、时间序列故障预测和因果建模的应用方向，并指出数据质量与模型可解释性仍是规模化落地的重要挑战。因此，本体中的时间序列设备故障条件只能作为多源根因分析案例的可能原因，不能直接视为特定设备或批次的已确认现场根因。",
+  "source_refs": [
+    "https://link.springer.com/content/pdf/10.1007/s00170-026-18777-0.pdf"
+  ],
+  "related_iris": [
+    "urn:pxai:semi:investigation:web_multisource_equipment_rca_intel_case",
+    "urn:pxai:semi:cause.web.time_series_indicated_equipment_failure_condition"
+  ],
+  "confidence": "medium",
+  "provenance": {
+    "source_type": "web",
+    "source_ref": "https://link.springer.com/content/pdf/10.1007/s00170-026-18777-0.pdf"
+  }
+}

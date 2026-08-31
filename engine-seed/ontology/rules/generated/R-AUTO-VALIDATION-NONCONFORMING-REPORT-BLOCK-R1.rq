@@ -1,0 +1,13 @@
+PREFIX semi: <urn:pxai:semi:>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+CONSTRUCT {
+  ?report semi:releaseBlockingFlag true .
+}
+WHERE {
+  ?report rdf:type semi:OntologyValidationReport ;
+          semi:ontologyReportConforms ?conforms ;
+          semi:hasValidationFinding ?finding .
+  ?finding rdf:type semi:ConstraintViolationValidationResult .
+  FILTER(LCASE(STR(?conforms)) = "false")
+}

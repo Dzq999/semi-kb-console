@@ -1,0 +1,15 @@
+schema_version: "2.0"
+template:
+  id: template.semiconductor
+  name: 半导体制造经营模块
+  extends: [business/templates/manufacturing.yaml]
+  variables:
+    - {id: incoming_quality, unit: ratio}
+    - {id: manufacturing_yield, unit: ratio}
+    - {id: final_test_yield, unit: ratio}
+  calculations:
+    - id: process_yield
+      algorithm: yield.cascade
+      inputs: [incoming_quality, manufacturing_yield, final_test_yield]
+      unit: ratio
+      override: true

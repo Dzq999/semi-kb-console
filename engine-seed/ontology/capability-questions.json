@@ -1,0 +1,17 @@
+{
+  "purpose": "用可执行问题域驱动本体广度、知识深度与业务场景产出",
+  "domains": [
+    {"id": "production-status", "question": "当前工厂、区域、产线与批次的生产状态是什么？", "classes": ["Fab", "Area", "Lot", "ProductionEvent", "Status"], "relations": ["locatedIn", "belongsToFab", "hasCurrentStatus", "hasStatusEvent"]},
+    {"id": "wip", "question": "WIP在哪里、为何堆积、受哪些Hold和队列时间影响？", "classes": ["Lot", "HoldEvent", "QueueTimeObservation", "ProcessingEvent"], "relations": ["holdsLot", "processesLot", "observesLot", "impactsLot"]},
+    {"id": "equipment-capability", "question": "设备、腔体和能力是否满足当前工艺需求？", "classes": ["Equipment", "Chamber", "EquipmentCapability", "Step"], "relations": ["hasCapability", "hasChamber", "chamberOf", "executesStep"]},
+    {"id": "equipment-lot-process", "question": "哪些设备和腔体在何时加工过哪些Lot、Wafer与Step？", "classes": ["Equipment", "Lot", "Wafer", "ProcessingEvent", "Step"], "relations": ["usesEquipment", "usesChamber", "processesLot", "processesWafer", "executesStep"]},
+    {"id": "hold-root-cause", "question": "Hold或异常的候选根因、证据和处置是什么？", "classes": ["HoldEvent", "Anomaly", "RootCauseHypothesis", "DiagnosticPlaybook"], "relations": ["hasEvidence", "mayCause", "hypothesizesAnomaly", "hypothesizesCause", "diagnosesAnomaly"]},
+    {"id": "process-route", "question": "产品的工艺路径、直接前后序和任意后续工序是什么？", "classes": ["Product", "Route", "Step", "Process"], "relations": ["routeForProduct", "hasStep", "directlyPrecedes", "precedes"]},
+    {"id": "bottleneck", "question": "瓶颈设备或工序在哪里，对产出和周期有什么影响？", "classes": ["Equipment", "Step", "CapacityConstraint", "PerformanceMetric"], "relations": ["performanceOf", "identifiesBottleneck", "constrains", "constraintOn"]},
+    {"id": "quality-traceability", "question": "质量结果如何追溯到批次、晶圆、设备、腔体、工艺与物料？", "classes": ["Measurement", "DefectObservation", "Wafer", "ProcessingEvent", "Material"], "relations": ["observesWafer", "processesWafer", "usesEquipment", "usesChamber", "measuresMetric", "classifiedAsDefect"]},
+    {"id": "delivery-prediction", "question": "在明确输入与证据等级下，完工与交付时间如何推演？", "classes": ["BusinessModel", "SimulationScenario", "Outcome", "Route"], "relations": ["usesBusinessModel", "simulatesScenario", "producesOutcome"]},
+    {"id": "dispatching", "question": "在约束、优先级和设备能力下，批次应如何调度？", "classes": ["Lot", "EquipmentCapability", "CapacityConstraint", "SimulationScenario"], "relations": ["hasCapability", "constraintOn", "hasIntervention"]},
+    {"id": "what-if", "question": "改变产能、良率、设备状态或调度策略会产生什么经营增量？", "classes": ["Intervention", "SimulationScenario", "BusinessVariable", "EconomicImpact"], "relations": ["hasIntervention", "affectsBusinessVariable", "producesOutcome"]}
+  ],
+  "validation_policy": "类与关系必须在 OWL 中声明；实例数据不足时输出缺口，不生成现场事实。"
+}

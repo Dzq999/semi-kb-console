@@ -1,0 +1,355 @@
+# 知识库实例 · 后段塑封与测试类异常处置
+default_provenance:
+  source_type: model_prior
+  ref: null
+  confidence: medium
+  created_at: "2026-08-26"
+  reviewed_by: null
+
+cases:
+  - id: kb.ap.mold_void_triage
+    domain: ap
+    title: 塑封空洞排查与处置
+    anomaly_ref: ap.anomaly.mold_void
+    detected_at_ref: ap.process.aoi
+    severity: high
+    symptoms:
+      - X-Ray 抽检发现塑封体内部气泡
+      - 空洞多集中于特定模腔位置或芯粒边缘
+      - 严重时伴随包封不全或金线冲丝
+    possible_causes:
+      - cause_ref: ap.cause.emc_moisture
+        likelihood: high
+        discriminator: >
+          查塑封料开封时间与储存条件。若开封超期或未低温储存，
+          空洞会跨模腔随机分布。返烤后改善即确认——这是与设备型成因
+          最快的区分方法。
+      - cause_ref: ap.param.transfer_speed
+        likelihood: medium
+        discriminator: 空洞位置与流动前沿末端吻合（远离注料口侧），降速后改善
+      - cause_ref: ap.param.mold_pressure
+        likelihood: medium
+        discriminator: 空洞集中于特定模腔且该腔排气槽有堵塞，属模具维护问题
+      - cause_ref: ap.param.mold_temp
+        likelihood: low
+        discriminator: 温度偏低致黏度过高，通常伴随包封不全而非仅空洞
+    detection:
+      - metric_ref: ap.metric.void_ratio
+        signal: 空洞占比超规，且按模腔位置统计的分布形态用于区分料因与模具因
+    actions:
+      - action_ref: ap.action.bake_emc
+        order: 1
+        condition: >
+          确认吸湿后按规范返烤。超过开封期限者直接报废，不做返烤——
+          超期料的交联性能已不可恢复，返烤只解决水分不解决老化。
+      - action_ref: ap.action.hold_lot
+        order: 2
+        condition: 必须执行。塑封已不可逆，扣留目的是防止不良流入后续成型与出货
+    impact:
+      blocked_processes: [ap.process.packing]
+      economic: >
+        塑封后空洞不可返工，直接判废，且此时前段与后段大部分成本已投入。
+        塑封料的时效管理成本远低于一次批量空洞报废，是典型的预防优于处置场景。
+    tags: [塑封, 空洞, 材料时效]
+
+  - id: kb.ap.die_crack_triage
+    domain: ap
+    title: 芯粒裂纹排查与处置
+    anomaly_ref: ap.anomaly.die_crack
+    detected_at_ref: ap.process.aoi
+    severity: critical
+    symptoms:
+      - 外观或超声扫描发现芯粒开裂
+      - 终测出现无规律功能失效
+      - 裂纹常起始于芯粒边缘或背面
+    possible_causes:
+      - cause_ref: ap.cause.grind_wheel_clog
+        likelihood: high
+        discriminator: >
+          裂纹起始于背面且呈亚表面延伸特征。查砂轮使用时长与研磨电流趋势
+          （电流上升指示切削效率下降）。此成因在减薄站不可检，
+          须靠上游参数记录回溯。
+      - cause_ref: ap.anomaly.dicing_chipping
+        likelihood: high
+        discriminator: >
+          裂纹起始于芯粒边缘且与崩边位置连续。查同批崩边量测数据，
+          若崩边尺寸已接近上限，则裂纹是崩边扩展的结果，
+          处置应回到切割站而非装片站。
+      - cause_ref: ap.param.die_bond_force
+        likelihood: medium
+        discriminator: >
+          裂纹呈中心放射状且与装片压力施加位置吻合，集中于特定装片机台。
+          薄芯粒产品尤其敏感。
+      - cause_ref: ap.param.grind_feed_rate
+        likelihood: medium
+        discriminator: 与减薄配方变更时点重合，查参数变更记录
+    detection:
+      - metric_ref: ap.metric.die_shear_strength
+        signal: 剪切强度异常偏低，或剪切失效面出现非预期断裂形态
+    actions:
+      - action_ref: ap.action.hold_lot
+        order: 1
+        condition: >
+          立即执行，且圈定范围要宽。本异常是延迟暴露型——检出时该批已跨
+          多道工序，须回溯减薄与切割的同机台同时段批次，不能只扣当前批。
+      - action_ref: ap.action.replace_blade
+        order: 2
+        condition: 确认为崩边扩展型后更换切割刀，并同步复查砂轮状态
+    impact:
+      blocked_processes: [ap.process.packing]
+      economic: >
+        成因工序与检出工序相隔远，圈定范围大是主要成本。改善方向在于
+        缩短暴露路径：在减薄或切割后增设抽检，把检出前移到成本累积较少的位置。
+    tags: [裂片, 减薄, 切割, 延迟暴露]
+
+  - id: kb.ap.ft_yield_drop_triage
+    domain: ap
+    title: 终测良率下滑排查与处置
+    anomaly_ref: ap.anomaly.ft_yield_drop
+    detected_at_ref: ap.process.final_test
+    severity: critical
+    symptoms:
+      - 终测良率跌破管制下限
+      - 失效 Bin 分布出现异常集中
+      - 可能伴随特定测试 Site 失效率显著偏高
+    possible_causes:
+      - cause_ref: ap.cause.probe_card_wear
+        likelihood: high
+        discriminator: >
+          伪失效的三个特征：重测通过率高、失效集中于特定 Site 或针位、
+          失效 Bin 多为开路/接触类。三者同时出现基本可确认。
+          这是首要排除项——若不先排除，会把良品当不良追查工艺，方向全错。
+      - cause_ref: ap.anomaly.wire_nsop
+        likelihood: high
+        discriminator: >
+          失效 Bin 为开路且重测不通过，回溯该批键合站拉力数据异常。
+          属键合不良的延迟暴露。
+      - cause_ref: ap.anomaly.delamination
+        likelihood: medium
+        discriminator: 失效随温度变化（高温测试失效率明显高），超声扫描可确认分层
+      - cause_ref: ap.anomaly.die_crack
+        likelihood: medium
+        discriminator: 失效无规律且分布随机，外观或 X-Ray 可见裂纹
+      - cause_ref: ap.param.test_time
+        likelihood: low
+        discriminator: 与缩测方案上线时点重合，须复核测试覆盖率是否被削弱
+    detection:
+      - metric_ref: ap.metric.ft_yield
+        signal: >
+          良率趋势 + Bin 分布 + Site 分布。三者必须一起看：
+          Bin 指向失效机理，Site 指向治具，趋势指向发生时点。
+      - metric_ref: core.metric.yield
+        signal: >
+          与前段 CP 良率联动比对。CP 正常而 FT 下滑则成因在后段；
+          两者同步下滑则回溯前段。这是划分前后段责任的第一判据。
+    actions:
+      - action_ref: ap.action.replace_probe_card
+        order: 1
+        condition: >
+          确认治具磨损后清洗或更换。这一步优先级最高，因为治具问题会污染
+          后续所有分析数据——治具未恢复前的良率数据不可用于判断工艺。
+      - action_ref: ap.action.retest
+        order: 2
+        condition: >
+          仅在治具已确认恢复后执行，用于挽回被过杀的良品。
+          重测次数须受规范限制，无限重测等于变相放宽标准。
+      - action_ref: ap.action.hold_lot
+        order: 3
+        condition: 确认为真实工艺失效后扣留，并按 Bin 类型回溯责任工序
+    impact:
+      blocked_processes: [ap.process.packing]
+      economic: >
+        双向损失：真实失效直接减少可交付数量；伪失效则造成良品过杀，
+        损失被错记为品质问题并误导改善方向。先分清两者是本异常处置的
+        经济关键，而非急于追查工艺。
+    tags: [终测, 良率, 治具, 伪失效]
+
+  - id: kb.ap.dicing_chipping_triage
+    domain: ap
+    title: 切割崩边超规排查与处置
+    anomaly_ref: ap.anomaly.dicing_chipping
+    detected_at_ref: ap.process.dicing
+    severity: high
+    symptoms:
+      - 崩边尺寸量测超出 Scribe Line 余量
+      - 崩边集中于晶圆特定区域或特定切割方向
+      - 严重时伴随芯粒边缘缺口
+    possible_causes:
+      - cause_ref: ap.cause.blade_wear
+        likelihood: high
+        discriminator: >
+          崩边尺寸随刀片累积切割长度单调上升，换刀后立即恢复。
+          若为局部崩齿，则崩边在固定切割位置突发出现。
+      - cause_ref: ap.param.cut_feed_speed
+        likelihood: medium
+        discriminator: 与配方变更时点重合，或为提产能而调高进给速度后出现
+      - cause_ref: ap.param.blade_rpm
+        likelihood: low
+        discriminator: 转速与进给失配，查主轴转速实测值与设定值偏差
+    detection:
+      - metric_ref: ap.metric.chipping_size
+        signal: 最大崩边尺寸与 Scribe Line 余量比对，并按刀片使用长度做趋势分析
+    actions:
+      - action_ref: ap.action.replace_blade
+        order: 1
+        condition: 确认磨损后换刀或修刀，换后首件量测崩边确认恢复
+      - action_ref: ap.action.hold_lot
+        order: 2
+        condition: >
+          崩边侵入有效电路区时扣留判废。即使未侵入也需评估——
+          崩边是后续裂片的起始源，属延迟风险。
+    impact:
+      blocked_processes: [ap.process.die_attach]
+      economic: >
+        崩边侵入电路区即判废。更重要的是它会转化为下游裂片，
+        因此换刀周期的决策不能只看崩边直接判废率，还须计入裂片连带损失。
+    tags: [切割, 崩边, 耗材]
+  - id: kb.ap.delamination_triage
+    domain: ap
+    title: 界面分层排查与处置
+    anomaly_ref: ap.anomaly.delamination
+    detected_at_ref: ap.process.aoi
+    severity: high
+    symptoms:
+    - C-SAM 超声扫描检出塑封料与芯粒、基板或引线框架界面剥离
+    - 分层面积或位置超出允收标准，常见于芯粒边角与引线框架指部
+    - 可能不伴随任何电性异常——分层是可靠性失效前兆，非即时功能失效
+    - 严重时后续回流焊出现爆米花效应（popcorn cracking）
+    possible_causes:
+    - cause_ref: ap.cause.emc_moisture
+      likelihood: high
+      discriminator: '取该批塑封料的开封时刻与车间温湿度记录，按 MSL 等级比对 floor life 门槛（30°C 条件下 MSL 2 为 1 年、2a 为 4 周、 3 为 168
+        小时、4 为 72 小时、5 为 48 小时、5a 为 24 小时； MSL 1 不限、MSL 6 须用前烘烤）。暴露时长超过对应门槛即确认 吸湿为主因。两个辅助判别：分层跨模腔随机分布而非集中，
+        且同期开封的其他批次同步出现。注意车间高于 30°C 或 相对湿度高于 60% 时实际 floor life 短于表值，不能直接套用。
+
+        '
+    - cause_ref: ap.cause.pad_contamination
+      likelihood: medium
+      discriminator: '分层集中在固定界面（焊垫或芯粒背面）而非随机分布， 且能追到特定等离子清洁批次或上游制程时窗。 与吸湿最快的区分：调整料的储存条件后不改善， 而追加等离子清洁后改善。
+
+        '
+    - cause_ref: ap.param.cure_temp
+      likelihood: medium
+      discriminator: '调固化温度记录，分层与特定烘箱或时段吻合， 且位置偏向装片胶界面而非塑封料界面。 温度不足致交联不全，此时芯粒剪切强度同步偏低—— 这一点可与吸湿区分，吸湿通常不压低剪切强度。
+
+        '
+    detection:
+    - metric_ref: ap.metric.die_shear_strength
+      signal: '剪切强度低于规格下限，且失效模式为界面剥离而非芯粒体破裂。 失效模式比数值本身更有判别力
+
+        '
+    - metric_ref: ap.metric.void_ratio
+      signal: 分层面积占比超允收标准，按界面类型与位置分类统计用于定位成因
+    actions:
+    - action_ref: ap.action.hold_lot
+      order: 1
+      condition: '必须优先执行。分层不可逆，且不一定伴随电性异常， 纯靠终测拦不住——扣留是唯一能防止漏出至客户端的手段
+
+        '
+    - action_ref: ap.action.bake_emc
+      order: 2
+      condition: '仅适用于尚未使用的库存料，目的是防止复发。 对已分层的成品无效：返烤去除水分，不能重新贴合已剥离的界面。 开封已超期者直接报废，不做返烤——超期料交联性能已不可恢复
+
+        '
+    - action_ref: ap.action.plasma_clean_rerun
+      order: 3
+      condition: 仅当判定为焊垫污染分支时执行，对吸湿成因无效
+    impact:
+      blocked_processes:
+      - ap.process.packing
+      economic: '分层是可靠性失效前兆，漏出至客户端的代价远高于内部拦截： 客户端失效触发退货、批次追溯与信誉损失，量级远超本批报废。 塑封料的时效管理成本极低，属预防远优于处置的典型场景。
+
+        '
+    tags:
+    - 塑封
+    - 分层
+    - 可靠性
+    - 材料时效
+    - MSL
+    notes: "MSL floor life 数值来自 TI 应用报告 SPRABY1A 的 Table 1 (Factory Floor Life @ 30°C)，该表原始出处是 IPC/JEDEC\
+      \ J-STD-033 （管搬运、储存与 floor life），不是 J-STD-020（管回流焊峰值温度\n 分类 Tc）。两个标准常被混引，此处按 TI 原文的归属记录。\nJ-STD-033\
+      \ 官方页面 URL 含 \"033c\"，但实际服务的是 J-STD-033D (Published Apr 2018)，且 033d 路径返回 404，故 033c 为正规入口。 除 MSL\
+      \ 数值外，本条的根因排序与判别逻辑来自模型预训练知识， 未经产线数据验证。\n"
+    provenance:
+      source_type: web
+      ref: https://www.ti.com/jp/lit/an/spraby1a/spraby1a.pdf
+      confidence: medium
+      created_at: '2026-08-27'
+      reviewed_by: null
+  - id: kb.ap.missing_ball_triage
+    domain: ap
+    title: 缺球/连球排查与处置
+    anomaly_ref: ap.anomaly.missing_ball
+    detected_at_ref: ap.process.aoi
+    severity: medium
+    symptoms:
+    - AOI 检出接点缺球，或相邻锡球桥连
+    - 缺球位置与印刷版面或植球治具孔位呈固定对应
+    - 连球多出现在间距最小的接点区域
+    - 可能伴随锡球表面起皱（助焊剂活性不足或回流中流失致氧化）
+    - 共面性量测超规，此时须与缺球分开判定
+    possible_causes:
+    - cause_ref: ap.cause.flux_print_defect
+      likelihood: high
+      discriminator: '首要排除项。看不良的空间分布：跟印刷版面或治具孔位走（位置固定、 同版面重复出现）指向印刷不良；跟炉内温区走（沿炉长方向或按载具 位置分布）指向回流。缺球与连球同批共存也指向本成因——
+        印刷黏度过低渗出致连球、过高填不满致缺球，同一物性两侧偏离 产生两种相反的表观不良。再查黏性：黏性不足时锡球在搬运中移位， 缺球位置随机而非固定，这一支与印刷量不足要分开看。
+
+        '
+    - cause_ref: ap.cause.reflow_profile_drift
+      likelihood: medium
+      discriminator: '不良沿炉长方向或按载具位置呈梯度分布，且与炉温曲线仪校核记录的 温区衰退、链速偏移时点吻合。与印刷不良的关键区分：本成因下 印刷后（回流前）的检查是正常的——若厂内有回流前抽检，
+        一次比对即可定案，不必等 AOI。
+
+        '
+    - cause_ref: ap.param.reflow_peak_temp
+      likelihood: medium
+      discriminator: '与配方变更时点重合。峰值偏低时润湿不足致缺球且锡球形貌偏球形 残留；偏高时助焊剂在到达润湿温度前已耗尽或流失， 表观是锡球起皱与氧化。查参数变更记录，不要与炉体衰退混判——
+        前者是设定变了，后者是设定没变而实际受热变了。
+
+        '
+    detection:
+    - metric_ref: ap.metric.coplanarity
+      signal: '共面性超规。但它是并发观测量而非缺球本身的判据—— 缺球在共面性数据上表现为该接点缺测点，而连球可能仍在规格内。 两者要分开判，把共面性超规直接当缺球会漏判连球。
+
+        '
+    - metric_ref: core.metric.yield
+      signal: '植球站不良率趋势。按印刷版面位置与炉内位置两个维度分别做分布统计， 哪个维度先聚集就指向哪类成因——这是本异常最快的分流手段。
+
+        '
+    actions:
+    - action_ref: ap.action.hold_lot
+      order: 1
+      condition: '根因未明前先扣留。缺球与连球的处置方向相反（前者可返工、 后者多判废），未分清就放行会把判废品混入返工流。
+
+        '
+    - action_ref: ap.action.reball_rework
+      order: 2
+      condition: '仅对缺球分支执行，重植后复量共面性并复检外观。 连球不走本动作。返工次数须受规范限制——每次重植追加一次热历程， 无限返工等于用可靠性换良率。
+
+        '
+    impact:
+      blocked_processes:
+      - ap.process.packing
+      economic: '与多数后段不良相反，本异常的缺球分支可返工挽回，因此经济关键不在 止损而在分流准确性：把可返工的缺球误判为连球等于多报废， 把连球混进返工流则把不可靠品送出厂。 成因侧的杠杆在印刷条件——它是可调工艺窗口，纠正成本低于换料或
+        改炉温曲线，这也是把 flux_print_defect 排在首位排除的经济理由。
+
+        '
+    tags:
+    - 植球
+    - 缺球
+    - 连球
+    - 助焊剂
+    - 印刷
+    notes: '助焊剂印刷与黏性两条机理来自荒川化学（Arakawa Chemical）Room of flux 的 missing ball 与 flux print failure 两页，均已取到正文：
+      缺球主因列为"未植上 / 印刷缺失或未填满致固定力不足 / 黏性不足致移位"， 印刷不良主因列为"物性（黏度为主）+ 印刷条件"。锡球起皱一条来自同站 solder ball deformity
+      页（活性不足或回流中助焊剂流失致氧化）。 该站点 fluxroom/en/ 下只有部分失效模式有独立页面，bridge.html 与 void.html 不存在且被 301 到站点根 https://pinealpha.jp/
+      —— 若后续复查发现链接指向首页，是这个原因，不是记错。 厂商资料的立场偏向助焊剂物性，其把印刷类机理列为首要成因这一点 需按此立场折价看待；治具孔位堵塞与回流侧的判别逻辑、 以及各成因的 likelihood
+      排序来自模型预训练知识，未经产线数据验证。 刻意未写共面性的具体数值门槛：本轮未取到 JEDEC 封装外形文件原文， 写了就是伪装成有据可查的编造。
+
+      '
+    provenance:
+      source_type: web
+      ref: https://pinealpha.jp/fluxroom/en/missing.html
+      confidence: medium
+      created_at: '2026-08-28'
+      reviewed_by: null

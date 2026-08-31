@@ -1,0 +1,21 @@
+{
+  "id": "urn:pxai:semi:knowledge:web:lattice:cross_system_quality_investigation_02",
+  "title": "半导体品质异常的跨系统证据调查模式",
+  "domain": "eqp",
+  "summary": "终测失败、良率下降和客户退货调查需要连接分散的制造、质量及维护资料。",
+  "content": "公开资料指出，半导体终测失败、良率异常、质量逃逸和客户退货调查往往横跨MES、SPC、维护日志、设备、配方及材料记录。将工厂来源资料按时间戳和对象关系关联，可形成更完整且可审计的因果路径，但该能力描述不证明任何特定工厂已经完成系统接入或取得量化改善。",
+  "source_refs": [
+    "https://www.runlattice.com/industries/semiconductor"
+  ],
+  "related_iris": [
+    "urn:pxai:semi:ext:web:lattice:cross_system_investigation_case_02",
+    "urn:pxai:semi:ext:web:lattice:factory_source_artifact_02",
+    "urn:pxai:semi:ext:web:lattice:quality_excursion_anomaly_02",
+    "urn:pxai:semi:ext:web:lattice:quality_excursion_metric_02"
+  ],
+  "confidence": "high",
+  "provenance": {
+    "source_type": "web",
+    "source_ref": "https://www.runlattice.com/industries/semiconductor"
+  }
+}

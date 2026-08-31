@@ -1,0 +1,19 @@
+@prefix semi: <urn:pxai:semi:> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+<urn:pxai:semi:maintenance> a owl:Ontology ;
+  owl:imports <urn:pxai:semi:common>, <urn:pxai:semi:equipment> .
+
+semi:MaintenanceEvent a owl:Class ; rdfs:subClassOf semi:Event .
+semi:PreventiveMaintenanceEvent a owl:Class ; rdfs:subClassOf semi:MaintenanceEvent .
+semi:CorrectiveMaintenanceEvent a owl:Class ; rdfs:subClassOf semi:MaintenanceEvent .
+semi:MaintenancePlan a owl:Class ; rdfs:subClassOf semi:InformationEntity .
+semi:AlarmEvent a owl:Class ; rdfs:subClassOf semi:Event .
+semi:DownEvent a owl:Class ; rdfs:subClassOf semi:Event .
+semi:PartReplacementEvent a owl:Class ; rdfs:subClassOf semi:MaintenanceEvent .
+
+semi:affectsEquipment a owl:ObjectProperty ; rdfs:domain semi:Event ; rdfs:range semi:Equipment .
+semi:replacesPart a owl:ObjectProperty ; rdfs:domain semi:PartReplacementEvent ; rdfs:range semi:Part .
+semi:executesMaintenancePlan a owl:ObjectProperty ;
+  rdfs:domain semi:MaintenanceEvent ; rdfs:range semi:MaintenancePlan .

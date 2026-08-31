@@ -1,0 +1,18 @@
+{
+  "id": "urn:pxai:semi:knowledge:fac-gate-repair-equipment-cause-link",
+  "title": "设施设备实例编码与可能原因关系门禁修复",
+  "domain": "fac",
+  "summary": "补齐通用设备实例的设备编码，并为多源设备根因分析调查建立可追溯的可能原因关系。",
+  "content": "本次修复严格针对语义校验报告中的两项最小基数违规。通用半导体设备实例补充equipmentCode作为语义标识；多源设备根因分析调查关联一个来自公开厂务数字孪生资料的可能原因线索。资料提到压力、流量、振动、温度、电流、运行时间、告警历史和维修记录可用于识别设备早期风险，因此该关系只能作为待复核假设，不能替代现场确认的根因或实测数据。",
+  "source_refs": [
+    "https://datamesh.com/zh-CN/resources/guides/semiconductor-facility-operations-ai-agent"
+  ],
+  "related_iris": [
+    "urn:pxai:semi:fac.web.cause.sensor_observable_asset_degradation_timeseries"
+  ],
+  "confidence": "medium",
+  "provenance": {
+    "source_type": "web",
+    "source_ref": "https://datamesh.com/zh-CN/resources/guides/semiconductor-facility-operations-ai-agent"
+  }
+}

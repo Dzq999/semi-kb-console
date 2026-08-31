@@ -1,0 +1,10 @@
+{
+  "status": "ok",
+  "source_id": "internal.feature_model.ai_fab",
+  "sha256": "c23a80be00b1a8937a6f3b258a64a0556e1704fe663bf022435dad78d6069ac8",
+  "sheet_count": 31,
+  "theme_count": 7,
+  "entity_count": 24,
+  "table_count": 26,
+  "feature_row_count": 1181
+}

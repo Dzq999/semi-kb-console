@@ -3,6 +3,10 @@ $root = Split-Path -Parent $PSScriptRoot
 $backend = Join-Path $root 'backend'
 $frontend = Join-Path $root 'frontend'
 $venv = Join-Path $root '.venv'
+$engine = Join-Path $root 'data\engine'
+if (-not (Test-Path (Join-Path $engine 'scripts\kb.py'))) {
+  throw '缺少控制台本地引擎，请先运行 .\scripts\migrate-engine.ps1（默认使用内置 engine-seed；也可显式指定一次性迁移源）。运行时不依赖外部项目。'
+}
 if (-not (Test-Path (Join-Path $venv 'Scripts\python.exe'))) {
   python -m venv $venv
 }

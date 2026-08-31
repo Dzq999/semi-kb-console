@@ -1,0 +1,236 @@
+# fab 层 · 工艺参数
+# typical_range 为通用成熟制程量级参考，非特定产品配方；先进制程差异显著
+default_provenance:
+  source_type: model_prior
+  ref: null
+  confidence: medium
+  created_at: "2026-08-26"
+  reviewed_by: null
+
+entities:
+  - id: fab.param.furnace_temp
+    type: Parameter
+    name_zh: 炉温
+    name_en: Furnace Temperature
+    domain: fab
+    unit: "℃"
+    typical_range: "600~1100 ℃（视工序）"
+    description: 炉管温区设定值。温区平衡直接决定片间(Wafer-to-Wafer)均匀性。
+    economic_hooks: {affects: [yield], note: 温区漂移表现为批内梯度型偏移}
+
+  - id: fab.param.furnace_time
+    type: Parameter
+    name_zh: 炉管时间
+    name_en: Furnace Time
+    domain: fab
+    unit: min
+    typical_range: "20~240 min"
+    description: 高温保持时间。与温度共同构成热预算，是膜厚/结深的主控量。
+    economic_hooks: {affects: [cycle_time, yield], note: 直接计入 CT 的固定项}
+
+  - id: fab.param.rta_ramp_rate
+    type: Parameter
+    name_zh: RTA 升温速率
+    name_en: RTA Ramp Rate
+    domain: fab
+    unit: "℃/s"
+    typical_range: "20~150 ℃/s"
+    description: 快速升温斜率。过快引起片内热应力与滑移线缺陷。
+    economic_hooks: {affects: [yield], note: 应力缺陷多呈边缘环状分布}
+
+  - id: fab.param.chamber_pressure
+    type: Parameter
+    name_zh: 腔体压力
+    name_en: Chamber Pressure
+    domain: fab
+    unit: mTorr / Torr
+    typical_range: "5 mTorr ~ 760 Torr（视工艺）"
+    description: 真空腔工作压力。影响等离子体密度、沉积速率与台阶覆盖性。
+    economic_hooks: {affects: [yield, equipment_oee], note: 压力控制异常常伴随腔体泄漏或泵浦衰退}
+
+  - id: fab.param.implant_dose
+    type: Parameter
+    name_zh: 注入剂量
+    name_en: Implant Dose
+    domain: fab
+    unit: "ions/cm²"
+    typical_range: "1E11 ~ 1E16 ions/cm²"
+    description: 单位面积注入离子数，决定掺杂浓度与方阻。由束流与扫描时间积分控制。
+    economic_hooks: {affects: [yield], note: 剂量偏移线性传导至 Vt 与 Rs}
+
+  - id: fab.param.implant_energy
+    type: Parameter
+    name_zh: 注入能量
+    name_en: Implant Energy
+    domain: fab
+    unit: keV
+    typical_range: "0.5 ~ 3000 keV"
+    description: 加速电压决定的离子能量，控制投影射程即结深。
+    economic_hooks: {affects: [yield], note: 结深偏移影响短沟道效应与漏电}
+
+  - id: fab.param.implant_tilt
+    type: Parameter
+    name_zh: 注入倾角
+    name_en: Implant Tilt Angle
+    domain: fab
+    unit: degree
+    typical_range: "0 ~ 45°"
+    description: 束流与晶圆法线夹角。控制沟道效应(Channeling)与阴影效应。
+    economic_hooks: {affects: [yield], note: 角度偏差造成器件左右不对称}
+
+  - id: fab.param.spin_speed
+    type: Parameter
+    name_zh: 涂布转速
+    name_en: Spin Speed
+    domain: fab
+    unit: rpm
+    typical_range: "1000 ~ 5000 rpm"
+    description: 旋涂转速，与光阻黏度共同决定膜厚（近似正比于转速平方根倒数）。
+    economic_hooks: {affects: [yield, rework_rate], note: 膜厚偏移改变有效曝光剂量}
+
+  - id: fab.param.softbake_temp
+    type: Parameter
+    name_zh: 软烤温度
+    name_en: Soft Bake Temperature
+    domain: fab
+    unit: "℃"
+    typical_range: "90 ~ 120 ℃"
+    description: 涂布后去除溶剂的烘烤温度。影响光阻感光度与显影对比度。
+    economic_hooks: {affects: [yield], note: 热板温度不均产生片内 CD 梯度}
+
+  - id: fab.param.exposure_dose
+    type: Parameter
+    name_zh: 曝光剂量
+    name_en: Exposure Dose
+    domain: fab
+    unit: "mJ/cm²"
+    typical_range: "10 ~ 60 mJ/cm²"
+    description: >
+      单位面积曝光能量。CD 的最主要旋钮，与焦距构成工艺窗口(Bossung Curve)
+      的两个轴。剂量漂移常源于光源能量衰退或照度校正失效。
+    economic_hooks: {affects: [yield, rework_rate], note: CD 偏移超规需光刻重工或直接判废}
+
+  - id: fab.param.exposure_focus
+    type: Parameter
+    name_zh: 曝光焦距
+    name_en: Exposure Focus
+    domain: fab
+    unit: nm
+    typical_range: "±100 nm（DOF 窗口内）"
+    description: >
+      投影焦平面位置偏移。焦深余量受晶圆平整度与前层 CMP 平坦化质量约束，
+      离焦表现为 CD 变化伴随侧壁形貌恶化。
+    economic_hooks: {affects: [yield], note: 离焦缺陷常呈同心圆或局部区块分布}
+
+  - id: fab.param.overlay_offset
+    type: Parameter
+    name_zh: 对位补正量
+    name_en: Overlay Correction Offset
+    domain: fab
+    unit: nm
+    typical_range: "±20 nm"
+    description: >
+      Scanner 逐批对位补正值，由前批 Overlay 量测结果经 APC 回馈生成。
+      补正模型失配时会出现补正越修越偏。
+    economic_hooks: {affects: [yield, rework_rate], note: 回馈及时性决定受影响批次数}
+
+  - id: fab.param.develop_time
+    type: Parameter
+    name_zh: 显影时间
+    name_en: Development Time
+    domain: fab
+    unit: s
+    typical_range: "30 ~ 90 s"
+    description: 显影液作用时间，CD 微调的次级旋钮。
+    economic_hooks: {affects: [yield], note: 与剂量存在交互，需联动调整}
+
+  - id: fab.param.hardbake_temp
+    type: Parameter
+    name_zh: 硬烤温度
+    name_en: Hard Bake Temperature
+    domain: fab
+    unit: "℃"
+    typical_range: "110 ~ 140 ℃"
+    description: 显影后固化光阻，提升抗蚀刻能力。过高导致图形流动变形。
+    economic_hooks: {affects: [yield], note: 影响后续蚀刻的图形保真度}
+
+  - id: fab.param.etch_rf_power
+    type: Parameter
+    name_zh: 蚀刻射频功率
+    name_en: Etch RF Power
+    domain: fab
+    unit: W
+    typical_range: "100 ~ 2000 W"
+    description: 等离子体激发功率，决定离子能量与蚀刻速率、各向异性程度。
+    economic_hooks: {affects: [yield, equipment_oee], note: 功率与选择比反向权衡}
+
+  - id: fab.param.etch_gas_flow
+    type: Parameter
+    name_zh: 蚀刻气体流量
+    name_en: Etch Gas Flow
+    domain: fab
+    unit: sccm
+    typical_range: "10 ~ 500 sccm"
+    description: 反应气体与稀释气体配比，决定化学选择比与聚合物生成量。
+    economic_hooks: {affects: [yield, cost_per_unit], note: 特气消耗为主要变动成本项}
+
+  - id: fab.param.etch_time
+    type: Parameter
+    name_zh: 蚀刻时间
+    name_en: Etch Time
+    domain: fab
+    unit: s
+    typical_range: "15 ~ 300 s"
+    description: 蚀刻时长，通常配合终点检测使用，过蚀时间(Over-etch)单独设定。
+    economic_hooks: {affects: [yield], note: 过蚀不可逆，时间设定偏保守则残留风险上升}
+
+  - id: fab.param.etchant_concentration
+    type: Parameter
+    name_zh: 蚀刻液浓度
+    name_en: Etchant Concentration
+    domain: fab
+    unit: "% / ratio"
+    description: 湿制程槽液有效成分浓度，随使用衰减，需按累积批次数补液或换槽。
+    economic_hooks: {affects: [yield, cost_per_unit], note: 换槽周期是化学品成本与均匀性的权衡}
+
+  - id: fab.param.pvd_power
+    type: Parameter
+    name_zh: 溅镀功率
+    name_en: PVD Sputtering Power
+    domain: fab
+    unit: kW
+    typical_range: "1 ~ 20 kW"
+    description: 靶材溅射功率，决定沉积速率。功率与靶材侵蚀形貌共同影响均匀性。
+    economic_hooks: {affects: [yield, cost_per_unit], note: 靶材利用率影响单位耗材成本}
+
+  - id: fab.param.cmp_pressure
+    type: Parameter
+    name_zh: CMP 研磨压力
+    name_en: CMP Down Force
+    domain: fab
+    unit: psi
+    typical_range: "2 ~ 6 psi"
+    description: 晶圆压向研磨垫的压力，与转速共同决定去除率(Preston 方程)。
+    economic_hooks: {affects: [yield, rework_rate], note: 压力过高加剧划伤与碟形凹陷}
+
+  - id: fab.param.cmp_platen_speed
+    type: Parameter
+    name_zh: CMP 转盘转速
+    name_en: CMP Platen Speed
+    domain: fab
+    unit: rpm
+    typical_range: "20 ~ 120 rpm"
+    description: 研磨盘转速，影响去除率与研磨液分布均匀性。
+    economic_hooks: {affects: [yield], note: 转速失配造成径向去除率不均}
+
+  - id: fab.param.cmp_slurry_flow
+    type: Parameter
+    name_zh: 研磨液流量
+    name_en: CMP Slurry Flow Rate
+    domain: fab
+    unit: ml/min
+    typical_range: "100 ~ 300 ml/min"
+    description: >
+      研磨液供给速率，不足会导致局部干磨与划伤。研磨液粒径团聚
+      是划伤类缺陷的主要来源之一。
+    economic_hooks: {affects: [yield, cost_per_unit], note: 研磨液是 CMP 最大耗材支出项}

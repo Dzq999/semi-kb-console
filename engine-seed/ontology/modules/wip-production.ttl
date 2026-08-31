@@ -1,0 +1,27 @@
+@prefix semi: <urn:pxai:semi:> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+<urn:pxai:semi:wip-production> a owl:Ontology ;
+  owl:imports <urn:pxai:semi:common>, <urn:pxai:semi:equipment>,
+              <urn:pxai:semi:material-product>, <urn:pxai:semi:process-route> .
+
+semi:ProductionEvent a owl:Class ; rdfs:subClassOf semi:Event .
+semi:ProcessingEvent a owl:Class ; rdfs:subClassOf semi:ProductionEvent .
+semi:TrackInEvent a owl:Class ; rdfs:subClassOf semi:ProductionEvent .
+semi:TrackOutEvent a owl:Class ; rdfs:subClassOf semi:ProductionEvent .
+semi:HoldEvent a owl:Class ; rdfs:subClassOf semi:ProductionEvent .
+semi:ReworkEvent a owl:Class ; rdfs:subClassOf semi:ProductionEvent .
+semi:ScrapEvent a owl:Class ; rdfs:subClassOf semi:ProductionEvent .
+semi:WIP a owl:Class ; rdfs:subClassOf semi:Observation .
+semi:QueueTimeObservation a owl:Class ; rdfs:subClassOf semi:Observation .
+
+semi:processesLot a owl:ObjectProperty ; rdfs:domain semi:ProcessingEvent ; rdfs:range semi:Lot .
+semi:processesWafer a owl:ObjectProperty ; rdfs:domain semi:ProcessingEvent ; rdfs:range semi:Wafer .
+semi:usesEquipment a owl:ObjectProperty ; rdfs:domain semi:ProductionEvent ; rdfs:range semi:Equipment .
+semi:usesChamber a owl:ObjectProperty ; rdfs:domain semi:ProductionEvent ; rdfs:range semi:Chamber .
+semi:executesStep a owl:ObjectProperty ; rdfs:domain semi:ProductionEvent ; rdfs:range semi:Step .
+semi:usesRecipe a owl:ObjectProperty ; rdfs:domain semi:ProductionEvent ; rdfs:range semi:Recipe .
+semi:holdsLot a owl:ObjectProperty ; rdfs:domain semi:HoldEvent ; rdfs:range semi:Lot .
+semi:impactsLot a owl:ObjectProperty ; rdfs:domain semi:Event ; rdfs:range semi:Lot .
+semi:observesLot a owl:ObjectProperty ; rdfs:domain semi:Observation ; rdfs:range semi:Lot .

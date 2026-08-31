@@ -1,0 +1,2437 @@
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix prov: <http://www.w3.org/ns/prov#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix semi: <urn:pxai:semi:> .
+
+semi:current-knowledge a owl:Ontology ;
+    owl:imports semi:common .
+
+semi:eqp.capability.ai_fault_detection_rca semi:supportsPredictiveMaintenance semi:eqp.plan.predictive_maintenance .
+
+semi:validation.release_gate.current_review semi:hasEvidence semi:validation.review.evidence_completeness,
+        semi:validation.review.provenance_quality .
+
+<urn:pxai:semi:fac:fms:utility_integration_repair_r2> a semi:FacilityManagementSystem ;
+    rdfs:label "公用系统集成型厂务管理系统门禁修复实体"@zh ;
+    semi:aggregatesUtilityData <urn:pxai:semi:fac:utility:multi_system_repair_r2> ;
+    semi:sourceRef "https://semiconductorx.com/fab-ops-facility-management.html" ;
+    semi:sourceType "web" .
+
+<urn:pxai:semi:fac:digital_twin:facility_repair_r2> a semi:FacilityDigitalTwin ;
+    rdfs:label "设施级数字孪生门禁修复实体"@zh ;
+    semi:hasEvent <urn:pxai:semi:fac:event:infrastructure_repair_r2> ;
+    semi:hasSubsystem <urn:pxai:semi:fac:utility:multi_system_repair_r2> ;
+    semi:sourceRef "https://semiconductorx.com/fab-ops-facility-management.html" ;
+    semi:sourceType "web" .
+
+<urn:pxai:semi:validation:equipment-downtime-detection-metric-r1> a semi:Metric ;
+    rdfs:label "设备停机检测指标R1"@zh ;
+    semi:identifier "METRIC-EQUIPMENT-DOWNTIME-DETECTION-R1" ;
+    semi:sourceType "model_prior" .
+
+<urn:pxai:semi:validation:quality-excursion-detection-metric-r1> a semi:Metric ;
+    rdfs:label "品质异常突发检测指标R1"@zh ;
+    semi:identifier "METRIC-QUALITY-EXCURSION-DETECTION-R1" ;
+    semi:sourceType "model_prior" .
+
+<urn:pxai:semi:ext:web:springer:telemetry_causal_integration_pattern_02> a semi:RCAEvidenceIntegrationPattern ;
+    rdfs:label "遥测与因果分析集成模式02"@zh ;
+    semi:description "将图像或传感器分析、设备时间序列、模式识别和因果建模组织为故障检测与根因分析证据链的行业模式，同时保留数据质量与可解释性限制。" ;
+    semi:modelingLimitationText "公开综述支持行业层面的能力模式，但不能据此声明特定工厂的检测准确率、停机减少量、良率提升或收益。" ;
+    semi:nameZh "遥测与因果分析集成模式02" ;
+    semi:sourceRef "https://link.springer.com/article/10.1007/s00170-026-18777-0" ;
+    semi:sourceType "web" .
+
+<urn:pxai:semi:fac:event:infrastructure_repair_r2> a semi:FacilityInfrastructureEvent ;
+    rdfs:label "厂务基础设施事件门禁修复实体"@zh ;
+    semi:aboutEntity <urn:pxai:semi:fac:utility:multi_system_repair_r2> ;
+    semi:sourceRef "https://semiconductorx.com/fab-ops-facility-management.html" ;
+    semi:sourceType "web" .
+
+<urn:pxai:semi:impact:economic_quality_excursion_scrap_delivery_repair> a semi:EconomicImpact ;
+    rdfs:label "品质异常的报废返工与交付经营影响"@zh ;
+    semi:economicImpactText "品质偏差对良率和可靠性的影响可能沿生产流程形成报废、返工、可销售产出受限及交付风险；具体影响幅度必须结合现场数据和经营模型评估。" ;
+    semi:nameZh "品质异常的报废返工与交付经营影响" ;
+    semi:sourceRef "https://link.springer.com/article/10.1007/s00170-026-18777-0" ;
+    semi:sourceType "web" .
+
+<urn:pxai:semi:pain:fab_fragmented_rca_analysis_repair> a semi:CustomerProblemPainPattern ;
+    rdfs:label "晶圆厂分散数据根因分析痛点模式"@zh ;
+    semi:nameZh "晶圆厂分散数据根因分析痛点模式" ;
+    semi:painPointText "传统监控难以处理高维动态制造数据，工程人员需要跨图像、传感器、制程和维护信息进行人工交叉分析，导致异常证据汇集和根因定位负担增加。" ;
+    semi:sourceRef "https://link.springer.com/article/10.1007/s00170-026-18777-0" ;
+    semi:sourceType "web" .
+
+<urn:pxai:semi:validation:equipment-downtime-subject-equipment-r1> a semi:Equipment ;
+    rdfs:label "设备停机异常焦点设备R1"@zh ;
+    semi:equipmentCode "VALIDATION-SUBJECT-EQUIPMENT-R1" ;
+    semi:sourceType "model_prior" .
+
+<urn:pxai:semi:anomaly:fab_quality_excursion_delayed_detection_repair> a semi:QualityExcursionAnomaly ;
+    rdfs:label "晶圆厂品质异常延迟识别事件"@zh ;
+    semi:description "高维动态制造数据和跨系统信息难以由传统监控及时综合分析时，品质偏差可能未被及时识别，并进一步影响良率或产品可靠性。" ;
+    semi:nameZh "晶圆厂品质异常延迟识别事件" ;
+    semi:severity "critical" ;
+    semi:sourceRef "https://link.springer.com/article/10.1007/s00170-026-18777-0" ;
+    semi:sourceType "web" .
+
+<urn:pxai:semi:scenario:fab_quality_excursion_capacity_recovery_whatif_repair> a semi:SimulationScenario ;
+    rdfs:label "品质异常背景下的光刻产能恢复方向性情景"@zh ;
+    semi:description "使用既有通用晶圆厂经营模型，以光刻产能增量代理异常处置后的产能恢复，评估受约束投入量与可销售产出的方向性变化。" ;
+    semi:hasOperationalImpactChain <urn:pxai:semi:impactchain:fab_quality_excursion_business_impact_repair> ;
+    semi:modelingLimitationText "干预变量和值沿用既有模型与示例，仅用于What-if业务讨论，不表示品质异常必然由光刻设备造成，也不代表现场实测改善或客户承诺。" ;
+    semi:nameZh "品质异常背景下的光刻产能恢复方向性情景" ;
+    semi:sourceRef "business/models/fab-baseline.yaml",
+        "simulation/scenarios/fab-capacity-recovery.yaml" ;
+    semi:sourceType "model_prior" .
+
+<urn:pxai:semi:scenario:fab_quality_excursion_fragmented_analysis_repair> a semi:BusinessScenarioCard ;
+    rdfs:label "晶圆厂品质异常跨系统分析场景"@zh ;
+    semi:decisionUseText "用于确定异常调查的数据准备范围、证据边界和经营影响评估入口，不代替工程审批或现场处置决策。" ;
+    semi:description "面向品质异常突发的业务场景，组织图像、传感器、制程和维护证据，支持从异常识别到根因分析及经营影响沟通。" ;
+    semi:hasOperationalImpactChain <urn:pxai:semi:impactchain:fab_quality_excursion_business_impact_repair> ;
+    semi:hasPainPattern <urn:pxai:semi:pain:fab_fragmented_rca_analysis_repair> ;
+    semi:nameZh "晶圆厂品质异常跨系统分析场景" ;
+    semi:sourceRef "https://link.springer.com/article/10.1007/s00170-026-18777-0" ;
+    semi:sourceType "web" .
+
+<urn:pxai:semi:validation:gate:critical-anomaly-release-round1> semi:confidence "low" ;
+    semi:decisionUseText "阻止将缺少可核查现场证据的关键异常覆盖结论作为已验证事实发布。" ;
+    semi:gateDecisionCode "BLOCK" ;
+    semi:hasValidationFinding <urn:pxai:semi:validation:finding:equipment-down-evidence-gap-round1>,
+        <urn:pxai:semi:validation:finding:quality-excursion-evidence-gap-round1> ;
+    semi:releaseBlockingFlag "true" ;
+    semi:sourceRef "model_prior:round1.gap_analysis.uncovered" ;
+    semi:sourceType "model_prior" .
+
+<urn:pxai:semi:fac:utility:multi_system_repair_r2> a semi:UtilitySystem ;
+    rdfs:label "多公用系统监测对象门禁修复实体"@zh ;
+    semi:sourceRef "https://semiconductorx.com/fab-ops-facility-management.html" ;
+    semi:sourceType "web" .
+
+<urn:pxai:semi:instance:equipment-downtime-anomaly-round1> semi:confidence "low" ;
+    semi:identifier "core.anomaly.equipment_down" ;
+    semi:severity "high" ;
+    semi:sourceRef "model_prior:round1.gap_analysis.uncovered" ;
+    semi:sourceType "model_prior" .
+
+<urn:pxai:semi:instance:quality-excursion-anomaly-round1> semi:confidence "low" ;
+    semi:identifier "core.anomaly.quality_excursion" ;
+    semi:severity "critical" ;
+    semi:sourceRef "model_prior:round1.gap_analysis.uncovered" ;
+    semi:sourceType "model_prior" .
+
+<urn:pxai:semi:validation:ontology-validation-run-r1> a semi:OntologyValidationRun ;
+    rdfs:label "异常覆盖本体校验执行R1"@zh ;
+    semi:evaluatesFocusEntity <urn:pxai:semi:validation:equipment-downtime-anomaly-case-r1>,
+        <urn:pxai:semi:validation:quality-excursion-anomaly-case-r1> ;
+    semi:evaluatesOntologyConstraint <urn:pxai:semi:validation:anomaly-detection-traceability-constraint-r1> ;
+    semi:sourceType "model_prior" ;
+    semi:validationStatus "failed" .
+
+<urn:pxai:semi:validation:review:quality-gate-round1> semi:confidence "low" ;
+    semi:evaluatesFocusEntity <urn:pxai:semi:instance:equipment-downtime-anomaly-round1>,
+        <urn:pxai:semi:instance:quality-excursion-anomaly-round1> ;
+    semi:evidenceCoverageRatio "0" ;
+    semi:hasValidationFinding <urn:pxai:semi:validation:finding:equipment-down-evidence-gap-round1>,
+        <urn:pxai:semi:validation:finding:quality-excursion-evidence-gap-round1> ;
+    semi:reviewStatusCode "INSUFFICIENT_EVIDENCE" ;
+    semi:sourceRef "model_prior:round1.gap_analysis.uncovered" ;
+    semi:sourceType "model_prior" .
+
+<urn:pxai:semi:validation:equipment-downtime-anomaly-case-r1> a semi:EquipmentDowntimeAnomaly ;
+    rdfs:label "设备停机异常校验案例R1"@zh ;
+    semi:affectsEquipment <urn:pxai:semi:validation:equipment-downtime-subject-equipment-r1> ;
+    semi:detectedByMetric <urn:pxai:semi:validation:equipment-downtime-detection-metric-r1> ;
+    semi:legacyId "core.anomaly.equipment_down" ;
+    semi:severity "high" ;
+    semi:sourceType "model_prior" .
+
+<urn:pxai:semi:validation:quality-excursion-anomaly-case-r1> a semi:QualityExcursionAnomaly ;
+    rdfs:label "品质异常突发校验案例R1"@zh ;
+    semi:affectsEquipment <urn:pxai:semi:validation:equipment-downtime-subject-equipment-r1> ;
+    semi:detectedByMetric <urn:pxai:semi:validation:quality-excursion-detection-metric-r1> ;
+    semi:legacyId "core.anomaly.quality_excursion" ;
+    semi:severity "critical" ;
+    semi:sourceType "model_prior" .
+
+<urn:pxai:semi:validation:anomaly-detection-traceability-constraint-r1> a semi:OntologyIntegrityConstraint,
+        semi:SemanticConsistencyConstraint ;
+    rdfs:label "异常检测可追溯性约束R1"@zh ;
+    semi:ontologyConstraintCode "VAL-ANOMALY-DETECTION-TRACE-R1" ;
+    semi:ontologyConstraintMessage "异常实例应关联检测指标；涉及设备影响时还应关联受影响设备，并由校验发现项指明焦点实体。" ;
+    semi:requiredEvidenceType "检测指标关联与受影响设备关联" ;
+    semi:sourceType "model_prior" .
+
+<urn:pxai:semi:impactchain:fab_quality_excursion_business_impact_repair> a semi:OperationalImpactChain ;
+    rdfs:label "晶圆厂品质异常至经营影响链"@zh ;
+    semi:aboutEntity <urn:pxai:semi:anomaly:fab_quality_excursion_delayed_detection_repair> ;
+    semi:impactMechanismText "制造偏差未被及时识别后，可能影响制程良率与产品可靠性，并进一步形成返工、报废、产出受限和交付风险。" ;
+    semi:linksAnomalyToImpact <urn:pxai:semi:impact:economic_quality_excursion_scrap_delivery_repair> ;
+    semi:modelingLimitationText "公开行业资料仅支持影响机制，不支持将任何改善比例、损失金额或处置周期视为特定工厂实测结果。" ;
+    semi:nameZh "晶圆厂品质异常至经营影响链" ;
+    semi:sourceRef "https://link.springer.com/article/10.1007/s00170-026-18777-0" ;
+    semi:sourceType "web" .
+
+<urn:pxai:semi:validation:equipment-anomaly-coverage-finding-r1> a semi:ConstraintViolationValidationResult,
+        semi:ValidationFinding ;
+    rdfs:label "设备停机异常覆盖违规发现项R1"@zh ;
+    semi:evaluatesFocusEntity <urn:pxai:semi:validation:equipment-downtime-anomaly-case-r1> ;
+    semi:evaluatesOntologyConstraint <urn:pxai:semi:validation:anomaly-detection-traceability-constraint-r1> ;
+    semi:findingCode "FIND-EQUIPMENT-DOWNTIME-COVERAGE-R1" ;
+    semi:releaseBlockingFlag "true" ;
+    semi:severity "high" ;
+    semi:sourceType "model_prior" .
+
+<urn:pxai:semi:validation:quality-anomaly-coverage-finding-r1> a semi:ConstraintViolationValidationResult,
+        semi:ValidationFinding ;
+    rdfs:label "品质异常突发覆盖违规发现项R1"@zh ;
+    semi:evaluatesFocusEntity <urn:pxai:semi:validation:quality-excursion-anomaly-case-r1> ;
+    semi:evaluatesOntologyConstraint <urn:pxai:semi:validation:anomaly-detection-traceability-constraint-r1> ;
+    semi:findingCode "FIND-QUALITY-EXCURSION-COVERAGE-R1" ;
+    semi:releaseBlockingFlag "true" ;
+    semi:severity "critical" ;
+    semi:sourceType "model_prior" .
+
+<urn:pxai:semi:validation:finding:equipment-down-evidence-gap-round1> semi:confidence "low" ;
+    semi:description "设备停机异常尚无现场设备日志、维护记录或状态事件证据，当前不能作为已验证异常覆盖结果发布。" ;
+    semi:evaluatesFocusEntity <urn:pxai:semi:instance:equipment-downtime-anomaly-round1> ;
+    semi:findingCode "EQUIPMENT_DOWN_EVIDENCE_GAP" ;
+    semi:releaseBlockingFlag "true" ;
+    semi:requiredEvidenceType "设备状态事件、维护日志或可追溯生产记录" ;
+    semi:severity "high" ;
+    semi:sourceRef "model_prior:round1.gap_analysis.uncovered" ;
+    semi:sourceType "model_prior" .
+
+<urn:pxai:semi:validation:finding:quality-excursion-evidence-gap-round1> semi:confidence "low" ;
+    semi:description "品质异常突发尚无量测结果、SPC记录、缺陷观测或批次履历证据，当前不能作为已验证异常覆盖结果发布。" ;
+    semi:evaluatesFocusEntity <urn:pxai:semi:instance:quality-excursion-anomaly-round1> ;
+    semi:findingCode "QUALITY_EXCURSION_EVIDENCE_GAP" ;
+    semi:releaseBlockingFlag "true" ;
+    semi:requiredEvidenceType "量测结果、SPC记录、缺陷观测或可追溯批次履历" ;
+    semi:severity "critical" ;
+    semi:sourceRef "model_prior:round1.gap_analysis.uncovered" ;
+    semi:sourceType "model_prior" .
+
+<urn:pxai:semi:validation:ontology-validation-report-r1> a semi:OntologyValidationReport ;
+    rdfs:label "异常覆盖本体校验报告R1"@zh ;
+    semi:containsOntologyValidationResult <urn:pxai:semi:validation:equipment-anomaly-coverage-finding-r1>,
+        <urn:pxai:semi:validation:quality-anomaly-coverage-finding-r1> ;
+    semi:derivedFrom <urn:pxai:semi:validation:ontology-validation-run-r1> ;
+    semi:gateDecisionCode "BLOCK" ;
+    semi:hasValidationFinding <urn:pxai:semi:validation:equipment-anomaly-coverage-finding-r1>,
+        <urn:pxai:semi:validation:quality-anomaly-coverage-finding-r1> ;
+    semi:ontologyReportConforms "false" ;
+    semi:releaseBlockingFlag "true" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object <urn:pxai:semi:fac:utility:multi_system_repair_r2> ;
+    rdf:predicate semi:hasSubsystem ;
+    rdf:subject <urn:pxai:semi:fac:digital_twin:facility_repair_r2> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://semiconductorx.com/fab-ops-facility-management.html" ;
+    semi:sourceType "web" .
+
+[] a rdf:Statement ;
+    rdf:object <urn:pxai:semi:fac:event:infrastructure_repair_r2> ;
+    rdf:predicate semi:hasEvent ;
+    rdf:subject <urn:pxai:semi:fac:digital_twin:facility_repair_r2> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://semiconductorx.com/fab-ops-facility-management.html" ;
+    semi:sourceType "web" .
+
+[] a rdf:Statement ;
+    rdf:object "https://semiconductorx.com/fab-ops-facility-management.html" ;
+    rdf:predicate semi:sourceRef ;
+    rdf:subject <urn:pxai:semi:fac:utility:multi_system_repair_r2> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://semiconductorx.com/fab-ops-facility-management.html" ;
+    semi:sourceType "web" .
+
+[] a rdf:Statement ;
+    rdf:object "web" ;
+    rdf:predicate semi:sourceType ;
+    rdf:subject <urn:pxai:semi:fac:utility:multi_system_repair_r2> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://semiconductorx.com/fab-ops-facility-management.html" ;
+    semi:sourceType "web" .
+
+[] a rdf:Statement ;
+    rdf:object <urn:pxai:semi:fac:utility:multi_system_repair_r2> ;
+    rdf:predicate semi:aboutEntity ;
+    rdf:subject <urn:pxai:semi:fac:event:infrastructure_repair_r2> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://semiconductorx.com/fab-ops-facility-management.html" ;
+    semi:sourceType "web" .
+
+[] a rdf:Statement ;
+    rdf:object "https://semiconductorx.com/fab-ops-facility-management.html" ;
+    rdf:predicate semi:sourceRef ;
+    rdf:subject <urn:pxai:semi:fac:digital_twin:facility_repair_r2> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://semiconductorx.com/fab-ops-facility-management.html" ;
+    semi:sourceType "web" .
+
+[] a rdf:Statement ;
+    rdf:object <urn:pxai:semi:fac:utility:multi_system_repair_r2> ;
+    rdf:predicate semi:aggregatesUtilityData ;
+    rdf:subject <urn:pxai:semi:fac:fms:utility_integration_repair_r2> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://semiconductorx.com/fab-ops-facility-management.html" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf <urn:pxai:semi:fac:fms:utility_integration_repair_r2> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://semiconductorx.com/fab-ops-facility-management.html" ;
+    semi:sourceType "web" .
+
+[] a rdf:Statement ;
+    rdf:object "web" ;
+    rdf:predicate semi:sourceType ;
+    rdf:subject <urn:pxai:semi:fac:digital_twin:facility_repair_r2> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://semiconductorx.com/fab-ops-facility-management.html" ;
+    semi:sourceType "web" .
+
+[] a rdf:Statement ;
+    rdf:object "https://semiconductorx.com/fab-ops-facility-management.html" ;
+    rdf:predicate semi:sourceRef ;
+    rdf:subject <urn:pxai:semi:fac:event:infrastructure_repair_r2> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://semiconductorx.com/fab-ops-facility-management.html" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf <urn:pxai:semi:fac:utility:multi_system_repair_r2> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://semiconductorx.com/fab-ops-facility-management.html" ;
+    semi:sourceType "web" .
+
+[] a rdf:Statement ;
+    rdf:object "web" ;
+    rdf:predicate semi:sourceType ;
+    rdf:subject <urn:pxai:semi:fac:event:infrastructure_repair_r2> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://semiconductorx.com/fab-ops-facility-management.html" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf <urn:pxai:semi:fac:digital_twin:facility_repair_r2> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://semiconductorx.com/fab-ops-facility-management.html" ;
+    semi:sourceType "web" .
+
+[] a rdf:Statement ;
+    rdf:object "https://semiconductorx.com/fab-ops-facility-management.html" ;
+    rdf:predicate semi:sourceRef ;
+    rdf:subject <urn:pxai:semi:fac:fms:utility_integration_repair_r2> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://semiconductorx.com/fab-ops-facility-management.html" ;
+    semi:sourceType "web" .
+
+[] a rdf:Statement ;
+    rdf:object "web" ;
+    rdf:predicate semi:sourceType ;
+    rdf:subject <urn:pxai:semi:fac:fms:utility_integration_repair_r2> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://semiconductorx.com/fab-ops-facility-management.html" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf <urn:pxai:semi:fac:event:infrastructure_repair_r2> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://semiconductorx.com/fab-ops-facility-management.html" ;
+    semi:sourceType "web" .
+
+[] a rdf:Statement ;
+    rdf:object "公开行业资料仅支持影响机制，不支持将任何改善比例、损失金额或处置周期视为特定工厂实测结果。" ;
+    rdf:predicate semi:modelingLimitationText ;
+    rdf:subject <urn:pxai:semi:impactchain:fab_quality_excursion_business_impact_repair> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://link.springer.com/article/10.1007/s00170-026-18777-0" ;
+    semi:sourceType "web" .
+
+[] a rdf:Statement ;
+    rdf:object "web" ;
+    rdf:predicate semi:sourceType ;
+    rdf:subject <urn:pxai:semi:anomaly:fab_quality_excursion_delayed_detection_repair> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://link.springer.com/article/10.1007/s00170-026-18777-0" ;
+    semi:sourceType "web" .
+
+[] a rdf:Statement ;
+    rdf:object "critical" ;
+    rdf:predicate semi:severity ;
+    rdf:subject <urn:pxai:semi:validation:quality-excursion-anomaly-case-r1> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:integratesEvidenceFrom ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://link.springer.com/content/pdf/10.1007/s00170-026-18777-0.pdf" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:producesOntologyValidationReport ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:ontologyViolationCount ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:FactoryTimestampCrossReferenceEvidence ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://www.runlattice.com/industries/semiconductor" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:UnifiedEquipmentCausalFaultTree ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://www.runlattice.com/industries/semiconductor" ;
+    semi:sourceType "web" .
+
+[] a rdf:Statement ;
+    rdf:object "0" ;
+    rdf:predicate semi:evidenceCoverageRatio ;
+    rdf:subject <urn:pxai:semi:validation:review:quality-gate-round1> ;
+    semi:confidence "low" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:hasQueueingSystem ;
+    semi:confidence "high" ;
+    semi:sourceRef "https://link.springer.com/article/10.1007/s10696-023-09501-1" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:gateDecisionCode ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:requiredEvidenceType ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object <urn:pxai:semi:impactchain:fab_quality_excursion_business_impact_repair> ;
+    rdf:predicate semi:hasOperationalImpactChain ;
+    rdf:subject <urn:pxai:semi:scenario:fab_quality_excursion_capacity_recovery_whatif_repair> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:AuditReadyUnifiedCausalFaultTree ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://www.runlattice.com/industries/semiconductor" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:LotFinalTestAndYieldExcursionInvestigationWorkflow ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://www.runlattice.com/industries/semiconductor" ;
+    semi:sourceType "web" .
+
+[] a rdf:Statement ;
+    rdf:object <urn:pxai:semi:validation:anomaly-detection-traceability-constraint-r1> ;
+    rdf:predicate semi:evaluatesOntologyConstraint ;
+    rdf:subject <urn:pxai:semi:validation:quality-anomaly-coverage-finding-r1> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:fusesSECSGEMTelemetryEvidence ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://arxiv.org/html/2604.13236v1" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:OntologyIntegrityConstraint ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:GasFlowMeter ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://semiconductorx.com/fab-ops-facility-management.html" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:ChemicalDeliverySystem ;
+    semi:confidence "high" ;
+    semi:sourceRef "https://semiconductorx.com/fab-ops-facility-management.html" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:suppliesUtilityTo ;
+    semi:confidence "high" ;
+    semi:sourceRef "https://semiconductorx.com/fab-ops-facility-management.html" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:HVACSystem ;
+    semi:confidence "high" ;
+    semi:sourceRef "https://semiconductorx.com/fab-ops-facility-management.html" ;
+    semi:sourceType "web" .
+
+[] a rdf:Statement ;
+    rdf:object "true" ;
+    rdf:predicate semi:releaseBlockingFlag ;
+    rdf:subject <urn:pxai:semi:validation:finding:quality-excursion-evidence-gap-round1> ;
+    semi:confidence "low" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object "晶圆厂品质异常至经营影响链" ;
+    rdf:predicate semi:nameZh ;
+    rdf:subject <urn:pxai:semi:impactchain:fab_quality_excursion_business_impact_repair> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://link.springer.com/article/10.1007/s00170-026-18777-0" ;
+    semi:sourceType "web" .
+
+[] a rdf:Statement ;
+    rdf:object "true" ;
+    rdf:predicate semi:releaseBlockingFlag ;
+    rdf:subject <urn:pxai:semi:validation:finding:equipment-down-evidence-gap-round1> ;
+    semi:confidence "low" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:ExhaustAbatementSystem ;
+    semi:confidence "high" ;
+    semi:sourceRef "https://semiconductorx.com/fab-ops-facility-management.html" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:TelemetryAssistedRootCauseCapability ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://arxiv.org/html/2604.13236v1" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:GasDeliverySystem ;
+    semi:confidence "high" ;
+    semi:sourceRef "https://semiconductorx.com/fab-ops-facility-management.html" ;
+    semi:sourceType "web" .
+
+[] a rdf:Statement ;
+    rdf:object "false" ;
+    rdf:predicate semi:ontologyReportConforms ;
+    rdf:subject <urn:pxai:semi:validation:ontology-validation-report-r1> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:FacilityManagementSystem ;
+    semi:confidence "high" ;
+    semi:sourceRef "https://semiconductorx.com/fab-ops-facility-management.html" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:BuildingManagementSystem ;
+    semi:confidence "high" ;
+    semi:sourceRef "https://semiconductorx.com/fab-ops-facility-management.html" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:PowerDistributionSystem ;
+    semi:confidence "high" ;
+    semi:sourceRef "https://semiconductorx.com/fab-ops-facility-management.html" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:monitorsUtilitySystem ;
+    semi:confidence "high" ;
+    semi:sourceRef "https://semiconductorx.com/fab-ops-facility-management.html" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:modelsFacility ;
+    semi:confidence "high" ;
+    semi:sourceRef "https://semiconductorx.com/fab-ops-facility-management.html" ;
+    semi:sourceType "web" .
+
+[] a rdf:Statement ;
+    rdf:object "https://link.springer.com/article/10.1007/s00170-026-18777-0" ;
+    rdf:predicate semi:sourceRef ;
+    rdf:subject <urn:pxai:semi:scenario:fab_quality_excursion_fragmented_analysis_repair> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://link.springer.com/article/10.1007/s00170-026-18777-0" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:PowerQualityMonitor ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://semiconductorx.com/fab-ops-facility-management.html" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:UtilitySystem ;
+    semi:confidence "high" ;
+    semi:sourceRef "https://semiconductorx.com/fab-ops-facility-management.html" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:utilityAvailability ;
+    semi:confidence "high" ;
+    semi:sourceRef "https://semiconductorx.com/fab-ops-facility-management.html" ;
+    semi:sourceType "web" .
+
+[] a rdf:Statement ;
+    rdf:object "FIND-QUALITY-EXCURSION-COVERAGE-R1" ;
+    rdf:predicate semi:findingCode ;
+    rdf:subject <urn:pxai:semi:validation:quality-anomaly-coverage-finding-r1> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf <urn:pxai:semi:validation:equipment-downtime-subject-equipment-r1> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf <urn:pxai:semi:validation:quality-anomaly-coverage-finding-r1> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf <urn:pxai:semi:validation:anomaly-detection-traceability-constraint-r1> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf <urn:pxai:semi:validation:quality-excursion-anomaly-case-r1> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf <urn:pxai:semi:validation:ontology-validation-run-r1> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object <urn:pxai:semi:validation:anomaly-detection-traceability-constraint-r1> ;
+    rdf:predicate semi:evaluatesOntologyConstraint ;
+    rdf:subject <urn:pxai:semi:validation:equipment-anomaly-coverage-finding-r1> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object "晶圆厂品质异常延迟识别事件" ;
+    rdf:predicate semi:nameZh ;
+    rdf:subject <urn:pxai:semi:anomaly:fab_quality_excursion_delayed_detection_repair> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://link.springer.com/article/10.1007/s00170-026-18777-0" ;
+    semi:sourceType "web" .
+
+[] a rdf:Statement ;
+    rdf:object <urn:pxai:semi:validation:equipment-downtime-anomaly-case-r1> ;
+    rdf:predicate semi:evaluatesFocusEntity ;
+    rdf:subject <urn:pxai:semi:validation:equipment-anomaly-coverage-finding-r1> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object <urn:pxai:semi:validation:quality-anomaly-coverage-finding-r1> ;
+    rdf:predicate semi:containsOntologyValidationResult ;
+    rdf:subject <urn:pxai:semi:validation:ontology-validation-report-r1> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object "model_prior" ;
+    rdf:predicate semi:sourceType ;
+    rdf:subject <urn:pxai:semi:validation:equipment-anomaly-coverage-finding-r1> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf <urn:pxai:semi:validation:quality-excursion-detection-metric-r1> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object "true" ;
+    rdf:predicate semi:releaseBlockingFlag ;
+    rdf:subject <urn:pxai:semi:validation:quality-anomaly-coverage-finding-r1> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf <urn:pxai:semi:validation:ontology-validation-report-r1> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object "VALIDATION-SUBJECT-EQUIPMENT-R1" ;
+    rdf:predicate semi:equipmentCode ;
+    rdf:subject <urn:pxai:semi:validation:equipment-downtime-subject-equipment-r1> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object <urn:pxai:semi:validation:equipment-downtime-subject-equipment-r1> ;
+    rdf:predicate semi:affectsEquipment ;
+    rdf:subject <urn:pxai:semi:validation:quality-excursion-anomaly-case-r1> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object <urn:pxai:semi:validation:ontology-validation-run-r1> ;
+    rdf:predicate semi:derivedFrom ;
+    rdf:subject <urn:pxai:semi:validation:ontology-validation-report-r1> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object "core.anomaly.equipment_down" ;
+    rdf:predicate semi:legacyId ;
+    rdf:subject <urn:pxai:semi:validation:equipment-downtime-anomaly-case-r1> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object "web" ;
+    rdf:predicate semi:sourceType ;
+    rdf:subject <urn:pxai:semi:scenario:fab_quality_excursion_fragmented_analysis_repair> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://link.springer.com/article/10.1007/s00170-026-18777-0" ;
+    semi:sourceType "web" .
+
+[] a rdf:Statement ;
+    rdf:object "model_prior" ;
+    rdf:predicate semi:sourceType ;
+    rdf:subject <urn:pxai:semi:validation:quality-anomaly-coverage-finding-r1> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object <urn:pxai:semi:validation:equipment-anomaly-coverage-finding-r1> ;
+    rdf:predicate semi:hasValidationFinding ;
+    rdf:subject <urn:pxai:semi:validation:ontology-validation-report-r1> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object "遥测与因果分析集成模式02" ;
+    rdf:predicate semi:nameZh ;
+    rdf:subject <urn:pxai:semi:ext:web:springer:telemetry_causal_integration_pattern_02> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://link.springer.com/article/10.1007/s00170-026-18777-0" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:OperationalImpactChain ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object "high" ;
+    rdf:predicate semi:severity ;
+    rdf:subject <urn:pxai:semi:validation:equipment-anomaly-coverage-finding-r1> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object "model_prior" ;
+    rdf:predicate semi:sourceType ;
+    rdf:subject <urn:pxai:semi:validation:equipment-downtime-subject-equipment-r1> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object <urn:pxai:semi:validation:anomaly-detection-traceability-constraint-r1> ;
+    rdf:predicate semi:evaluatesOntologyConstraint ;
+    rdf:subject <urn:pxai:semi:validation:ontology-validation-run-r1> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object "model_prior" ;
+    rdf:predicate semi:sourceType ;
+    rdf:subject <urn:pxai:semi:validation:ontology-validation-run-r1> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object "model_prior" ;
+    rdf:predicate semi:sourceType ;
+    rdf:subject <urn:pxai:semi:validation:quality-excursion-anomaly-case-r1> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object <urn:pxai:semi:validation:equipment-anomaly-coverage-finding-r1> ;
+    rdf:predicate semi:containsOntologyValidationResult ;
+    rdf:subject <urn:pxai:semi:validation:ontology-validation-report-r1> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf <urn:pxai:semi:impactchain:fab_quality_excursion_business_impact_repair> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://link.springer.com/article/10.1007/s00170-026-18777-0" ;
+    semi:sourceType "web" .
+
+[] a rdf:Statement ;
+    rdf:object "model_prior" ;
+    rdf:predicate semi:sourceType ;
+    rdf:subject <urn:pxai:semi:validation:equipment-downtime-anomaly-case-r1> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object <urn:pxai:semi:validation:quality-excursion-anomaly-case-r1> ;
+    rdf:predicate semi:evaluatesFocusEntity ;
+    rdf:subject <urn:pxai:semi:validation:ontology-validation-run-r1> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object <urn:pxai:semi:validation:equipment-downtime-detection-metric-r1> ;
+    rdf:predicate semi:detectedByMetric ;
+    rdf:subject <urn:pxai:semi:validation:equipment-downtime-anomaly-case-r1> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object "model_prior" ;
+    rdf:predicate semi:sourceType ;
+    rdf:subject <urn:pxai:semi:validation:quality-excursion-detection-metric-r1> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:predictsCycleTimeDistribution ;
+    semi:confidence "high" ;
+    semi:sourceRef "https://link.springer.com/article/10.1007/s10696-023-09501-1" ;
+    semi:sourceType "web" .
+
+[] a rdf:Statement ;
+    rdf:object "model_prior" ;
+    rdf:predicate semi:sourceType ;
+    rdf:subject <urn:pxai:semi:validation:equipment-downtime-detection-metric-r1> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object "model_prior" ;
+    rdf:predicate semi:sourceType ;
+    rdf:subject <urn:pxai:semi:validation:anomaly-detection-traceability-constraint-r1> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object "true" ;
+    rdf:predicate semi:releaseBlockingFlag ;
+    rdf:subject <urn:pxai:semi:validation:ontology-validation-report-r1> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object "model_prior" ;
+    rdf:predicate semi:sourceType ;
+    rdf:subject <urn:pxai:semi:validation:ontology-validation-report-r1> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object "BLOCK" ;
+    rdf:predicate semi:gateDecisionCode ;
+    rdf:subject <urn:pxai:semi:validation:ontology-validation-report-r1> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object "高维动态制造数据和跨系统信息难以由传统监控及时综合分析时，品质偏差可能未被及时识别，并进一步影响良率或产品可靠性。" ;
+    rdf:predicate semi:description ;
+    rdf:subject <urn:pxai:semi:anomaly:fab_quality_excursion_delayed_detection_repair> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://link.springer.com/article/10.1007/s00170-026-18777-0" ;
+    semi:sourceType "web" .
+
+[] a rdf:Statement ;
+    rdf:object "VAL-ANOMALY-DETECTION-TRACE-R1" ;
+    rdf:predicate semi:ontologyConstraintCode ;
+    rdf:subject <urn:pxai:semi:validation:anomaly-detection-traceability-constraint-r1> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object "true" ;
+    rdf:predicate semi:releaseBlockingFlag ;
+    rdf:subject <urn:pxai:semi:validation:quality-anomaly-coverage-finding-r1> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object "failed" ;
+    rdf:predicate semi:validationStatus ;
+    rdf:subject <urn:pxai:semi:validation:ontology-validation-run-r1> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object "BLOCK" ;
+    rdf:predicate semi:gateDecisionCode ;
+    rdf:subject <urn:pxai:semi:validation:ontology-validation-report-r1> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object <urn:pxai:semi:validation:quality-excursion-detection-metric-r1> ;
+    rdf:predicate semi:detectedByMetric ;
+    rdf:subject <urn:pxai:semi:validation:quality-excursion-anomaly-case-r1> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:hasValidationFinding ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object "true" ;
+    rdf:predicate semi:releaseBlockingFlag ;
+    rdf:subject <urn:pxai:semi:validation:ontology-validation-report-r1> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object <urn:pxai:semi:validation:quality-excursion-anomaly-case-r1> ;
+    rdf:predicate semi:evaluatesFocusEntity ;
+    rdf:subject <urn:pxai:semi:validation:quality-anomaly-coverage-finding-r1> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object "异常实例应关联检测指标；涉及设备影响时还应关联受影响设备，并由校验发现项指明焦点实体。" ;
+    rdf:predicate semi:ontologyConstraintMessage ;
+    rdf:subject <urn:pxai:semi:validation:anomaly-detection-traceability-constraint-r1> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object "model_prior" ;
+    rdf:predicate semi:sourceType ;
+    rdf:subject <urn:pxai:semi:validation:gate:critical-anomaly-release-round1> ;
+    semi:confidence "low" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object "critical" ;
+    rdf:predicate semi:severity ;
+    rdf:subject <urn:pxai:semi:anomaly:fab_quality_excursion_delayed_detection_repair> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://link.springer.com/article/10.1007/s00170-026-18777-0" ;
+    semi:sourceType "web" .
+
+[] a rdf:Statement ;
+    rdf:object "设备状态事件、维护日志或可追溯生产记录" ;
+    rdf:predicate semi:requiredEvidenceType ;
+    rdf:subject <urn:pxai:semi:validation:finding:equipment-down-evidence-gap-round1> ;
+    semi:confidence "low" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:UPWSystem ;
+    semi:confidence "high" ;
+    semi:sourceRef "https://semiconductorx.com/fab-ops-facility-management.html" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:FacilityDigitalTwin ;
+    semi:confidence "high" ;
+    semi:sourceRef "https://semiconductorx.com/fab-ops-facility-management.html" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:tracesPotentialCauseAcrossEntity ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://www.runlattice.com/industries/semiconductor" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:CustomerProblemPainPattern ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:reviewsProvenanceOf ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:ImageBasedFaultDetection ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://link.springer.com/article/10.1007/s00170-026-18777-0" ;
+    semi:sourceType "web" .
+
+[] a rdf:Statement ;
+    rdf:object "true" ;
+    rdf:predicate semi:releaseBlockingFlag ;
+    rdf:subject <urn:pxai:semi:validation:equipment-anomaly-coverage-finding-r1> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:AnomalyToBusinessImpactLink ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:FinalTestLotFailureInvestigation ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://www.runlattice.com/industries/semiconductor" ;
+    semi:sourceType "web" .
+
+[] a rdf:Statement ;
+    rdf:object "web" ;
+    rdf:predicate semi:sourceType ;
+    rdf:subject <urn:pxai:semi:impactchain:fab_quality_excursion_business_impact_repair> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://link.springer.com/article/10.1007/s00170-026-18777-0" ;
+    semi:sourceType "web" .
+
+[] a rdf:Statement ;
+    rdf:object semi:validation.review.provenance_quality ;
+    rdf:predicate semi:hasEvidence ;
+    rdf:subject semi:validation.release_gate.current_review ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:ScenarioDecisionBrief ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:hasPainPattern ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object "BLOCK" ;
+    rdf:predicate semi:gateDecisionCode ;
+    rdf:subject <urn:pxai:semi:validation:gate:critical-anomaly-release-round1> ;
+    semi:confidence "low" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:ontologyConstraintMessage ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:usesOntologyValidationProfile ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:ForecastTriggeredPreventiveAction ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://www.eeratech.com/post/automating-root-cause-analysis-in-semiconductor-manufacturing-a-technological-evolution" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:ValidationFinding ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:UtilityIntegrationPlatform ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://semiconductorx.com/fab-ops-facility-management.html" ;
+    semi:sourceType "web" .
+
+[] a rdf:Statement ;
+    rdf:object "critical" ;
+    rdf:predicate semi:severity ;
+    rdf:subject <urn:pxai:semi:validation:quality-anomaly-coverage-finding-r1> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object "干预变量和值沿用既有模型与示例，仅用于What-if业务讨论，不表示品质异常必然由光刻设备造成，也不代表现场实测改善或客户承诺。" ;
+    rdf:predicate semi:modelingLimitationText ;
+    rdf:subject <urn:pxai:semi:scenario:fab_quality_excursion_capacity_recovery_whatif_repair> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object "web" ;
+    rdf:predicate semi:sourceType ;
+    rdf:subject <urn:pxai:semi:impact:economic_quality_excursion_scrap_delivery_repair> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://link.springer.com/article/10.1007/s00170-026-18777-0" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:aggregatesUtilityData ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://semiconductorx.com/fab-ops-facility-management.html" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:investigatesAssemblyPackagingFailure ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://www.runlattice.com/industries/semiconductor" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:CustomerReturnEightDInvestigation ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://www.runlattice.com/industries/semiconductor" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:RCAEvidenceIntegrationPattern ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://link.springer.com/content/pdf/10.1007/s00170-026-18777-0.pdf" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:SPCOutOfControlCausalInvestigationWorkflow ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://www.runlattice.com/industries/semiconductor" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:ProvenanceQualityReview ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object "model_prior:round1.gap_analysis.uncovered" ;
+    rdf:predicate semi:sourceRef ;
+    rdf:subject <urn:pxai:semi:validation:review:quality-gate-round1> ;
+    semi:confidence "low" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:validationEngineVersion ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:identifiesUnderlyingProcessCause ;
+    semi:confidence "high" ;
+    semi:sourceRef "https://link.springer.com/article/10.1007/s00170-026-18777-0" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:IncomingWaferSubstrateComponentInvestigationWorkflow ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://www.runlattice.com/industries/semiconductor" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf <urn:pxai:semi:scenario:fab_quality_excursion_capacity_recovery_whatif_repair> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:AIEnabledRootCauseAnalysisWorkflow ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://link.springer.com/article/10.1007/s00170-026-18777-0" ;
+    semi:sourceType "web" .
+
+[] a rdf:Statement ;
+    rdf:object "high" ;
+    rdf:predicate semi:severity ;
+    rdf:subject <urn:pxai:semi:validation:equipment-downtime-anomaly-case-r1> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:SensorTimeSeriesEquipmentFailureForecastingWorkflow ;
+    semi:confidence "high" ;
+    semi:sourceRef "https://link.springer.com/article/10.1007/s00170-026-18777-0" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:findingCode ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:hasOperationalImpactChain ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:containsAggregateQueueingModel ;
+    semi:confidence "high" ;
+    semi:sourceRef "https://link.springer.com/article/10.1007/s10696-023-09501-1" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:UtilityMonitoringSensor ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://semiconductorx.com/fab-ops-facility-management.html" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:OntologyValidationProfile ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:linksAnomalyToImpact ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:releaseBlockingFlag ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object "使用既有通用晶圆厂经营模型，以光刻产能增量代理异常处置后的产能恢复，评估受约束投入量与可销售产出的方向性变化。" ;
+    rdf:predicate semi:description ;
+    rdf:subject <urn:pxai:semi:scenario:fab_quality_excursion_capacity_recovery_whatif_repair> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object "设备停机异常尚无现场设备日志、维护记录或状态事件证据，当前不能作为已验证异常覆盖结果发布。" ;
+    rdf:predicate semi:description ;
+    rdf:subject <urn:pxai:semi:validation:finding:equipment-down-evidence-gap-round1> ;
+    semi:confidence "low" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:CrossSystemEquipmentFailureTracing ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://www.runlattice.com/industries/semiconductor" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:violatesOntologyConstraint ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:ReleaseGate ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:PatternAndCausalModelRootCauseAnalysisWorkflow ;
+    semi:confidence "high" ;
+    semi:sourceRef "https://link.springer.com/article/10.1007/s00170-026-18777-0" ;
+    semi:sourceType "web" .
+
+[] a rdf:Statement ;
+    rdf:object "QUALITY_EXCURSION_EVIDENCE_GAP" ;
+    rdf:predicate semi:findingCode ;
+    rdf:subject <urn:pxai:semi:validation:finding:quality-excursion-evidence-gap-round1> ;
+    semi:confidence "low" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object "https://link.springer.com/article/10.1007/s00170-026-18777-0" ;
+    rdf:predicate semi:sourceRef ;
+    rdf:subject <urn:pxai:semi:ext:web:springer:telemetry_causal_integration_pattern_02> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://link.springer.com/article/10.1007/s00170-026-18777-0" ;
+    semi:sourceType "web" .
+
+[] a rdf:Statement ;
+    rdf:object "FIND-EQUIPMENT-DOWNTIME-COVERAGE-R1" ;
+    rdf:predicate semi:findingCode ;
+    rdf:subject <urn:pxai:semi:validation:equipment-anomaly-coverage-finding-r1> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:OntologyValidationRun ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:SECSGEMEquipmentTelemetryEvidence ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://arxiv.org/html/2604.13236v1" ;
+    semi:sourceType "web" .
+
+[] a rdf:Statement ;
+    rdf:object "晶圆厂分散数据根因分析痛点模式" ;
+    rdf:predicate semi:nameZh ;
+    rdf:subject <urn:pxai:semi:pain:fab_fragmented_rca_analysis_repair> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://link.springer.com/article/10.1007/s00170-026-18777-0" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:enablesRCAFor ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://link.springer.com/content/pdf/10.1007/s00170-026-18777-0.pdf" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:StructuralIntegrityConstraint ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:hasOntologyIntegrityConstraint ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:AggregateWorkArea ;
+    semi:confidence "high" ;
+    semi:sourceRef "https://link.springer.com/article/10.1007/s10696-023-09501-1" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:usesSensorDrivenAnalytics ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://link.springer.com/article/10.1007/s00170-026-18777-0" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:investigatesIncomingMaterialQuality ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://www.runlattice.com/industries/semiconductor" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:usesCausalModeling ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://link.springer.com/article/10.1007/s00170-026-18777-0" ;
+    semi:sourceType "web" .
+
+[] a rdf:Statement ;
+    rdf:object "将图像或传感器分析、设备时间序列、模式识别和因果建模组织为故障检测与根因分析证据链的行业模式，同时保留数据质量与可解释性限制。" ;
+    rdf:predicate semi:description ;
+    rdf:subject <urn:pxai:semi:ext:web:springer:telemetry_causal_integration_pattern_02> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://link.springer.com/article/10.1007/s00170-026-18777-0" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:SensorDrivenRealTimeEquipmentMonitoring ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://www.eeratech.com/post/automating-root-cause-analysis-in-semiconductor-manufacturing-a-technological-evolution" ;
+    semi:sourceType "web" .
+
+[] a rdf:Statement ;
+    rdf:object "core.anomaly.quality_excursion" ;
+    rdf:predicate semi:legacyId ;
+    rdf:subject <urn:pxai:semi:validation:quality-excursion-anomaly-case-r1> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object "simulation/scenarios/fab-capacity-recovery.yaml" ;
+    rdf:predicate semi:sourceRef ;
+    rdf:subject <urn:pxai:semi:scenario:fab_quality_excursion_capacity_recovery_whatif_repair> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object "core.anomaly.quality_excursion" ;
+    rdf:predicate semi:identifier ;
+    rdf:subject <urn:pxai:semi:instance:quality-excursion-anomaly-round1> ;
+    semi:confidence "low" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:correlatesFactoryTimestamps ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://www.runlattice.com/industries/semiconductor" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:ManufacturingAIDataQualityChallenge ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://link.springer.com/article/10.1007/s00170-026-18777-0" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:ManufacturingAIDataQualityAdoptionRisk ;
+    semi:confidence "high" ;
+    semi:sourceRef "https://link.springer.com/article/10.1007/s00170-026-18777-0" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:producesUnifiedEquipmentFaultTree ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://www.runlattice.com/industries/semiconductor" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:impactMechanismText ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:triggersForecastPreventiveAction ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://www.eeratech.com/post/automating-root-cause-analysis-in-semiconductor-manufacturing-a-technological-evolution" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:VibrationSensor ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://semiconductorx.com/fab-ops-facility-management.html" ;
+    semi:sourceType "web" .
+
+[] a rdf:Statement ;
+    rdf:object "公开综述支持行业层面的能力模式，但不能据此声明特定工厂的检测准确率、停机减少量、良率提升或收益。" ;
+    rdf:predicate semi:modelingLimitationText ;
+    rdf:subject <urn:pxai:semi:ext:web:springer:telemetry_causal_integration_pattern_02> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://link.springer.com/article/10.1007/s00170-026-18777-0" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:evaluatesFocusEntity ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object "传统监控难以处理高维动态制造数据，工程人员需要跨图像、传感器、制程和维护信息进行人工交叉分析，导致异常证据汇集和根因定位负担增加。" ;
+    rdf:predicate semi:painPointText ;
+    rdf:subject <urn:pxai:semi:pain:fab_fragmented_rca_analysis_repair> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://link.springer.com/article/10.1007/s00170-026-18777-0" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:SerializationContractConstraint ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf <urn:pxai:semi:validation:equipment-anomaly-coverage-finding-r1> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:predictsWIPLevel ;
+    semi:confidence "high" ;
+    semi:sourceRef "https://link.springer.com/article/10.1007/s10696-023-09501-1" ;
+    semi:sourceType "web" .
+
+[] a rdf:Statement ;
+    rdf:object "high" ;
+    rdf:predicate semi:severity ;
+    rdf:subject <urn:pxai:semi:validation:finding:equipment-down-evidence-gap-round1> ;
+    semi:confidence "low" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:forecastsEquipmentFailureWarning ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://www.eeratech.com/post/automating-root-cause-analysis-in-semiconductor-manufacturing-a-technological-evolution" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:ManufacturingAIModelInterpretabilityAdoptionRisk ;
+    semi:confidence "high" ;
+    semi:sourceRef "https://link.springer.com/article/10.1007/s00170-026-18777-0" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:EquipmentDowntimeAnomaly ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object semi:eqp.plan.predictive_maintenance ;
+    rdf:predicate semi:supportsPredictiveMaintenance ;
+    rdf:subject semi:eqp.capability.ai_fault_detection_rca ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://link.springer.com/content/pdf/10.1007/s00170-026-18777-0.pdf" ;
+    semi:sourceType "web" .
+
+[] a rdf:Statement ;
+    rdf:object semi:validation.review.evidence_completeness ;
+    rdf:predicate semi:hasEvidence ;
+    rdf:subject semi:validation.release_gate.current_review ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object "web" ;
+    rdf:predicate semi:sourceType ;
+    rdf:subject <urn:pxai:semi:ext:web:springer:telemetry_causal_integration_pattern_02> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://link.springer.com/article/10.1007/s00170-026-18777-0" ;
+    semi:sourceType "web" .
+
+[] a rdf:Statement ;
+    rdf:object "品质异常背景下的光刻产能恢复方向性情景" ;
+    rdf:predicate semi:nameZh ;
+    rdf:subject <urn:pxai:semi:scenario:fab_quality_excursion_capacity_recovery_whatif_repair> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:CustomerReturnManufacturingTraceInvestigationWorkflow ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://www.runlattice.com/industries/semiconductor" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:evaluatesOntologyConstraint ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:IncomingMaterialQualityInvestigation ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://www.runlattice.com/industries/semiconductor" ;
+    semi:sourceType "web" .
+
+[] a rdf:Statement ;
+    rdf:object "METRIC-QUALITY-EXCURSION-DETECTION-R1" ;
+    rdf:predicate semi:identifier ;
+    rdf:subject <urn:pxai:semi:validation:quality-excursion-detection-metric-r1> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:ImageAndSensorDrivenFabFaultDetectionWorkflow ;
+    semi:confidence "high" ;
+    semi:sourceRef "https://link.springer.com/article/10.1007/s00170-026-18777-0" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:analyzesTimeSeriesObservation ;
+    semi:confidence "high" ;
+    semi:sourceRef "https://link.springer.com/article/10.1007/s00170-026-18777-0" ;
+    semi:sourceType "web" .
+
+[] a rdf:Statement ;
+    rdf:object "量测结果、SPC记录、缺陷观测或可追溯批次履历" ;
+    rdf:predicate semi:requiredEvidenceType ;
+    rdf:subject <urn:pxai:semi:validation:finding:quality-excursion-evidence-gap-round1> ;
+    semi:confidence "low" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:usesImageBasedAnalytics ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://link.springer.com/article/10.1007/s00170-026-18777-0" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:producesAuditReadyCausalFaultTree ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://www.runlattice.com/industries/semiconductor" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:SingleServerQueueingSystem ;
+    semi:confidence "high" ;
+    semi:sourceRef "https://link.springer.com/article/10.1007/s10696-023-09501-1" ;
+    semi:sourceType "web" .
+
+[] a rdf:Statement ;
+    rdf:object "model_prior" ;
+    rdf:predicate semi:sourceType ;
+    rdf:subject <urn:pxai:semi:scenario:fab_quality_excursion_capacity_recovery_whatif_repair> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object "failed" ;
+    rdf:predicate semi:validationStatus ;
+    rdf:subject <urn:pxai:semi:validation:ontology-validation-run-r1> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:AssemblyPackagingFailureInvestigation ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://www.runlattice.com/industries/semiconductor" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:constrainedByInterpretabilityChallenge ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://link.springer.com/article/10.1007/s00170-026-18777-0" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:ontologyReportConforms ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:investigatesCustomerReturnFailure ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://www.runlattice.com/industries/semiconductor" ;
+    semi:sourceType "web" .
+
+[] a rdf:Statement ;
+    rdf:object "检测指标关联与受影响设备关联" ;
+    rdf:predicate semi:requiredEvidenceType ;
+    rdf:subject <urn:pxai:semi:validation:anomaly-detection-traceability-constraint-r1> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:EvidenceCompletenessReview ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:CrossSystemRCAInvestigation ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://link.springer.com/content/pdf/10.1007/s00170-026-18777-0.pdf" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:ArrivalDepartureDataRecord ;
+    semi:confidence "high" ;
+    semi:sourceRef "https://link.springer.com/article/10.1007/s10696-023-09501-1" ;
+    semi:sourceType "web" .
+
+[] a rdf:Statement ;
+    rdf:object <urn:pxai:semi:instance:equipment-downtime-anomaly-round1> ;
+    rdf:predicate semi:evaluatesFocusEntity ;
+    rdf:subject <urn:pxai:semi:validation:review:quality-gate-round1> ;
+    semi:confidence "low" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object "web" ;
+    rdf:predicate semi:sourceType ;
+    rdf:subject <urn:pxai:semi:pain:fab_fragmented_rca_analysis_repair> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://link.springer.com/article/10.1007/s00170-026-18777-0" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:FabAggregateModelNetwork ;
+    semi:confidence "high" ;
+    semi:sourceRef "https://link.springer.com/article/10.1007/s10696-023-09501-1" ;
+    semi:sourceType "web" .
+
+[] a rdf:Statement ;
+    rdf:object "false" ;
+    rdf:predicate semi:ontologyReportConforms ;
+    rdf:subject <urn:pxai:semi:validation:ontology-validation-report-r1> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:realizesTelemetryAssistedDiagnosis ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://arxiv.org/html/2604.13236v1" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:requiresEvidenceFor ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:evidenceCoverageRatio ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:UPWQualitySensor ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://semiconductorx.com/fab-ops-facility-management.html" ;
+    semi:sourceType "web" .
+
+[] a rdf:Statement ;
+    rdf:object "model_prior:round1.gap_analysis.uncovered" ;
+    rdf:predicate semi:sourceRef ;
+    rdf:subject <urn:pxai:semi:validation:gate:critical-anomaly-release-round1> ;
+    semi:confidence "low" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf <urn:pxai:semi:validation:equipment-downtime-detection-metric-r1> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object "model_prior" ;
+    rdf:predicate semi:sourceType ;
+    rdf:subject <urn:pxai:semi:validation:review:quality-gate-round1> ;
+    semi:confidence "low" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object "low" ;
+    rdf:predicate semi:confidence ;
+    rdf:subject <urn:pxai:semi:instance:equipment-downtime-anomaly-round1> ;
+    semi:confidence "low" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object "https://link.springer.com/article/10.1007/s00170-026-18777-0" ;
+    rdf:predicate semi:sourceRef ;
+    rdf:subject <urn:pxai:semi:impactchain:fab_quality_excursion_business_impact_repair> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://link.springer.com/article/10.1007/s00170-026-18777-0" ;
+    semi:sourceType "web" .
+
+[] a rdf:Statement ;
+    rdf:object "model_prior" ;
+    rdf:predicate semi:sourceType ;
+    rdf:subject <urn:pxai:semi:validation:finding:equipment-down-evidence-gap-round1> ;
+    semi:confidence "low" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object "EQUIPMENT_DOWN_EVIDENCE_GAP" ;
+    rdf:predicate semi:findingCode ;
+    rdf:subject <urn:pxai:semi:validation:finding:equipment-down-evidence-gap-round1> ;
+    semi:confidence "low" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:InspectionTelemetryFusionAnalysis ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://arxiv.org/html/2604.13236v1" ;
+    semi:sourceType "web" .
+
+[] a rdf:Statement ;
+    rdf:object <urn:pxai:semi:instance:quality-excursion-anomaly-round1> ;
+    rdf:predicate semi:evaluatesFocusEntity ;
+    rdf:subject <urn:pxai:semi:validation:review:quality-gate-round1> ;
+    semi:confidence "low" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object "model_prior" ;
+    rdf:predicate semi:sourceType ;
+    rdf:subject <urn:pxai:semi:validation:finding:quality-excursion-evidence-gap-round1> ;
+    semi:confidence "low" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object "low" ;
+    rdf:predicate semi:confidence ;
+    rdf:subject <urn:pxai:semi:validation:review:quality-gate-round1> ;
+    semi:confidence "low" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object "low" ;
+    rdf:predicate semi:confidence ;
+    rdf:subject <urn:pxai:semi:validation:gate:critical-anomaly-release-round1> ;
+    semi:confidence "low" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object "model_prior" ;
+    rdf:predicate semi:sourceType ;
+    rdf:subject <urn:pxai:semi:instance:quality-excursion-anomaly-round1> ;
+    semi:confidence "low" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object "阻止将缺少可核查现场证据的关键异常覆盖结论作为已验证事实发布。" ;
+    rdf:predicate semi:decisionUseText ;
+    rdf:subject <urn:pxai:semi:validation:gate:critical-anomaly-release-round1> ;
+    semi:confidence "low" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object <urn:pxai:semi:validation:quality-anomaly-coverage-finding-r1> ;
+    rdf:predicate semi:hasValidationFinding ;
+    rdf:subject <urn:pxai:semi:validation:ontology-validation-report-r1> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf <urn:pxai:semi:impact:economic_quality_excursion_scrap_delivery_repair> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://link.springer.com/article/10.1007/s00170-026-18777-0" ;
+    semi:sourceType "web" .
+
+[] a rdf:Statement ;
+    rdf:object "用于确定异常调查的数据准备范围、证据边界和经营影响评估入口，不代替工程审批或现场处置决策。" ;
+    rdf:predicate semi:decisionUseText ;
+    rdf:subject <urn:pxai:semi:scenario:fab_quality_excursion_fragmented_analysis_repair> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://link.springer.com/article/10.1007/s00170-026-18777-0" ;
+    semi:sourceType "web" .
+
+[] a rdf:Statement ;
+    rdf:object "品质异常突发尚无量测结果、SPC记录、缺陷观测或批次履历证据，当前不能作为已验证异常覆盖结果发布。" ;
+    rdf:predicate semi:description ;
+    rdf:subject <urn:pxai:semi:validation:finding:quality-excursion-evidence-gap-round1> ;
+    semi:confidence "low" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object "high" ;
+    rdf:predicate semi:severity ;
+    rdf:subject <urn:pxai:semi:instance:equipment-downtime-anomaly-round1> ;
+    semi:confidence "low" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object "model_prior:round1.gap_analysis.uncovered" ;
+    rdf:predicate semi:sourceRef ;
+    rdf:subject <urn:pxai:semi:validation:finding:quality-excursion-evidence-gap-round1> ;
+    semi:confidence "low" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object <urn:pxai:semi:anomaly:fab_quality_excursion_delayed_detection_repair> ;
+    rdf:predicate semi:aboutEntity ;
+    rdf:subject <urn:pxai:semi:impactchain:fab_quality_excursion_business_impact_repair> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://link.springer.com/article/10.1007/s00170-026-18777-0" ;
+    semi:sourceType "web" .
+
+[] a rdf:Statement ;
+    rdf:object <urn:pxai:semi:impact:economic_quality_excursion_scrap_delivery_repair> ;
+    rdf:predicate semi:linksAnomalyToImpact ;
+    rdf:subject <urn:pxai:semi:impactchain:fab_quality_excursion_business_impact_repair> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://link.springer.com/article/10.1007/s00170-026-18777-0" ;
+    semi:sourceType "web" .
+
+[] a rdf:Statement ;
+    rdf:object <urn:pxai:semi:pain:fab_fragmented_rca_analysis_repair> ;
+    rdf:predicate semi:hasPainPattern ;
+    rdf:subject <urn:pxai:semi:scenario:fab_quality_excursion_fragmented_analysis_repair> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://link.springer.com/article/10.1007/s00170-026-18777-0" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf <urn:pxai:semi:pain:fab_fragmented_rca_analysis_repair> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://link.springer.com/article/10.1007/s00170-026-18777-0" ;
+    semi:sourceType "web" .
+
+[] a rdf:Statement ;
+    rdf:object "品质偏差对良率和可靠性的影响可能沿生产流程形成报废、返工、可销售产出受限及交付风险；具体影响幅度必须结合现场数据和经营模型评估。" ;
+    rdf:predicate semi:economicImpactText ;
+    rdf:subject <urn:pxai:semi:impact:economic_quality_excursion_scrap_delivery_repair> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://link.springer.com/article/10.1007/s00170-026-18777-0" ;
+    semi:sourceType "web" .
+
+[] a rdf:Statement ;
+    rdf:object "https://link.springer.com/article/10.1007/s00170-026-18777-0" ;
+    rdf:predicate semi:sourceRef ;
+    rdf:subject <urn:pxai:semi:pain:fab_fragmented_rca_analysis_repair> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://link.springer.com/article/10.1007/s00170-026-18777-0" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf <urn:pxai:semi:scenario:fab_quality_excursion_fragmented_analysis_repair> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://link.springer.com/article/10.1007/s00170-026-18777-0" ;
+    semi:sourceType "web" .
+
+[] a rdf:Statement ;
+    rdf:object "制造偏差未被及时识别后，可能影响制程良率与产品可靠性，并进一步形成返工、报废、产出受限和交付风险。" ;
+    rdf:predicate semi:impactMechanismText ;
+    rdf:subject <urn:pxai:semi:impactchain:fab_quality_excursion_business_impact_repair> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://link.springer.com/article/10.1007/s00170-026-18777-0" ;
+    semi:sourceType "web" .
+
+[] a rdf:Statement ;
+    rdf:object "面向品质异常突发的业务场景，组织图像、传感器、制程和维护证据，支持从异常识别到根因分析及经营影响沟通。" ;
+    rdf:predicate semi:description ;
+    rdf:subject <urn:pxai:semi:scenario:fab_quality_excursion_fragmented_analysis_repair> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://link.springer.com/article/10.1007/s00170-026-18777-0" ;
+    semi:sourceType "web" .
+
+[] a rdf:Statement ;
+    rdf:object "品质异常的报废返工与交付经营影响" ;
+    rdf:predicate semi:nameZh ;
+    rdf:subject <urn:pxai:semi:impact:economic_quality_excursion_scrap_delivery_repair> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://link.springer.com/article/10.1007/s00170-026-18777-0" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf <urn:pxai:semi:anomaly:fab_quality_excursion_delayed_detection_repair> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://link.springer.com/article/10.1007/s00170-026-18777-0" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf <urn:pxai:semi:ext:web:springer:telemetry_causal_integration_pattern_02> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://link.springer.com/article/10.1007/s00170-026-18777-0" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:summarizedByDecisionBrief ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object <urn:pxai:semi:instance:quality-excursion-anomaly-round1> ;
+    rdf:predicate semi:evaluatesFocusEntity ;
+    rdf:subject <urn:pxai:semi:validation:finding:quality-excursion-evidence-gap-round1> ;
+    semi:confidence "low" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object <urn:pxai:semi:validation:finding:equipment-down-evidence-gap-round1> ;
+    rdf:predicate semi:hasValidationFinding ;
+    rdf:subject <urn:pxai:semi:validation:review:quality-gate-round1> ;
+    semi:confidence "low" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object "model_prior:round1.gap_analysis.uncovered" ;
+    rdf:predicate semi:sourceRef ;
+    rdf:subject <urn:pxai:semi:instance:equipment-downtime-anomaly-round1> ;
+    semi:confidence "low" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object "model_prior:round1.gap_analysis.uncovered" ;
+    rdf:predicate semi:sourceRef ;
+    rdf:subject <urn:pxai:semi:instance:quality-excursion-anomaly-round1> ;
+    semi:confidence "low" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object "critical" ;
+    rdf:predicate semi:severity ;
+    rdf:subject <urn:pxai:semi:instance:quality-excursion-anomaly-round1> ;
+    semi:confidence "low" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object <urn:pxai:semi:validation:finding:equipment-down-evidence-gap-round1> ;
+    rdf:predicate semi:hasValidationFinding ;
+    rdf:subject <urn:pxai:semi:validation:gate:critical-anomaly-release-round1> ;
+    semi:confidence "low" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object "low" ;
+    rdf:predicate semi:confidence ;
+    rdf:subject <urn:pxai:semi:validation:finding:equipment-down-evidence-gap-round1> ;
+    semi:confidence "low" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object "business/models/fab-baseline.yaml" ;
+    rdf:predicate semi:sourceRef ;
+    rdf:subject <urn:pxai:semi:scenario:fab_quality_excursion_capacity_recovery_whatif_repair> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object <urn:pxai:semi:validation:equipment-downtime-anomaly-case-r1> ;
+    rdf:predicate semi:evaluatesFocusEntity ;
+    rdf:subject <urn:pxai:semi:validation:ontology-validation-run-r1> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object <urn:pxai:semi:validation:finding:quality-excursion-evidence-gap-round1> ;
+    rdf:predicate semi:hasValidationFinding ;
+    rdf:subject <urn:pxai:semi:validation:review:quality-gate-round1> ;
+    semi:confidence "low" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object "low" ;
+    rdf:predicate semi:confidence ;
+    rdf:subject <urn:pxai:semi:instance:quality-excursion-anomaly-round1> ;
+    semi:confidence "low" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:ontologyWarningCount ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object <urn:pxai:semi:validation:finding:quality-excursion-evidence-gap-round1> ;
+    rdf:predicate semi:hasValidationFinding ;
+    rdf:subject <urn:pxai:semi:validation:gate:critical-anomaly-release-round1> ;
+    semi:confidence "low" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object <urn:pxai:semi:instance:equipment-downtime-anomaly-round1> ;
+    rdf:predicate semi:evaluatesFocusEntity ;
+    rdf:subject <urn:pxai:semi:validation:finding:equipment-down-evidence-gap-round1> ;
+    semi:confidence "low" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object "INSUFFICIENT_EVIDENCE" ;
+    rdf:predicate semi:reviewStatusCode ;
+    rdf:subject <urn:pxai:semi:validation:review:quality-gate-round1> ;
+    semi:confidence "low" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object "low" ;
+    rdf:predicate semi:confidence ;
+    rdf:subject <urn:pxai:semi:validation:finding:quality-excursion-evidence-gap-round1> ;
+    semi:confidence "low" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object "critical" ;
+    rdf:predicate semi:severity ;
+    rdf:subject <urn:pxai:semi:validation:finding:quality-excursion-evidence-gap-round1> ;
+    semi:confidence "low" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object "core.anomaly.equipment_down" ;
+    rdf:predicate semi:identifier ;
+    rdf:subject <urn:pxai:semi:instance:equipment-downtime-anomaly-round1> ;
+    semi:confidence "low" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object "https://link.springer.com/article/10.1007/s00170-026-18777-0" ;
+    rdf:predicate semi:sourceRef ;
+    rdf:subject <urn:pxai:semi:impact:economic_quality_excursion_scrap_delivery_repair> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://link.springer.com/article/10.1007/s00170-026-18777-0" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:monitorsFacilityInfrastructure ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://semiconductorx.com/fab-ops-facility-management.html" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:FacilityInfrastructureEvent ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://semiconductorx.com/fab-ops-facility-management.html" ;
+    semi:sourceType "web" .
+
+[] a rdf:Statement ;
+    rdf:object <urn:pxai:semi:validation:equipment-downtime-subject-equipment-r1> ;
+    rdf:predicate semi:affectsEquipment ;
+    rdf:subject <urn:pxai:semi:validation:equipment-downtime-anomaly-case-r1> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf <urn:pxai:semi:validation:equipment-downtime-anomaly-case-r1> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:feedsFailureForecasting ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://www.eeratech.com/post/automating-root-cause-analysis-in-semiconductor-manufacturing-a-technological-evolution" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:SensorDrivenFaultDetection ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://link.springer.com/article/10.1007/s00170-026-18777-0" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:containsOntologyValidationResult ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object "true" ;
+    rdf:predicate semi:releaseBlockingFlag ;
+    rdf:subject <urn:pxai:semi:validation:gate:critical-anomaly-release-round1> ;
+    semi:confidence "low" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:investigatesFinalTestLotFailure ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://www.runlattice.com/industries/semiconductor" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:constrainedByDataQualityChallenge ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://link.springer.com/article/10.1007/s00170-026-18777-0" ;
+    semi:sourceType "web" .
+
+[] a rdf:Statement ;
+    rdf:object "https://link.springer.com/article/10.1007/s00170-026-18777-0" ;
+    rdf:predicate semi:sourceRef ;
+    rdf:subject <urn:pxai:semi:anomaly:fab_quality_excursion_delayed_detection_repair> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://link.springer.com/article/10.1007/s00170-026-18777-0" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:aggregatesWorkstation ;
+    semi:confidence "high" ;
+    semi:sourceRef "https://link.springer.com/article/10.1007/s10696-023-09501-1" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:reviewStatusCode ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:SemanticConsistencyConstraint ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:correlatesMaintenanceLogEvidence ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://www.runlattice.com/industries/semiconductor" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:supportsPredictiveMaintenance ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://link.springer.com/content/pdf/10.1007/s00170-026-18777-0.pdf" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:ontologyResultPath ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object "true" ;
+    rdf:predicate semi:releaseBlockingFlag ;
+    rdf:subject <urn:pxai:semi:validation:equipment-anomaly-coverage-finding-r1> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:modelingLimitationText ;
+    semi:confidence "high" ;
+    semi:sourceRef "https://link.springer.com/article/10.1007/s10696-023-09501-1" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:ConstraintWarningValidationResult ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:decisionUseText ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object <urn:pxai:semi:impactchain:fab_quality_excursion_business_impact_repair> ;
+    rdf:predicate semi:hasOperationalImpactChain ;
+    rdf:subject <urn:pxai:semi:scenario:fab_quality_excursion_fragmented_analysis_repair> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://link.springer.com/article/10.1007/s00170-026-18777-0" ;
+    semi:sourceType "web" .
+
+[] a rdf:Statement ;
+    rdf:object "model_prior" ;
+    rdf:predicate semi:sourceType ;
+    rdf:subject <urn:pxai:semi:instance:equipment-downtime-anomaly-round1> ;
+    semi:confidence "low" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:MaintenanceLogCorrelationEvidence ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://www.runlattice.com/industries/semiconductor" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:CausalModelingForRootCauseAnalysis ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://link.springer.com/article/10.1007/s00170-026-18777-0" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:derivedFromArrivalDepartureData ;
+    semi:confidence "high" ;
+    semi:sourceRef "https://link.springer.com/article/10.1007/s10696-023-09501-1" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:correlatesFactorySourceArtifact ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://www.runlattice.com/industries/semiconductor" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:reviewsEvidenceOf ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:QualityExcursionAnomaly ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:ParticleCounter ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://semiconductorx.com/fab-ops-facility-management.html" ;
+    semi:sourceType "web" .
+
+[] a rdf:Statement ;
+    rdf:object "METRIC-EQUIPMENT-DOWNTIME-DETECTION-R1" ;
+    rdf:predicate semi:identifier ;
+    rdf:subject <urn:pxai:semi:validation:equipment-downtime-detection-metric-r1> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:FabCrossSystemCausalInvestigationWorkflow ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://www.runlattice.com/industries/semiconductor" ;
+    semi:sourceType "web" .
+
+[] a rdf:Statement ;
+    rdf:object "晶圆厂品质异常跨系统分析场景" ;
+    rdf:predicate semi:nameZh ;
+    rdf:subject <urn:pxai:semi:scenario:fab_quality_excursion_fragmented_analysis_repair> ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://link.springer.com/article/10.1007/s00170-026-18777-0" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:forecastsFailureOfEquipment ;
+    semi:confidence "high" ;
+    semi:sourceRef "https://link.springer.com/article/10.1007/s00170-026-18777-0" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:PredictedEquipmentFailureWarning ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://www.eeratech.com/post/automating-root-cause-analysis-in-semiconductor-manufacturing-a-technological-evolution" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:ConstraintViolationValidationResult ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a rdf:Statement ;
+    rdf:object "model_prior:round1.gap_analysis.uncovered" ;
+    rdf:predicate semi:sourceRef ;
+    rdf:subject <urn:pxai:semi:validation:finding:equipment-down-evidence-gap-round1> ;
+    semi:confidence "low" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:OntologyValidationReport ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:ManufacturingAIInterpretabilityChallenge ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://link.springer.com/article/10.1007/s00170-026-18777-0" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:ontologyConstraintCode ;
+    semi:confidence "medium" ;
+    semi:sourceRef "model:gpt-5.6-sol" ;
+    semi:sourceType "model_prior" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:HighDimensionalDynamicManufacturingDataChallenge ;
+    semi:confidence "high" ;
+    semi:sourceRef "https://link.springer.com/article/10.1007/s00170-026-18777-0" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:workstationGroupingBasis ;
+    semi:confidence "high" ;
+    semi:sourceRef "https://link.springer.com/article/10.1007/s10696-023-09501-1" ;
+    semi:sourceType "web" .
+
+[] a prov:Entity ;
+    prov:specializationOf semi:HistoricalPatternEquipmentFailureForecasting ;
+    semi:confidence "medium" ;
+    semi:sourceRef "https://www.eeratech.com/post/automating-root-cause-analysis-in-semiconductor-manufacturing-a-technological-evolution" ;
+    semi:sourceType "web" .

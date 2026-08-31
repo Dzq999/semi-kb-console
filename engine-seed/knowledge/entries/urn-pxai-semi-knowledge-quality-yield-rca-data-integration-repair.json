@@ -1,0 +1,18 @@
+{
+  "id": "urn:pxai:semi:knowledge:quality-yield-rca-data-integration-repair",
+  "title": "半导体品质异常根因分析中的设备信号与跨系统数据关联",
+  "domain": "fab",
+  "summary": "网页证据支持将传感器驱动分析、设备故障预测和根因分析结合，用于识别设备状态信号异常等候选原因；该结论不替代现场验证。",
+  "content": "半导体制造中的品质与良率异常通常需要联合分析设备遥测、传感器时间序列、缺陷检测和测试结果。网页综述指出，传感器驱动分析可支持故障检测与设备故障预测，模式识别和因果建模可辅助识别底层制程问题。该知识只能形成候选原因与调查路径，实际根因仍需通过工厂时间戳、维护记录、工艺参数和实验验证进行确认，不能据此推断现场设备已经发生特定故障。",
+  "source_refs": [
+    "https://link.springer.com/article/10.1007/s00170-026-18777-0"
+  ],
+  "related_iris": [
+    "urn:pxai:semi:instance:sensorTimeSeriesEquipmentStateSignalAnomalyPossibleCause"
+  ],
+  "confidence": "medium",
+  "provenance": {
+    "source_type": "web",
+    "source_ref": "https://link.springer.com/article/10.1007/s00170-026-18777-0"
+  }
+}

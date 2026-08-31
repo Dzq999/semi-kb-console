@@ -1,0 +1,25 @@
+PREFIX semi: <urn:pxai:semi:>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+
+CONSTRUCT {
+  ?down semi:impactsLot ?lot .
+  [] a rdf:Statement ;
+     rdf:subject ?down ;
+     rdf:predicate semi:impactsLot ;
+     rdf:object ?lot ;
+     semi:generatedByRule <urn:pxai:semi:rule:R-INF-003> ;
+     semi:derivedFrom ?down, ?processing .
+}
+WHERE {
+  ?down a semi:DownEvent ;
+        semi:affectsEquipment ?equipment ;
+        semi:validFrom ?downStart ;
+        semi:validTo ?downEnd .
+  ?processing a semi:ProcessingEvent ;
+              semi:usesEquipment ?equipment ;
+              semi:processesLot ?lot ;
+              semi:validFrom ?processStart ;
+              semi:validTo ?processEnd .
+  FILTER (?downStart < ?processEnd && ?processStart < ?downEnd)
+}

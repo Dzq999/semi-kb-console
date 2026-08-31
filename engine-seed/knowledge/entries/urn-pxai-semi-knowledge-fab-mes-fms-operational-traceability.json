@@ -1,0 +1,21 @@
+{
+  "id": "urn:pxai:semi:knowledge:fab-mes-fms-operational-traceability",
+  "title": "晶圆厂MES与厂务系统的运营追踪及证据关联",
+  "domain": "fab",
+  "summary": "MES负责批次、配方、设备状态和WIP等制造执行信息，FMS负责公用系统监测；跨系统追踪记录可作为品质、设备和厂务事件调查的证据组织单元。",
+  "content": "网页资料显示，晶圆厂运营数据分布在MES、BMS、CMMS、FMS及厂级数字孪生等系统中。MES覆盖晶圆批次状态、配方执行、设备状态、WIP、工艺规格和追溯；FMS则整合厂务公用系统监测。由此可将制造执行运营追踪记录建模为信息实体，并要求其关联可核查源资料，从而支持跨系统事件关联、异常调查和审计追溯。该结论是资料驱动的建模建议，不代表特定工厂已经部署了同样的系统架构。",
+  "source_refs": [
+    "https://semiconductorx.com/fab-ops-facility-management.html"
+  ],
+  "related_iris": [
+    "urn:pxai:semi:FabMESOperationalTraceRecord",
+    "urn:pxai:semi:FabMESFacilityIntegrationRecord",
+    "urn:pxai:semi:FacilityInfrastructureEvent",
+    "urn:pxai:semi:FacilityDigitalTwin"
+  ],
+  "confidence": "high",
+  "provenance": {
+    "source_type": "web",
+    "source_ref": "https://semiconductorx.com/fab-ops-facility-management.html"
+  }
+}

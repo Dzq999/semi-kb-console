@@ -1,0 +1,11 @@
+PREFIX semi: <urn:pxai:semi:>
+CONSTRUCT {
+  ?investigation semi:hasEvidence ?evidence .
+}
+WHERE {
+  ?investigation a semi:CrossSystemEvidenceIntegratedRCAInvestigation ;
+                 semi:hasEvidenceIntegrationPattern ?pattern .
+  ?pattern a semi:CrossSystemEvidenceIntegrationPattern ;
+           semi:integratesEvidenceFrom ?evidence .
+  ?evidence a semi:Evidence .
+}

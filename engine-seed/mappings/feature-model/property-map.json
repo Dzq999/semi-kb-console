@@ -1,0 +1,30 @@
+{
+  "mapping_id": "internal.feature_model.property_map",
+  "mappings": [
+    {"feature_codes": ["unique_eqp_code", "eqp_code", "proc_eqp_code", "scan_eqp_code"], "target_property": "urn:pxai:semi:equipmentCode", "mapping_kind": "identifier"},
+    {"feature_codes": ["proc_cha_code"], "target_property": "urn:pxai:semi:chamberCode", "mapping_kind": "identifier"},
+    {"feature_codes": ["lot_code", "src_lot_code"], "target_property": "urn:pxai:semi:lotCode", "mapping_kind": "identifier"},
+    {"feature_codes": ["wafer_code"], "target_property": "urn:pxai:semi:waferCode", "mapping_kind": "identifier"},
+    {"feature_codes": ["product_code"], "target_property": "urn:pxai:semi:productCode", "mapping_kind": "identifier"},
+    {"feature_codes": ["mat_code"], "target_property": "urn:pxai:semi:materialCode", "mapping_kind": "identifier"},
+    {"feature_codes": ["fac_code"], "target_property": "urn:pxai:semi:facilityCode", "mapping_kind": "identifier"},
+    {"feature_codes": ["fac_site", "site_code"], "target_property": "urn:pxai:semi:siteCode", "mapping_kind": "identifier"},
+    {"feature_codes": ["area_code", "scan_area"], "target_property": "urn:pxai:semi:areaCode", "mapping_kind": "identifier"},
+    {"feature_codes": ["flow_code"], "target_property": "urn:pxai:semi:flowCode", "mapping_kind": "identifier"},
+    {"feature_codes": ["route_code", "proc_route_code"], "target_property": "urn:pxai:semi:routeCode", "mapping_kind": "identifier"},
+    {"feature_codes": ["step_code", "proc_step_code", "metro_step_code", "scan_step_code", "unique_step_code"], "target_property": "urn:pxai:semi:stepCode", "mapping_kind": "identifier"},
+    {"feature_codes": ["recipe_code", "cur_recipe_code"], "target_property": "urn:pxai:semi:recipeCode", "mapping_kind": "identifier"},
+    {"feature_codes": ["step_num", "proc_step_number", "metro_step_num"], "target_property": "urn:pxai:semi:stepNumber", "mapping_kind": "ordinal"},
+    {"feature_codes": ["vendor"], "target_property": "urn:pxai:semi:vendorName", "mapping_kind": "attribute"},
+    {"feature_codes": ["status", "eqp_status", "cur_state", "last_state"], "target_property": "urn:pxai:semi:statusCode", "mapping_kind": "status_literal"},
+    {"feature_codes": ["track_in_time", "lot_metro_start_time"], "target_property": "urn:pxai:semi:validFrom", "mapping_kind": "event_time"},
+    {"feature_codes": ["track_out_time", "lot_metro_end_time"], "target_property": "urn:pxai:semi:validTo", "mapping_kind": "event_time"},
+    {"feature_codes": ["create_time", "created_time", "limit_create_time"], "target_property": "urn:pxai:semi:createdAt", "mapping_kind": "audit_time"},
+    {"feature_codes": ["update_time", "limit_update_time", "config_update_time", "report_time"], "target_property": "urn:pxai:semi:observedAt", "mapping_kind": "observation_time"},
+    {"feature_codes": ["item_value", "capacity", "wph"], "target_property": "urn:pxai:semi:numericValue", "mapping_kind": "measurement_value"},
+    {"feature_codes": ["limit_lcl", "limit_spec_lo", "limit_sprc_lo"], "target_property": "urn:pxai:semi:lowerControlLimit", "mapping_kind": "control_limit"},
+    {"feature_codes": ["limit_ucl", "limit_spec_hi"], "target_property": "urn:pxai:semi:upperControlLimit", "mapping_kind": "control_limit"},
+    {"feature_codes": ["limit_target"], "target_property": "urn:pxai:semi:targetValue", "mapping_kind": "control_limit"},
+    {"feature_codes": ["severity"], "target_property": "urn:pxai:semi:severity", "mapping_kind": "classification"}
+  ]
+}

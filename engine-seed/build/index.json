@@ -1,0 +1,6817 @@
+{
+  "generated_at": "2026-08-30T18:16:40+00:00",
+  "meta_version": "1.0",
+  "warning": "派生产物，请勿手工编辑；修改本体后重新运行 build_index.py",
+  "stats": {
+    "total": 265,
+    "entities": 248,
+    "kb_cases": 17,
+    "by_type": {
+      "Action": 24,
+      "Anomaly": 19,
+      "Cause": 35,
+      "Equipment": 35,
+      "Material": 8,
+      "Metric": 20,
+      "Parameter": 40,
+      "Playbook": 17,
+      "Process": 45,
+      "RiskNode": 1,
+      "Route": 3,
+      "Stage": 14,
+      "State": 4
+    },
+    "by_domain": {
+      "ap": 120,
+      "core": 17,
+      "fab": 128
+    },
+    "by_confidence": {
+      "high": 150,
+      "medium": 115
+    }
+  },
+  "records": [
+    {
+      "id": "core.material.lot",
+      "kind": "entity",
+      "type": "Material",
+      "domain": "core",
+      "name_zh": "批次",
+      "name_en": "Lot",
+      "keywords": [
+        "批次",
+        "Lot",
+        "Batch",
+        "工单批"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "cycle_time",
+        "throughput",
+        "capacity_commit"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/core/entities/01-materials-states.yaml"
+    },
+    {
+      "id": "core.material.wafer",
+      "kind": "entity",
+      "type": "Material",
+      "domain": "core",
+      "name_zh": "晶圆",
+      "name_en": "Wafer",
+      "keywords": [
+        "晶圆",
+        "Wafer"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "cost_per_unit"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/core/entities/01-materials-states.yaml"
+    },
+    {
+      "id": "core.state.wip_queue",
+      "kind": "entity",
+      "type": "State",
+      "domain": "core",
+      "name_zh": "在制等待",
+      "name_en": "WIP Queue",
+      "keywords": [
+        "在制等待",
+        "WIP Queue",
+        "WIP",
+        "Queue"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "cycle_time",
+        "throughput"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/core/entities/01-materials-states.yaml"
+    },
+    {
+      "id": "core.state.hold",
+      "kind": "entity",
+      "type": "State",
+      "domain": "core",
+      "name_zh": "扣留",
+      "name_en": "Hold",
+      "keywords": [
+        "扣留",
+        "Hold"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "cycle_time",
+        "capacity_commit",
+        "scrap_rate"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/core/entities/01-materials-states.yaml"
+    },
+    {
+      "id": "core.state.rework",
+      "kind": "entity",
+      "type": "State",
+      "domain": "core",
+      "name_zh": "重工",
+      "name_en": "Rework",
+      "keywords": [
+        "重工",
+        "Rework"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "rework_rate",
+        "cycle_time",
+        "cost_per_unit",
+        "equipment_oee"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/core/entities/01-materials-states.yaml"
+    },
+    {
+      "id": "core.state.scrap",
+      "kind": "entity",
+      "type": "State",
+      "domain": "core",
+      "name_zh": "报废",
+      "name_en": "Scrap",
+      "keywords": [
+        "报废",
+        "Scrap"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "scrap_rate",
+        "yield",
+        "cost_per_unit"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/core/entities/01-materials-states.yaml"
+    },
+    {
+      "id": "core.anomaly.equipment_down",
+      "kind": "entity",
+      "type": "Anomaly",
+      "domain": "core",
+      "name_zh": "设备停机",
+      "name_en": "Equipment Down",
+      "keywords": [
+        "设备停机",
+        "Equipment Down",
+        "Equipment",
+        "Down"
+      ],
+      "stage": null,
+      "severity": "high",
+      "unit": null,
+      "affects": [
+        "equipment_oee",
+        "throughput",
+        "capacity_commit",
+        "cycle_time"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/core/entities/01-materials-states.yaml"
+    },
+    {
+      "id": "core.anomaly.quality_excursion",
+      "kind": "entity",
+      "type": "Anomaly",
+      "domain": "core",
+      "name_zh": "品质异常突发",
+      "name_en": "Quality Excursion",
+      "keywords": [
+        "品质异常突发",
+        "Quality Excursion",
+        "Quality",
+        "Excursion"
+      ],
+      "stage": null,
+      "severity": "critical",
+      "unit": null,
+      "affects": [
+        "yield",
+        "scrap_rate",
+        "capacity_commit"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/core/entities/01-materials-states.yaml"
+    },
+    {
+      "id": "core.risknode.bottleneck_station",
+      "kind": "entity",
+      "type": "RiskNode",
+      "domain": "core",
+      "name_zh": "瓶颈站点",
+      "name_en": "Bottleneck Station",
+      "keywords": [
+        "瓶颈站点",
+        "Bottleneck Station",
+        "Bottleneck",
+        "Station"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "throughput",
+        "capacity_commit",
+        "equipment_oee"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/core/entities/01-materials-states.yaml"
+    },
+    {
+      "id": "core.metric.wip",
+      "kind": "entity",
+      "type": "Metric",
+      "domain": "core",
+      "name_zh": "在制量",
+      "name_en": "WIP (Work In Process)",
+      "keywords": [
+        "在制量",
+        "WIP (Work In Process)",
+        "WIP",
+        "Work",
+        "In",
+        "Process"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": "lot / wafer / kpcs",
+      "affects": [
+        "cycle_time",
+        "throughput",
+        "capacity_commit"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/core/entities/02-metrics.yaml"
+    },
+    {
+      "id": "core.metric.cycle_time",
+      "kind": "entity",
+      "type": "Metric",
+      "domain": "core",
+      "name_zh": "生产周期",
+      "name_en": "Cycle Time",
+      "keywords": [
+        "生产周期",
+        "Cycle Time",
+        "Cycle",
+        "Time"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": "day",
+      "affects": [
+        "cycle_time",
+        "capacity_commit",
+        "cost_per_unit"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/core/entities/02-metrics.yaml"
+    },
+    {
+      "id": "core.metric.yield",
+      "kind": "entity",
+      "type": "Metric",
+      "domain": "core",
+      "name_zh": "良率",
+      "name_en": "Yield",
+      "keywords": [
+        "良率",
+        "Yield"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": "%",
+      "affects": [
+        "yield",
+        "cost_per_unit",
+        "capacity_commit"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/core/entities/02-metrics.yaml"
+    },
+    {
+      "id": "core.metric.oee",
+      "kind": "entity",
+      "type": "Metric",
+      "domain": "core",
+      "name_zh": "设备综合效率",
+      "name_en": "OEE (Overall Equipment Effectiveness)",
+      "keywords": [
+        "设备综合效率",
+        "OEE (Overall Equipment Effectiveness)",
+        "OEE",
+        "Overall",
+        "Equipment",
+        "Effectiveness"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": "%",
+      "affects": [
+        "equipment_oee",
+        "throughput",
+        "cost_per_unit"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/core/entities/02-metrics.yaml"
+    },
+    {
+      "id": "core.metric.throughput",
+      "kind": "entity",
+      "type": "Metric",
+      "domain": "core",
+      "name_zh": "产出率",
+      "name_en": "Throughput",
+      "keywords": [
+        "产出率",
+        "Throughput"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": "wpm (wafer per month) / kpcs per day",
+      "affects": [
+        "throughput",
+        "capacity_commit"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/core/entities/02-metrics.yaml"
+    },
+    {
+      "id": "core.param.cleanroom_particle",
+      "kind": "entity",
+      "type": "Parameter",
+      "domain": "core",
+      "name_zh": "洁净室悬浮粒子等级",
+      "name_en": "Cleanroom Particle Class",
+      "keywords": [
+        "洁净室悬浮粒子等级",
+        "Cleanroom Particle Class",
+        "Cleanroom",
+        "Particle",
+        "Class"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": "ISO Class / Class(FS209E)",
+      "affects": [
+        "yield",
+        "scrap_rate"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/core/entities/02-metrics.yaml"
+    },
+    {
+      "id": "core.param.cleanroom_temp",
+      "kind": "entity",
+      "type": "Parameter",
+      "domain": "core",
+      "name_zh": "洁净室温湿度",
+      "name_en": "Cleanroom Temperature & Humidity",
+      "keywords": [
+        "洁净室温湿度",
+        "Cleanroom Temperature & Humidity",
+        "Cleanroom",
+        "Temperature",
+        "Humidity"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": "℃ / %RH",
+      "affects": [
+        "yield",
+        "rework_rate"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/core/entities/02-metrics.yaml"
+    },
+    {
+      "id": "core.anomaly.wip_bubble",
+      "kind": "entity",
+      "type": "Anomaly",
+      "domain": "core",
+      "name_zh": "WIP 堆积",
+      "name_en": "WIP Bubble",
+      "keywords": [
+        "WIP 堆积",
+        "WIP Bubble",
+        "WIP",
+        "Bubble"
+      ],
+      "stage": null,
+      "severity": "high",
+      "unit": null,
+      "affects": [
+        "cycle_time",
+        "throughput",
+        "capacity_commit",
+        "equipment_oee"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/core/entities/02-metrics.yaml"
+    },
+    {
+      "id": "fab.stage.diffusion",
+      "kind": "entity",
+      "type": "Stage",
+      "domain": "fab",
+      "name_zh": "扩散/热制程",
+      "name_en": "Diffusion & Thermal",
+      "keywords": [
+        "扩散/热制程",
+        "Diffusion & Thermal",
+        "热制程",
+        "炉管",
+        "扩散区",
+        "Furnace",
+        "Diffusion",
+        "Thermal"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "cycle_time",
+        "throughput",
+        "equipment_oee"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/10-stages.yaml"
+    },
+    {
+      "id": "fab.stage.photo",
+      "kind": "entity",
+      "type": "Stage",
+      "domain": "fab",
+      "name_zh": "光刻",
+      "name_en": "Photolithography",
+      "keywords": [
+        "光刻",
+        "Photolithography",
+        "黄光",
+        "黄光区",
+        "光罩制程",
+        "Litho"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "throughput",
+        "capacity_commit",
+        "equipment_oee"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/10-stages.yaml"
+    },
+    {
+      "id": "fab.stage.etch",
+      "kind": "entity",
+      "type": "Stage",
+      "domain": "fab",
+      "name_zh": "蚀刻",
+      "name_en": "Etch",
+      "keywords": [
+        "蚀刻",
+        "Etch",
+        "蚀刻区",
+        "干蚀",
+        "Dry Etch"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "rework_rate"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/10-stages.yaml"
+    },
+    {
+      "id": "fab.stage.thinfilm",
+      "kind": "entity",
+      "type": "Stage",
+      "domain": "fab",
+      "name_zh": "薄膜沉积",
+      "name_en": "Thin Film Deposition",
+      "keywords": [
+        "薄膜沉积",
+        "Thin Film Deposition",
+        "薄膜",
+        "镀膜",
+        "沉积",
+        "Thin",
+        "Film",
+        "Deposition"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "cost_per_unit"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/10-stages.yaml"
+    },
+    {
+      "id": "fab.stage.implant",
+      "kind": "entity",
+      "type": "Stage",
+      "domain": "fab",
+      "name_zh": "离子注入",
+      "name_en": "Ion Implantation",
+      "keywords": [
+        "离子注入",
+        "Ion Implantation",
+        "植入",
+        "离子布植",
+        "Implant",
+        "Ion",
+        "Implantation"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "equipment_oee"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/10-stages.yaml"
+    },
+    {
+      "id": "fab.stage.cmp",
+      "kind": "entity",
+      "type": "Stage",
+      "domain": "fab",
+      "name_zh": "化学机械研磨",
+      "name_en": "CMP",
+      "keywords": [
+        "化学机械研磨",
+        "CMP",
+        "研磨",
+        "平坦化",
+        "抛光"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "cost_per_unit",
+        "rework_rate"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/10-stages.yaml"
+    },
+    {
+      "id": "fab.stage.metrology",
+      "kind": "entity",
+      "type": "Stage",
+      "domain": "fab",
+      "name_zh": "量测与缺陷检测",
+      "name_en": "Metrology & Inspection",
+      "keywords": [
+        "量测与缺陷检测",
+        "Metrology & Inspection",
+        "量测区",
+        "量测",
+        "缺陷检测",
+        "QC 站",
+        "Metrology",
+        "Inspection"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "cycle_time",
+        "yield"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/10-stages.yaml"
+    },
+    {
+      "id": "fab.stage.wat_cp",
+      "kind": "entity",
+      "type": "Stage",
+      "domain": "fab",
+      "name_zh": "电性测试",
+      "name_en": "WAT / CP",
+      "keywords": [
+        "电性测试",
+        "WAT / CP",
+        "电性",
+        "电测",
+        "中测",
+        "WAT",
+        "CP"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "capacity_commit"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/10-stages.yaml"
+    },
+    {
+      "id": "fab.process.wafer_start",
+      "kind": "entity",
+      "type": "Process",
+      "domain": "fab",
+      "name_zh": "投料",
+      "name_en": "Wafer Start",
+      "keywords": [
+        "投料",
+        "Wafer Start",
+        "Wafer",
+        "Start"
+      ],
+      "stage": "fab.stage.diffusion",
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "throughput",
+        "cycle_time",
+        "capacity_commit"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/11-processes-thermal.yaml"
+    },
+    {
+      "id": "fab.process.thermal_oxidation",
+      "kind": "entity",
+      "type": "Process",
+      "domain": "fab",
+      "name_zh": "热氧化",
+      "name_en": "Thermal Oxidation",
+      "keywords": [
+        "热氧化",
+        "Thermal Oxidation",
+        "Thermal",
+        "Oxidation"
+      ],
+      "stage": "fab.stage.diffusion",
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "cycle_time"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/11-processes-thermal.yaml"
+    },
+    {
+      "id": "fab.process.gate_oxidation",
+      "kind": "entity",
+      "type": "Process",
+      "domain": "fab",
+      "name_zh": "栅氧化",
+      "name_en": "Gate Oxidation",
+      "keywords": [
+        "栅氧化",
+        "Gate Oxidation",
+        "Gate",
+        "Oxidation"
+      ],
+      "stage": "fab.stage.diffusion",
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "scrap_rate"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/11-processes-thermal.yaml"
+    },
+    {
+      "id": "fab.process.lpcvd_nitride",
+      "kind": "entity",
+      "type": "Process",
+      "domain": "fab",
+      "name_zh": "LPCVD 氮化硅沉积",
+      "name_en": "LPCVD Nitride Deposition",
+      "keywords": [
+        "LPCVD 氮化硅沉积",
+        "LPCVD Nitride Deposition",
+        "LPCVD",
+        "Nitride",
+        "Deposition"
+      ],
+      "stage": "fab.stage.diffusion",
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "equipment_oee"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/11-processes-thermal.yaml"
+    },
+    {
+      "id": "fab.process.poly_deposition",
+      "kind": "entity",
+      "type": "Process",
+      "domain": "fab",
+      "name_zh": "多晶硅沉积",
+      "name_en": "Polysilicon Deposition",
+      "keywords": [
+        "多晶硅沉积",
+        "Polysilicon Deposition",
+        "Polysilicon",
+        "Deposition"
+      ],
+      "stage": "fab.stage.diffusion",
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/11-processes-thermal.yaml"
+    },
+    {
+      "id": "fab.process.ion_implant",
+      "kind": "entity",
+      "type": "Process",
+      "domain": "fab",
+      "name_zh": "离子注入",
+      "name_en": "Ion Implantation",
+      "keywords": [
+        "离子注入",
+        "Ion Implantation",
+        "Ion",
+        "Implantation"
+      ],
+      "stage": "fab.stage.implant",
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "equipment_oee"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/11-processes-thermal.yaml"
+    },
+    {
+      "id": "fab.process.rta_anneal",
+      "kind": "entity",
+      "type": "Process",
+      "domain": "fab",
+      "name_zh": "快速热退火",
+      "name_en": "RTA (Rapid Thermal Anneal)",
+      "keywords": [
+        "快速热退火",
+        "RTA (Rapid Thermal Anneal)",
+        "RTA",
+        "Rapid",
+        "Thermal",
+        "Anneal"
+      ],
+      "stage": "fab.stage.diffusion",
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "throughput"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/11-processes-thermal.yaml"
+    },
+    {
+      "id": "fab.process.furnace_anneal",
+      "kind": "entity",
+      "type": "Process",
+      "domain": "fab",
+      "name_zh": "炉管退火",
+      "name_en": "Furnace Anneal",
+      "keywords": [
+        "炉管退火",
+        "Furnace Anneal",
+        "Furnace",
+        "Anneal"
+      ],
+      "stage": "fab.stage.diffusion",
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "cycle_time",
+        "equipment_oee"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/11-processes-thermal.yaml"
+    },
+    {
+      "id": "fab.process.photo_coat",
+      "kind": "entity",
+      "type": "Process",
+      "domain": "fab",
+      "name_zh": "光阻涂布",
+      "name_en": "Photoresist Coating",
+      "keywords": [
+        "光阻涂布",
+        "Photoresist Coating",
+        "Photoresist",
+        "Coating"
+      ],
+      "stage": "fab.stage.photo",
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "rework_rate"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/12-processes-patterning.yaml"
+    },
+    {
+      "id": "fab.process.photo_exposure",
+      "kind": "entity",
+      "type": "Process",
+      "domain": "fab",
+      "name_zh": "曝光",
+      "name_en": "Exposure",
+      "keywords": [
+        "曝光",
+        "Exposure"
+      ],
+      "stage": "fab.stage.photo",
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "throughput",
+        "capacity_commit",
+        "equipment_oee"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/12-processes-patterning.yaml"
+    },
+    {
+      "id": "fab.process.photo_develop",
+      "kind": "entity",
+      "type": "Process",
+      "domain": "fab",
+      "name_zh": "显影",
+      "name_en": "Development",
+      "keywords": [
+        "显影",
+        "Development"
+      ],
+      "stage": "fab.stage.photo",
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "rework_rate"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/12-processes-patterning.yaml"
+    },
+    {
+      "id": "fab.process.dry_etch",
+      "kind": "entity",
+      "type": "Process",
+      "domain": "fab",
+      "name_zh": "干法蚀刻",
+      "name_en": "Dry Etch",
+      "keywords": [
+        "干法蚀刻",
+        "Dry Etch",
+        "Dry",
+        "Etch"
+      ],
+      "stage": "fab.stage.etch",
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "rework_rate",
+        "equipment_oee"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/12-processes-patterning.yaml"
+    },
+    {
+      "id": "fab.process.wet_etch",
+      "kind": "entity",
+      "type": "Process",
+      "domain": "fab",
+      "name_zh": "湿法蚀刻",
+      "name_en": "Wet Etch",
+      "keywords": [
+        "湿法蚀刻",
+        "Wet Etch",
+        "Wet",
+        "Etch"
+      ],
+      "stage": "fab.stage.etch",
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "cost_per_unit"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/12-processes-patterning.yaml"
+    },
+    {
+      "id": "fab.process.pr_strip",
+      "kind": "entity",
+      "type": "Process",
+      "domain": "fab",
+      "name_zh": "去光阻",
+      "name_en": "Photoresist Strip",
+      "keywords": [
+        "去光阻",
+        "Photoresist Strip",
+        "Photoresist",
+        "Strip"
+      ],
+      "stage": "fab.stage.etch",
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "rework_rate"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/12-processes-patterning.yaml"
+    },
+    {
+      "id": "fab.process.wafer_clean",
+      "kind": "entity",
+      "type": "Process",
+      "domain": "fab",
+      "name_zh": "晶圆清洗",
+      "name_en": "Wafer Clean",
+      "keywords": [
+        "晶圆清洗",
+        "Wafer Clean",
+        "Wafer",
+        "Clean"
+      ],
+      "stage": "fab.stage.etch",
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "scrap_rate"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/12-processes-patterning.yaml"
+    },
+    {
+      "id": "fab.process.pvd_metal",
+      "kind": "entity",
+      "type": "Process",
+      "domain": "fab",
+      "name_zh": "PVD 金属沉积",
+      "name_en": "PVD Metal Deposition",
+      "keywords": [
+        "PVD 金属沉积",
+        "PVD Metal Deposition",
+        "PVD",
+        "Metal",
+        "Deposition"
+      ],
+      "stage": "fab.stage.thinfilm",
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "cost_per_unit",
+        "equipment_oee"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/13-processes-film-cmp-test.yaml"
+    },
+    {
+      "id": "fab.process.cvd_ild",
+      "kind": "entity",
+      "type": "Process",
+      "domain": "fab",
+      "name_zh": "CVD 层间介电沉积",
+      "name_en": "CVD ILD Deposition",
+      "keywords": [
+        "CVD 层间介电沉积",
+        "CVD ILD Deposition",
+        "CVD",
+        "ILD",
+        "Deposition"
+      ],
+      "stage": "fab.stage.thinfilm",
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/13-processes-film-cmp-test.yaml"
+    },
+    {
+      "id": "fab.process.ald_barrier",
+      "kind": "entity",
+      "type": "Process",
+      "domain": "fab",
+      "name_zh": "ALD 阻挡层沉积",
+      "name_en": "ALD Barrier Deposition",
+      "keywords": [
+        "ALD 阻挡层沉积",
+        "ALD Barrier Deposition",
+        "ALD",
+        "Barrier",
+        "Deposition"
+      ],
+      "stage": "fab.stage.thinfilm",
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "cycle_time",
+        "throughput"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/13-processes-film-cmp-test.yaml"
+    },
+    {
+      "id": "fab.process.cmp_oxide",
+      "kind": "entity",
+      "type": "Process",
+      "domain": "fab",
+      "name_zh": "氧化层 CMP",
+      "name_en": "Oxide CMP",
+      "keywords": [
+        "氧化层 CMP",
+        "Oxide CMP",
+        "Oxide",
+        "CMP"
+      ],
+      "stage": "fab.stage.cmp",
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "cost_per_unit",
+        "rework_rate"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/13-processes-film-cmp-test.yaml"
+    },
+    {
+      "id": "fab.process.cmp_metal",
+      "kind": "entity",
+      "type": "Process",
+      "domain": "fab",
+      "name_zh": "金属 CMP",
+      "name_en": "Metal CMP",
+      "keywords": [
+        "金属 CMP",
+        "Metal CMP",
+        "Metal",
+        "CMP"
+      ],
+      "stage": "fab.stage.cmp",
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "scrap_rate"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/13-processes-film-cmp-test.yaml"
+    },
+    {
+      "id": "fab.process.cd_measure",
+      "kind": "entity",
+      "type": "Process",
+      "domain": "fab",
+      "name_zh": "CD 量测",
+      "name_en": "CD Measurement",
+      "keywords": [
+        "CD 量测",
+        "CD Measurement",
+        "CD",
+        "Measurement"
+      ],
+      "stage": "fab.stage.metrology",
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "cycle_time",
+        "yield"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/13-processes-film-cmp-test.yaml"
+    },
+    {
+      "id": "fab.process.overlay_measure",
+      "kind": "entity",
+      "type": "Process",
+      "domain": "fab",
+      "name_zh": "套刻精度量测",
+      "name_en": "Overlay Measurement",
+      "keywords": [
+        "套刻精度量测",
+        "Overlay Measurement",
+        "Overlay",
+        "Measurement"
+      ],
+      "stage": "fab.stage.metrology",
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "rework_rate"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/13-processes-film-cmp-test.yaml"
+    },
+    {
+      "id": "fab.process.defect_scan",
+      "kind": "entity",
+      "type": "Process",
+      "domain": "fab",
+      "name_zh": "缺陷扫描",
+      "name_en": "Defect Inspection",
+      "keywords": [
+        "缺陷扫描",
+        "Defect Inspection",
+        "Defect",
+        "Inspection"
+      ],
+      "stage": "fab.stage.metrology",
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "scrap_rate"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/13-processes-film-cmp-test.yaml"
+    },
+    {
+      "id": "fab.process.wat",
+      "kind": "entity",
+      "type": "Process",
+      "domain": "fab",
+      "name_zh": "晶圆电性测试",
+      "name_en": "WAT (Wafer Acceptance Test)",
+      "keywords": [
+        "晶圆电性测试",
+        "WAT (Wafer Acceptance Test)",
+        "WAT",
+        "Wafer",
+        "Acceptance",
+        "Test"
+      ],
+      "stage": "fab.stage.wat_cp",
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "capacity_commit"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/13-processes-film-cmp-test.yaml"
+    },
+    {
+      "id": "fab.process.cp_test",
+      "kind": "entity",
+      "type": "Process",
+      "domain": "fab",
+      "name_zh": "晶圆针测",
+      "name_en": "CP (Circuit Probe)",
+      "keywords": [
+        "晶圆针测",
+        "CP (Circuit Probe)",
+        "CP",
+        "Circuit",
+        "Probe"
+      ],
+      "stage": "fab.stage.wat_cp",
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "capacity_commit",
+        "cost_per_unit"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/13-processes-film-cmp-test.yaml"
+    },
+    {
+      "id": "fab.param.furnace_temp",
+      "kind": "entity",
+      "type": "Parameter",
+      "domain": "fab",
+      "name_zh": "炉温",
+      "name_en": "Furnace Temperature",
+      "keywords": [
+        "炉温",
+        "Furnace Temperature",
+        "Furnace",
+        "Temperature"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": "℃",
+      "affects": [
+        "yield"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/14-parameters.yaml"
+    },
+    {
+      "id": "fab.param.furnace_time",
+      "kind": "entity",
+      "type": "Parameter",
+      "domain": "fab",
+      "name_zh": "炉管时间",
+      "name_en": "Furnace Time",
+      "keywords": [
+        "炉管时间",
+        "Furnace Time",
+        "Furnace",
+        "Time"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": "min",
+      "affects": [
+        "cycle_time",
+        "yield"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/14-parameters.yaml"
+    },
+    {
+      "id": "fab.param.rta_ramp_rate",
+      "kind": "entity",
+      "type": "Parameter",
+      "domain": "fab",
+      "name_zh": "RTA 升温速率",
+      "name_en": "RTA Ramp Rate",
+      "keywords": [
+        "RTA 升温速率",
+        "RTA Ramp Rate",
+        "RTA",
+        "Ramp",
+        "Rate"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": "℃/s",
+      "affects": [
+        "yield"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/14-parameters.yaml"
+    },
+    {
+      "id": "fab.param.chamber_pressure",
+      "kind": "entity",
+      "type": "Parameter",
+      "domain": "fab",
+      "name_zh": "腔体压力",
+      "name_en": "Chamber Pressure",
+      "keywords": [
+        "腔体压力",
+        "Chamber Pressure",
+        "Chamber",
+        "Pressure"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": "mTorr / Torr",
+      "affects": [
+        "yield",
+        "equipment_oee"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/14-parameters.yaml"
+    },
+    {
+      "id": "fab.param.implant_dose",
+      "kind": "entity",
+      "type": "Parameter",
+      "domain": "fab",
+      "name_zh": "注入剂量",
+      "name_en": "Implant Dose",
+      "keywords": [
+        "注入剂量",
+        "Implant Dose",
+        "Implant",
+        "Dose"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": "ions/cm²",
+      "affects": [
+        "yield"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/14-parameters.yaml"
+    },
+    {
+      "id": "fab.param.implant_energy",
+      "kind": "entity",
+      "type": "Parameter",
+      "domain": "fab",
+      "name_zh": "注入能量",
+      "name_en": "Implant Energy",
+      "keywords": [
+        "注入能量",
+        "Implant Energy",
+        "Implant",
+        "Energy"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": "keV",
+      "affects": [
+        "yield"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/14-parameters.yaml"
+    },
+    {
+      "id": "fab.param.implant_tilt",
+      "kind": "entity",
+      "type": "Parameter",
+      "domain": "fab",
+      "name_zh": "注入倾角",
+      "name_en": "Implant Tilt Angle",
+      "keywords": [
+        "注入倾角",
+        "Implant Tilt Angle",
+        "Implant",
+        "Tilt",
+        "Angle"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": "degree",
+      "affects": [
+        "yield"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/14-parameters.yaml"
+    },
+    {
+      "id": "fab.param.spin_speed",
+      "kind": "entity",
+      "type": "Parameter",
+      "domain": "fab",
+      "name_zh": "涂布转速",
+      "name_en": "Spin Speed",
+      "keywords": [
+        "涂布转速",
+        "Spin Speed",
+        "Spin",
+        "Speed"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": "rpm",
+      "affects": [
+        "yield",
+        "rework_rate"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/14-parameters.yaml"
+    },
+    {
+      "id": "fab.param.softbake_temp",
+      "kind": "entity",
+      "type": "Parameter",
+      "domain": "fab",
+      "name_zh": "软烤温度",
+      "name_en": "Soft Bake Temperature",
+      "keywords": [
+        "软烤温度",
+        "Soft Bake Temperature",
+        "Soft",
+        "Bake",
+        "Temperature"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": "℃",
+      "affects": [
+        "yield"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/14-parameters.yaml"
+    },
+    {
+      "id": "fab.param.exposure_dose",
+      "kind": "entity",
+      "type": "Parameter",
+      "domain": "fab",
+      "name_zh": "曝光剂量",
+      "name_en": "Exposure Dose",
+      "keywords": [
+        "曝光剂量",
+        "Exposure Dose",
+        "Exposure",
+        "Dose"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": "mJ/cm²",
+      "affects": [
+        "yield",
+        "rework_rate"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/14-parameters.yaml"
+    },
+    {
+      "id": "fab.param.exposure_focus",
+      "kind": "entity",
+      "type": "Parameter",
+      "domain": "fab",
+      "name_zh": "曝光焦距",
+      "name_en": "Exposure Focus",
+      "keywords": [
+        "曝光焦距",
+        "Exposure Focus",
+        "Exposure",
+        "Focus"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": "nm",
+      "affects": [
+        "yield"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/14-parameters.yaml"
+    },
+    {
+      "id": "fab.param.overlay_offset",
+      "kind": "entity",
+      "type": "Parameter",
+      "domain": "fab",
+      "name_zh": "对位补正量",
+      "name_en": "Overlay Correction Offset",
+      "keywords": [
+        "对位补正量",
+        "Overlay Correction Offset",
+        "Overlay",
+        "Correction",
+        "Offset"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": "nm",
+      "affects": [
+        "yield",
+        "rework_rate"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/14-parameters.yaml"
+    },
+    {
+      "id": "fab.param.develop_time",
+      "kind": "entity",
+      "type": "Parameter",
+      "domain": "fab",
+      "name_zh": "显影时间",
+      "name_en": "Development Time",
+      "keywords": [
+        "显影时间",
+        "Development Time",
+        "Development",
+        "Time"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": "s",
+      "affects": [
+        "yield"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/14-parameters.yaml"
+    },
+    {
+      "id": "fab.param.hardbake_temp",
+      "kind": "entity",
+      "type": "Parameter",
+      "domain": "fab",
+      "name_zh": "硬烤温度",
+      "name_en": "Hard Bake Temperature",
+      "keywords": [
+        "硬烤温度",
+        "Hard Bake Temperature",
+        "Hard",
+        "Bake",
+        "Temperature"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": "℃",
+      "affects": [
+        "yield"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/14-parameters.yaml"
+    },
+    {
+      "id": "fab.param.etch_rf_power",
+      "kind": "entity",
+      "type": "Parameter",
+      "domain": "fab",
+      "name_zh": "蚀刻射频功率",
+      "name_en": "Etch RF Power",
+      "keywords": [
+        "蚀刻射频功率",
+        "Etch RF Power",
+        "Etch",
+        "RF",
+        "Power"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": "W",
+      "affects": [
+        "yield",
+        "equipment_oee"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/14-parameters.yaml"
+    },
+    {
+      "id": "fab.param.etch_gas_flow",
+      "kind": "entity",
+      "type": "Parameter",
+      "domain": "fab",
+      "name_zh": "蚀刻气体流量",
+      "name_en": "Etch Gas Flow",
+      "keywords": [
+        "蚀刻气体流量",
+        "Etch Gas Flow",
+        "Etch",
+        "Gas",
+        "Flow"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": "sccm",
+      "affects": [
+        "yield",
+        "cost_per_unit"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/14-parameters.yaml"
+    },
+    {
+      "id": "fab.param.etch_time",
+      "kind": "entity",
+      "type": "Parameter",
+      "domain": "fab",
+      "name_zh": "蚀刻时间",
+      "name_en": "Etch Time",
+      "keywords": [
+        "蚀刻时间",
+        "Etch Time",
+        "Etch",
+        "Time"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": "s",
+      "affects": [
+        "yield"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/14-parameters.yaml"
+    },
+    {
+      "id": "fab.param.etchant_concentration",
+      "kind": "entity",
+      "type": "Parameter",
+      "domain": "fab",
+      "name_zh": "蚀刻液浓度",
+      "name_en": "Etchant Concentration",
+      "keywords": [
+        "蚀刻液浓度",
+        "Etchant Concentration",
+        "Etchant",
+        "Concentration"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": "% / ratio",
+      "affects": [
+        "yield",
+        "cost_per_unit"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/14-parameters.yaml"
+    },
+    {
+      "id": "fab.param.pvd_power",
+      "kind": "entity",
+      "type": "Parameter",
+      "domain": "fab",
+      "name_zh": "溅镀功率",
+      "name_en": "PVD Sputtering Power",
+      "keywords": [
+        "溅镀功率",
+        "PVD Sputtering Power",
+        "PVD",
+        "Sputtering",
+        "Power"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": "kW",
+      "affects": [
+        "yield",
+        "cost_per_unit"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/14-parameters.yaml"
+    },
+    {
+      "id": "fab.param.cmp_pressure",
+      "kind": "entity",
+      "type": "Parameter",
+      "domain": "fab",
+      "name_zh": "CMP 研磨压力",
+      "name_en": "CMP Down Force",
+      "keywords": [
+        "CMP 研磨压力",
+        "CMP Down Force",
+        "CMP",
+        "Down",
+        "Force"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": "psi",
+      "affects": [
+        "yield",
+        "rework_rate"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/14-parameters.yaml"
+    },
+    {
+      "id": "fab.param.cmp_platen_speed",
+      "kind": "entity",
+      "type": "Parameter",
+      "domain": "fab",
+      "name_zh": "CMP 转盘转速",
+      "name_en": "CMP Platen Speed",
+      "keywords": [
+        "CMP 转盘转速",
+        "CMP Platen Speed",
+        "CMP",
+        "Platen",
+        "Speed"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": "rpm",
+      "affects": [
+        "yield"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/14-parameters.yaml"
+    },
+    {
+      "id": "fab.param.cmp_slurry_flow",
+      "kind": "entity",
+      "type": "Parameter",
+      "domain": "fab",
+      "name_zh": "研磨液流量",
+      "name_en": "CMP Slurry Flow Rate",
+      "keywords": [
+        "研磨液流量",
+        "CMP Slurry Flow Rate",
+        "CMP",
+        "Slurry",
+        "Flow",
+        "Rate"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": "ml/min",
+      "affects": [
+        "yield",
+        "cost_per_unit"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/14-parameters.yaml"
+    },
+    {
+      "id": "fab.metric.cd_uniformity",
+      "kind": "entity",
+      "type": "Metric",
+      "domain": "fab",
+      "name_zh": "关键尺寸均匀性",
+      "name_en": "CD Uniformity",
+      "keywords": [
+        "关键尺寸均匀性",
+        "CD Uniformity",
+        "CD",
+        "Uniformity"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": "nm (3σ)",
+      "affects": [
+        "yield",
+        "rework_rate"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/15-metrics-materials.yaml"
+    },
+    {
+      "id": "fab.metric.overlay_error",
+      "kind": "entity",
+      "type": "Metric",
+      "domain": "fab",
+      "name_zh": "套刻误差",
+      "name_en": "Overlay Error",
+      "keywords": [
+        "套刻误差",
+        "Overlay Error",
+        "Overlay",
+        "Error"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": "nm",
+      "affects": [
+        "yield",
+        "rework_rate"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/15-metrics-materials.yaml"
+    },
+    {
+      "id": "fab.metric.film_thickness",
+      "kind": "entity",
+      "type": "Metric",
+      "domain": "fab",
+      "name_zh": "膜厚",
+      "name_en": "Film Thickness",
+      "keywords": [
+        "膜厚",
+        "Film Thickness",
+        "Film",
+        "Thickness"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": "Å / nm",
+      "affects": [
+        "yield",
+        "cost_per_unit"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/15-metrics-materials.yaml"
+    },
+    {
+      "id": "fab.metric.etch_depth",
+      "kind": "entity",
+      "type": "Metric",
+      "domain": "fab",
+      "name_zh": "蚀刻深度",
+      "name_en": "Etch Depth",
+      "keywords": [
+        "蚀刻深度",
+        "Etch Depth",
+        "Etch",
+        "Depth"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": "Å / nm",
+      "affects": [
+        "yield"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/15-metrics-materials.yaml"
+    },
+    {
+      "id": "fab.metric.defect_density",
+      "kind": "entity",
+      "type": "Metric",
+      "domain": "fab",
+      "name_zh": "缺陷密度",
+      "name_en": "Defect Density",
+      "keywords": [
+        "缺陷密度",
+        "Defect Density",
+        "Defect",
+        "Density"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": "ea/cm² / ea per wafer",
+      "affects": [
+        "yield",
+        "scrap_rate"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/15-metrics-materials.yaml"
+    },
+    {
+      "id": "fab.metric.sheet_resistance",
+      "kind": "entity",
+      "type": "Metric",
+      "domain": "fab",
+      "name_zh": "方阻",
+      "name_en": "Sheet Resistance",
+      "keywords": [
+        "方阻",
+        "Sheet Resistance",
+        "Sheet",
+        "Resistance"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": "Ω/sq",
+      "affects": [
+        "yield"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/15-metrics-materials.yaml"
+    },
+    {
+      "id": "fab.metric.wat_vt",
+      "kind": "entity",
+      "type": "Metric",
+      "domain": "fab",
+      "name_zh": "阈值电压",
+      "name_en": "Threshold Voltage (Vt)",
+      "keywords": [
+        "阈值电压",
+        "Threshold Voltage (Vt)",
+        "Threshold",
+        "Voltage",
+        "Vt"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": "V",
+      "affects": [
+        "yield",
+        "capacity_commit"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/15-metrics-materials.yaml"
+    },
+    {
+      "id": "fab.material.photoresist",
+      "kind": "entity",
+      "type": "Material",
+      "domain": "fab",
+      "name_zh": "光阻",
+      "name_en": "Photoresist",
+      "keywords": [
+        "光阻",
+        "Photoresist"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "cost_per_unit",
+        "yield"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/15-metrics-materials.yaml"
+    },
+    {
+      "id": "fab.material.reticle",
+      "kind": "entity",
+      "type": "Material",
+      "domain": "fab",
+      "name_zh": "光罩",
+      "name_en": "Reticle / Photomask",
+      "keywords": [
+        "光罩",
+        "Reticle / Photomask",
+        "Reticle",
+        "Photomask"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "scrap_rate"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/15-metrics-materials.yaml"
+    },
+    {
+      "id": "fab.anomaly.cd_out_of_spec",
+      "kind": "entity",
+      "type": "Anomaly",
+      "domain": "fab",
+      "name_zh": "CD 超规",
+      "name_en": "CD Out of Spec",
+      "keywords": [
+        "CD 超规",
+        "CD Out of Spec",
+        "CD",
+        "Out",
+        "of",
+        "Spec"
+      ],
+      "stage": null,
+      "severity": "high",
+      "unit": null,
+      "affects": [
+        "yield",
+        "rework_rate",
+        "cycle_time"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/16-anomalies.yaml"
+    },
+    {
+      "id": "fab.anomaly.overlay_shift",
+      "kind": "entity",
+      "type": "Anomaly",
+      "domain": "fab",
+      "name_zh": "套刻偏移",
+      "name_en": "Overlay Shift",
+      "keywords": [
+        "套刻偏移",
+        "Overlay Shift",
+        "Overlay",
+        "Shift"
+      ],
+      "stage": null,
+      "severity": "high",
+      "unit": null,
+      "affects": [
+        "yield",
+        "rework_rate"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/16-anomalies.yaml"
+    },
+    {
+      "id": "fab.anomaly.particle_excursion",
+      "kind": "entity",
+      "type": "Anomaly",
+      "domain": "fab",
+      "name_zh": "颗粒突增",
+      "name_en": "Particle Excursion",
+      "keywords": [
+        "颗粒突增",
+        "Particle Excursion",
+        "Particle",
+        "Excursion"
+      ],
+      "stage": null,
+      "severity": "critical",
+      "unit": null,
+      "affects": [
+        "yield",
+        "scrap_rate",
+        "capacity_commit"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/16-anomalies.yaml"
+    },
+    {
+      "id": "fab.anomaly.etch_residue",
+      "kind": "entity",
+      "type": "Anomaly",
+      "domain": "fab",
+      "name_zh": "蚀刻残留",
+      "name_en": "Etch Residue",
+      "keywords": [
+        "蚀刻残留",
+        "Etch Residue",
+        "Etch",
+        "Residue"
+      ],
+      "stage": null,
+      "severity": "high",
+      "unit": null,
+      "affects": [
+        "yield",
+        "rework_rate"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/16-anomalies.yaml"
+    },
+    {
+      "id": "fab.anomaly.cmp_scratch",
+      "kind": "entity",
+      "type": "Anomaly",
+      "domain": "fab",
+      "name_zh": "CMP 划伤",
+      "name_en": "CMP Scratch",
+      "keywords": [
+        "CMP 划伤",
+        "CMP Scratch",
+        "CMP",
+        "Scratch"
+      ],
+      "stage": null,
+      "severity": "high",
+      "unit": null,
+      "affects": [
+        "yield",
+        "scrap_rate",
+        "cost_per_unit"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/16-anomalies.yaml"
+    },
+    {
+      "id": "fab.anomaly.implant_dose_drift",
+      "kind": "entity",
+      "type": "Anomaly",
+      "domain": "fab",
+      "name_zh": "注入剂量漂移",
+      "name_en": "Implant Dose Drift",
+      "keywords": [
+        "注入剂量漂移",
+        "Implant Dose Drift",
+        "Implant",
+        "Dose",
+        "Drift"
+      ],
+      "stage": null,
+      "severity": "high",
+      "unit": null,
+      "affects": [
+        "yield",
+        "scrap_rate",
+        "capacity_commit"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/16-anomalies.yaml"
+    },
+    {
+      "id": "fab.anomaly.scanner_down",
+      "kind": "entity",
+      "type": "Anomaly",
+      "domain": "fab",
+      "name_zh": "光刻机非计划停机",
+      "name_en": "Scanner Unscheduled Down",
+      "keywords": [
+        "光刻机非计划停机",
+        "Scanner Unscheduled Down",
+        "Scanner",
+        "Unscheduled",
+        "Down"
+      ],
+      "stage": null,
+      "severity": "critical",
+      "unit": null,
+      "affects": [
+        "throughput",
+        "capacity_commit",
+        "cycle_time",
+        "equipment_oee"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/16-anomalies.yaml"
+    },
+    {
+      "id": "fab.anomaly.film_thickness_dev",
+      "kind": "entity",
+      "type": "Anomaly",
+      "domain": "fab",
+      "name_zh": "膜厚偏移/均匀性超规",
+      "name_en": "Film Thickness Deviation",
+      "keywords": [
+        "膜厚偏移/均匀性超规",
+        "Film Thickness Deviation",
+        "Film",
+        "Thickness",
+        "Deviation"
+      ],
+      "stage": null,
+      "severity": "high",
+      "unit": null,
+      "affects": [
+        "yield",
+        "rework_rate",
+        "scrap_rate",
+        "cycle_time"
+      ],
+      "confidence": "medium",
+      "source_type": "web",
+      "file": "ontology/fab/entities/16-anomalies.yaml"
+    },
+    {
+      "id": "fab.cause.lens_contamination",
+      "kind": "entity",
+      "type": "Cause",
+      "domain": "fab",
+      "name_zh": "投影镜头/光路沾污",
+      "name_en": "Lens & Optics Contamination",
+      "keywords": [
+        "投影镜头/光路沾污",
+        "Lens & Optics Contamination",
+        "Lens",
+        "Optics",
+        "Contamination"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "equipment_oee"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/17-causes-actions.yaml"
+    },
+    {
+      "id": "fab.cause.hotplate_nonuniform",
+      "kind": "entity",
+      "type": "Cause",
+      "domain": "fab",
+      "name_zh": "热板温度不均",
+      "name_en": "Hotplate Temperature Non-uniformity",
+      "keywords": [
+        "热板温度不均",
+        "Hotplate Temperature Non-uniformity",
+        "Hotplate",
+        "Temperature",
+        "Non",
+        "uniformity"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/17-causes-actions.yaml"
+    },
+    {
+      "id": "fab.cause.resist_lot_change",
+      "kind": "entity",
+      "type": "Cause",
+      "domain": "fab",
+      "name_zh": "光阻批号切换",
+      "name_en": "Photoresist Lot Change",
+      "keywords": [
+        "光阻批号切换",
+        "Photoresist Lot Change",
+        "Photoresist",
+        "Lot",
+        "Change"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "rework_rate"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/17-causes-actions.yaml"
+    },
+    {
+      "id": "fab.cause.reticle_haze",
+      "kind": "entity",
+      "type": "Cause",
+      "domain": "fab",
+      "name_zh": "光罩雾化/沾污",
+      "name_en": "Reticle Haze / Contamination",
+      "keywords": [
+        "光罩雾化/沾污",
+        "Reticle Haze / Contamination",
+        "Reticle",
+        "Haze",
+        "Contamination"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "scrap_rate"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/17-causes-actions.yaml"
+    },
+    {
+      "id": "fab.cause.chamber_polymer_buildup",
+      "kind": "entity",
+      "type": "Cause",
+      "domain": "fab",
+      "name_zh": "腔体聚合物累积",
+      "name_en": "Chamber Polymer Buildup",
+      "keywords": [
+        "腔体聚合物累积",
+        "Chamber Polymer Buildup",
+        "Chamber",
+        "Polymer",
+        "Buildup"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "equipment_oee"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/17-causes-actions.yaml"
+    },
+    {
+      "id": "fab.cause.epd_failure",
+      "kind": "entity",
+      "type": "Cause",
+      "domain": "fab",
+      "name_zh": "终点检测失效",
+      "name_en": "Endpoint Detection Failure",
+      "keywords": [
+        "终点检测失效",
+        "Endpoint Detection Failure",
+        "Endpoint",
+        "Detection",
+        "Failure"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "scrap_rate"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/17-causes-actions.yaml"
+    },
+    {
+      "id": "fab.cause.slurry_agglomeration",
+      "kind": "entity",
+      "type": "Cause",
+      "domain": "fab",
+      "name_zh": "研磨液粒径团聚",
+      "name_en": "Slurry Particle Agglomeration",
+      "keywords": [
+        "研磨液粒径团聚",
+        "Slurry Particle Agglomeration",
+        "Slurry",
+        "Particle",
+        "Agglomeration"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "cost_per_unit"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/17-causes-actions.yaml"
+    },
+    {
+      "id": "fab.cause.pad_end_of_life",
+      "kind": "entity",
+      "type": "Cause",
+      "domain": "fab",
+      "name_zh": "研磨垫寿命末期",
+      "name_en": "CMP Pad End of Life",
+      "keywords": [
+        "研磨垫寿命末期",
+        "CMP Pad End of Life",
+        "CMP",
+        "Pad",
+        "End",
+        "of",
+        "Life"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "cost_per_unit",
+        "rework_rate"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/17-causes-actions.yaml"
+    },
+    {
+      "id": "fab.cause.beam_current_drift",
+      "kind": "entity",
+      "type": "Cause",
+      "domain": "fab",
+      "name_zh": "束流测量漂移",
+      "name_en": "Beam Current Measurement Drift",
+      "keywords": [
+        "束流测量漂移",
+        "Beam Current Measurement Drift",
+        "Beam",
+        "Current",
+        "Measurement",
+        "Drift"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "scrap_rate"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/17-causes-actions.yaml"
+    },
+    {
+      "id": "fab.cause.env_excursion",
+      "kind": "entity",
+      "type": "Cause",
+      "domain": "fab",
+      "name_zh": "洁净室环境超限",
+      "name_en": "Cleanroom Environment Excursion",
+      "keywords": [
+        "洁净室环境超限",
+        "Cleanroom Environment Excursion",
+        "Cleanroom",
+        "Environment",
+        "Excursion"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "scrap_rate"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/17-causes-actions.yaml"
+    },
+    {
+      "id": "fab.cause.recipe_misload",
+      "kind": "entity",
+      "type": "Cause",
+      "domain": "fab",
+      "name_zh": "配方误用",
+      "name_en": "Recipe Misload",
+      "keywords": [
+        "配方误用",
+        "Recipe Misload",
+        "Recipe",
+        "Misload"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "scrap_rate"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/17-causes-actions.yaml"
+    },
+    {
+      "id": "fab.cause.target_end_of_life",
+      "kind": "entity",
+      "type": "Cause",
+      "domain": "fab",
+      "name_zh": "靶材寿命末期",
+      "name_en": "PVD Target End of Life",
+      "keywords": [
+        "靶材寿命末期",
+        "PVD Target End of Life",
+        "PVD",
+        "Target",
+        "End",
+        "of",
+        "Life"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "cost_per_unit"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/17-causes-actions.yaml"
+    },
+    {
+      "id": "fab.action.hold_lot",
+      "kind": "entity",
+      "type": "Action",
+      "domain": "fab",
+      "name_zh": "扣留批次",
+      "name_en": "Hold Lot",
+      "keywords": [
+        "扣留批次",
+        "Hold Lot",
+        "Hold",
+        "Lot"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "cycle_time",
+        "capacity_commit"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/17-causes-actions.yaml"
+    },
+    {
+      "id": "fab.action.photo_rework",
+      "kind": "entity",
+      "type": "Action",
+      "domain": "fab",
+      "name_zh": "光刻重工",
+      "name_en": "Photolithography Rework",
+      "keywords": [
+        "光刻重工",
+        "Photolithography Rework",
+        "Photolithography",
+        "Rework"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "rework_rate",
+        "cycle_time",
+        "equipment_oee"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/17-causes-actions.yaml"
+    },
+    {
+      "id": "fab.action.chamber_clean",
+      "kind": "entity",
+      "type": "Action",
+      "domain": "fab",
+      "name_zh": "腔体清洗",
+      "name_en": "Chamber Clean / Wet Clean",
+      "keywords": [
+        "腔体清洗",
+        "Chamber Clean / Wet Clean",
+        "Chamber",
+        "Clean",
+        "Wet"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "equipment_oee",
+        "throughput"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/17-causes-actions.yaml"
+    },
+    {
+      "id": "fab.action.recipe_adjust",
+      "kind": "entity",
+      "type": "Action",
+      "domain": "fab",
+      "name_zh": "配方参数补偿",
+      "name_en": "Recipe Parameter Adjustment",
+      "keywords": [
+        "配方参数补偿",
+        "Recipe Parameter Adjustment",
+        "Recipe",
+        "Parameter",
+        "Adjustment"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "rework_rate"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/17-causes-actions.yaml"
+    },
+    {
+      "id": "fab.action.replace_consumable",
+      "kind": "entity",
+      "type": "Action",
+      "domain": "fab",
+      "name_zh": "更换耗材",
+      "name_en": "Replace Consumable",
+      "keywords": [
+        "更换耗材",
+        "Replace Consumable",
+        "Replace",
+        "Consumable"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "cost_per_unit",
+        "yield",
+        "equipment_oee"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/17-causes-actions.yaml"
+    },
+    {
+      "id": "fab.action.reticle_clean",
+      "kind": "entity",
+      "type": "Action",
+      "domain": "fab",
+      "name_zh": "光罩清洗",
+      "name_en": "Reticle Clean",
+      "keywords": [
+        "光罩清洗",
+        "Reticle Clean",
+        "Reticle",
+        "Clean"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "capacity_commit"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/17-causes-actions.yaml"
+    },
+    {
+      "id": "fab.action.skip_ahead",
+      "kind": "entity",
+      "type": "Action",
+      "domain": "fab",
+      "name_zh": "越站/改道",
+      "name_en": "Skip Ahead / Reroute",
+      "keywords": [
+        "越站/改道",
+        "Skip Ahead / Reroute",
+        "Skip",
+        "Ahead",
+        "Reroute"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "cycle_time",
+        "throughput"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/17-causes-actions.yaml"
+    },
+    {
+      "id": "fab.action.expand_sampling",
+      "kind": "entity",
+      "type": "Action",
+      "domain": "fab",
+      "name_zh": "提高抽检率",
+      "name_en": "Expand Sampling Rate",
+      "keywords": [
+        "提高抽检率",
+        "Expand Sampling Rate",
+        "Expand",
+        "Sampling",
+        "Rate"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "cycle_time",
+        "yield"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/17-causes-actions.yaml"
+    },
+    {
+      "id": "fab.cause.reticle_stage_error",
+      "kind": "entity",
+      "type": "Cause",
+      "domain": "fab",
+      "name_zh": "光罩台/工件台伺服异常",
+      "name_en": "Reticle & Wafer Stage Servo Error",
+      "keywords": [
+        "光罩台/工件台伺服异常",
+        "Reticle & Wafer Stage Servo Error",
+        "Reticle",
+        "Wafer",
+        "Stage",
+        "Servo",
+        "Error"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "equipment_oee",
+        "throughput",
+        "capacity_commit"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/17-causes-actions.yaml"
+    },
+    {
+      "id": "fab.cause.light_source_degradation",
+      "kind": "entity",
+      "type": "Cause",
+      "domain": "fab",
+      "name_zh": "曝光光源功率衰减/熄灭",
+      "name_en": "Light Source Power Degradation",
+      "keywords": [
+        "曝光光源功率衰减/熄灭",
+        "Light Source Power Degradation",
+        "Light",
+        "Source",
+        "Power",
+        "Degradation"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "equipment_oee",
+        "throughput",
+        "cost_per_unit"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/17-causes-actions.yaml"
+    },
+    {
+      "id": "fab.cause.pm_overdue",
+      "kind": "entity",
+      "type": "Cause",
+      "domain": "fab",
+      "name_zh": "预防保养逾期",
+      "name_en": "Preventive Maintenance Overdue",
+      "keywords": [
+        "预防保养逾期",
+        "Preventive Maintenance Overdue",
+        "Preventive",
+        "Maintenance",
+        "Overdue"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "equipment_oee",
+        "rework_rate"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/17-causes-actions.yaml"
+    },
+    {
+      "id": "fab.action.dispatch_field_service",
+      "kind": "entity",
+      "type": "Action",
+      "domain": "fab",
+      "name_zh": "报修并催派原厂工程师",
+      "name_en": "Dispatch Field Service Engineer",
+      "keywords": [
+        "报修并催派原厂工程师",
+        "Dispatch Field Service Engineer",
+        "Dispatch",
+        "Field",
+        "Service",
+        "Engineer"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "equipment_oee",
+        "capacity_commit"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/17-causes-actions.yaml"
+    },
+    {
+      "id": "fab.cause.alignment_mark_damage",
+      "kind": "entity",
+      "type": "Cause",
+      "domain": "fab",
+      "name_zh": "对位标记损伤/读取不良",
+      "name_en": "Alignment Mark Damage & Poor Readability",
+      "keywords": [
+        "对位标记损伤/读取不良",
+        "Alignment Mark Damage & Poor Readability",
+        "Alignment",
+        "Mark",
+        "Damage",
+        "Poor",
+        "Readability"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "rework_rate",
+        "cycle_time"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/17-causes-actions.yaml"
+    },
+    {
+      "id": "fab.cause.wafer_backside_contamination",
+      "kind": "entity",
+      "type": "Cause",
+      "domain": "fab",
+      "name_zh": "晶圆背面/吸盘沾污",
+      "name_en": "Wafer Backside & Chuck Contamination",
+      "keywords": [
+        "晶圆背面/吸盘沾污",
+        "Wafer Backside & Chuck Contamination",
+        "Wafer",
+        "Backside",
+        "Chuck",
+        "Contamination"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "rework_rate",
+        "equipment_oee"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/17-causes-actions.yaml"
+    },
+    {
+      "id": "fab.cause.lens_heating_drift",
+      "kind": "entity",
+      "type": "Cause",
+      "domain": "fab",
+      "name_zh": "镜头热效应场内漂移",
+      "name_en": "Lens Heating Induced Intra-field Drift",
+      "keywords": [
+        "镜头热效应场内漂移",
+        "Lens Heating Induced Intra-field Drift",
+        "Lens",
+        "Heating",
+        "Induced",
+        "Intra",
+        "field",
+        "Drift"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "throughput"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/17-causes-actions.yaml"
+    },
+    {
+      "id": "fab.action.clean_chuck",
+      "kind": "entity",
+      "type": "Action",
+      "domain": "fab",
+      "name_zh": "清洗曝光机吸盘",
+      "name_en": "Clean Exposure Chuck",
+      "keywords": [
+        "清洗曝光机吸盘",
+        "Clean Exposure Chuck",
+        "Clean",
+        "Exposure",
+        "Chuck"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "equipment_oee",
+        "yield"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/17-causes-actions.yaml"
+    },
+    {
+      "id": "fab.cause.target_erosion_profile",
+      "kind": "entity",
+      "type": "Cause",
+      "domain": "fab",
+      "name_zh": "靶材侵蚀轮廓演化",
+      "name_en": "Target Erosion Groove Evolution",
+      "keywords": [
+        "靶材侵蚀轮廓演化",
+        "Target Erosion Groove Evolution",
+        "Target",
+        "Erosion",
+        "Groove",
+        "Evolution"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "cost_per_unit",
+        "equipment_oee"
+      ],
+      "confidence": "medium",
+      "source_type": "web",
+      "file": "ontology/fab/entities/17-causes-actions.yaml"
+    },
+    {
+      "id": "fab.cause.chamber_wall_condition",
+      "kind": "entity",
+      "type": "Cause",
+      "domain": "fab",
+      "name_zh": "腔体壁沉积状态未预处理",
+      "name_en": "Unconditioned Chamber Wall State",
+      "keywords": [
+        "腔体壁沉积状态未预处理",
+        "Unconditioned Chamber Wall State",
+        "Unconditioned",
+        "Chamber",
+        "Wall",
+        "State"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "equipment_oee",
+        "cost_per_unit"
+      ],
+      "confidence": "medium",
+      "source_type": "web",
+      "file": "ontology/fab/entities/17-causes-actions.yaml"
+    },
+    {
+      "id": "fab.action.chamber_season",
+      "kind": "entity",
+      "type": "Action",
+      "domain": "fab",
+      "name_zh": "腔体预处理（seasoning）",
+      "name_en": "Chamber Seasoning",
+      "keywords": [
+        "腔体预处理（seasoning）",
+        "Chamber Seasoning",
+        "Chamber",
+        "Seasoning"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "equipment_oee",
+        "yield"
+      ],
+      "confidence": "medium",
+      "source_type": "web",
+      "file": "ontology/fab/entities/17-causes-actions.yaml"
+    },
+    {
+      "id": "fab.route.cmos_logic_main",
+      "kind": "entity",
+      "type": "Route",
+      "domain": "fab",
+      "name_zh": "CMOS 逻辑主流程（单金属层）",
+      "name_en": "CMOS Logic Main Flow (Single Metal Layer)",
+      "keywords": [
+        "CMOS 逻辑主流程（单金属层）",
+        "CMOS Logic Main Flow (Single Metal Layer)",
+        "CMOS",
+        "Logic",
+        "Main",
+        "Flow",
+        "Single",
+        "Metal",
+        "Layer"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "cycle_time",
+        "yield",
+        "capacity_commit",
+        "cost_per_unit"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/18-routes.yaml"
+    },
+    {
+      "id": "fab.equip.scanner",
+      "kind": "entity",
+      "type": "Equipment",
+      "domain": "fab",
+      "name_zh": "扫描式曝光机",
+      "name_en": "Scanner / Lithography Tool",
+      "keywords": [
+        "扫描式曝光机",
+        "Scanner / Lithography Tool",
+        "single_wafer",
+        "bottleneck",
+        "Scanner",
+        "Lithography",
+        "Tool"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "capacity_commit",
+        "equipment_oee",
+        "cost_per_unit",
+        "throughput"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/19-equipment.yaml"
+    },
+    {
+      "id": "fab.equip.track",
+      "kind": "entity",
+      "type": "Equipment",
+      "domain": "fab",
+      "name_zh": "涂布显影机",
+      "name_en": "Coater / Developer Track",
+      "keywords": [
+        "涂布显影机",
+        "Coater / Developer Track",
+        "single_wafer",
+        "Coater",
+        "Developer",
+        "Track"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "equipment_oee",
+        "yield",
+        "throughput"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/19-equipment.yaml"
+    },
+    {
+      "id": "fab.equip.etcher_plasma",
+      "kind": "entity",
+      "type": "Equipment",
+      "domain": "fab",
+      "name_zh": "等离子蚀刻机",
+      "name_en": "Plasma Etcher",
+      "keywords": [
+        "等离子蚀刻机",
+        "Plasma Etcher",
+        "single_wafer",
+        "Plasma",
+        "Etcher"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "equipment_oee",
+        "yield",
+        "rework_rate"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/19-equipment.yaml"
+    },
+    {
+      "id": "fab.equip.wet_bench",
+      "kind": "entity",
+      "type": "Equipment",
+      "domain": "fab",
+      "name_zh": "湿式工作台",
+      "name_en": "Wet Bench",
+      "keywords": [
+        "湿式工作台",
+        "Wet Bench",
+        "batch",
+        "Wet",
+        "Bench"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "cost_per_unit",
+        "scrap_rate",
+        "yield"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/19-equipment.yaml"
+    },
+    {
+      "id": "fab.equip.furnace",
+      "kind": "entity",
+      "type": "Equipment",
+      "domain": "fab",
+      "name_zh": "立式扩散炉",
+      "name_en": "Vertical Furnace",
+      "keywords": [
+        "立式扩散炉",
+        "Vertical Furnace",
+        "batch",
+        "bottleneck",
+        "Vertical",
+        "Furnace"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "cycle_time",
+        "capacity_commit",
+        "equipment_oee"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/19-equipment.yaml"
+    },
+    {
+      "id": "fab.equip.rtp",
+      "kind": "entity",
+      "type": "Equipment",
+      "domain": "fab",
+      "name_zh": "快速热处理机",
+      "name_en": "Rapid Thermal Processor (RTP)",
+      "keywords": [
+        "快速热处理机",
+        "Rapid Thermal Processor (RTP)",
+        "single_wafer",
+        "Rapid",
+        "Thermal",
+        "Processor",
+        "RTP"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "cycle_time",
+        "yield",
+        "throughput"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/19-equipment.yaml"
+    },
+    {
+      "id": "fab.equip.implanter",
+      "kind": "entity",
+      "type": "Equipment",
+      "domain": "fab",
+      "name_zh": "离子植入机",
+      "name_en": "Ion Implanter",
+      "keywords": [
+        "离子植入机",
+        "Ion Implanter",
+        "single_wafer",
+        "bottleneck",
+        "Ion",
+        "Implanter"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "capacity_commit",
+        "equipment_oee",
+        "cycle_time"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/19-equipment.yaml"
+    },
+    {
+      "id": "fab.equip.pvd",
+      "kind": "entity",
+      "type": "Equipment",
+      "domain": "fab",
+      "name_zh": "物理气相沉积机",
+      "name_en": "PVD / Sputter",
+      "keywords": [
+        "物理气相沉积机",
+        "PVD / Sputter",
+        "single_wafer",
+        "PVD",
+        "Sputter"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "cost_per_unit",
+        "equipment_oee",
+        "yield"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/19-equipment.yaml"
+    },
+    {
+      "id": "fab.equip.cvd",
+      "kind": "entity",
+      "type": "Equipment",
+      "domain": "fab",
+      "name_zh": "化学气相沉积机",
+      "name_en": "CVD Tool",
+      "keywords": [
+        "化学气相沉积机",
+        "CVD Tool",
+        "single_wafer",
+        "CVD",
+        "Tool"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "equipment_oee",
+        "cost_per_unit"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/19-equipment.yaml"
+    },
+    {
+      "id": "fab.equip.ald",
+      "kind": "entity",
+      "type": "Equipment",
+      "domain": "fab",
+      "name_zh": "原子层沉积机",
+      "name_en": "ALD Tool",
+      "keywords": [
+        "原子层沉积机",
+        "ALD Tool",
+        "single_wafer",
+        "ALD",
+        "Tool"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "cycle_time",
+        "yield",
+        "cost_per_unit"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/19-equipment.yaml"
+    },
+    {
+      "id": "fab.equip.cmp",
+      "kind": "entity",
+      "type": "Equipment",
+      "domain": "fab",
+      "name_zh": "化学机械抛光机",
+      "name_en": "CMP Polisher",
+      "keywords": [
+        "化学机械抛光机",
+        "CMP Polisher",
+        "single_wafer",
+        "CMP",
+        "Polisher"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "cost_per_unit",
+        "equipment_oee"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/19-equipment.yaml"
+    },
+    {
+      "id": "fab.equip.cd_sem",
+      "kind": "entity",
+      "type": "Equipment",
+      "domain": "fab",
+      "name_zh": "关键尺寸扫描电镜",
+      "name_en": "CD-SEM",
+      "keywords": [
+        "关键尺寸扫描电镜",
+        "CD-SEM",
+        "single_wafer",
+        "CD",
+        "SEM"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "cycle_time",
+        "rework_rate",
+        "capacity_commit"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/19-equipment.yaml"
+    },
+    {
+      "id": "fab.equip.overlay_metro",
+      "kind": "entity",
+      "type": "Equipment",
+      "domain": "fab",
+      "name_zh": "套刻量测机",
+      "name_en": "Overlay Metrology Tool",
+      "keywords": [
+        "套刻量测机",
+        "Overlay Metrology Tool",
+        "single_wafer",
+        "Overlay",
+        "Metrology",
+        "Tool"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "rework_rate"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/19-equipment.yaml"
+    },
+    {
+      "id": "fab.equip.defect_scanner",
+      "kind": "entity",
+      "type": "Equipment",
+      "domain": "fab",
+      "name_zh": "缺陷检测机",
+      "name_en": "Defect Inspection Tool",
+      "keywords": [
+        "缺陷检测机",
+        "Defect Inspection Tool",
+        "single_wafer",
+        "Defect",
+        "Inspection",
+        "Tool"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "scrap_rate",
+        "cycle_time"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/19-equipment.yaml"
+    },
+    {
+      "id": "fab.equip.prober",
+      "kind": "entity",
+      "type": "Equipment",
+      "domain": "fab",
+      "name_zh": "晶圆测试机",
+      "name_en": "Wafer Prober / Tester",
+      "keywords": [
+        "晶圆测试机",
+        "Wafer Prober / Tester",
+        "single_wafer",
+        "bottleneck",
+        "Wafer",
+        "Prober",
+        "Tester"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "capacity_commit",
+        "cycle_time",
+        "cost_per_unit"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/19-equipment.yaml"
+    },
+    {
+      "id": "fab.equip.wafer_sorter",
+      "kind": "entity",
+      "type": "Equipment",
+      "domain": "fab",
+      "name_zh": "晶圆分片机",
+      "name_en": "Wafer Sorter",
+      "keywords": [
+        "晶圆分片机",
+        "Wafer Sorter",
+        "single_wafer",
+        "Wafer",
+        "Sorter"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "cycle_time",
+        "scrap_rate"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/fab/entities/19-equipment.yaml"
+    },
+    {
+      "id": "ap.stage.wafer_prep",
+      "kind": "entity",
+      "type": "Stage",
+      "domain": "ap",
+      "name_zh": "晶圆前处理",
+      "name_en": "Wafer Preparation",
+      "keywords": [
+        "晶圆前处理",
+        "Wafer Preparation",
+        "前处理",
+        "磨切",
+        "背磨切割",
+        "Wafer",
+        "Preparation"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "scrap_rate"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/30-stages.yaml"
+    },
+    {
+      "id": "ap.stage.die_bond",
+      "kind": "entity",
+      "type": "Stage",
+      "domain": "ap",
+      "name_zh": "装片",
+      "name_en": "Die Bonding",
+      "keywords": [
+        "装片",
+        "Die Bonding",
+        "黏晶",
+        "上片",
+        "Die Attach",
+        "Die",
+        "Bonding"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "throughput"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/30-stages.yaml"
+    },
+    {
+      "id": "ap.stage.interconnect",
+      "kind": "entity",
+      "type": "Stage",
+      "domain": "ap",
+      "name_zh": "互连",
+      "name_en": "Interconnect",
+      "keywords": [
+        "互连",
+        "Interconnect",
+        "键合",
+        "打线",
+        "焊线",
+        "Bonding"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "cost_per_unit",
+        "throughput"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/30-stages.yaml"
+    },
+    {
+      "id": "ap.stage.encapsulation",
+      "kind": "entity",
+      "type": "Stage",
+      "domain": "ap",
+      "name_zh": "封装成型",
+      "name_en": "Encapsulation",
+      "keywords": [
+        "封装成型",
+        "Encapsulation",
+        "塑封",
+        "封胶",
+        "Molding"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "scrap_rate"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/30-stages.yaml"
+    },
+    {
+      "id": "ap.stage.final_form",
+      "kind": "entity",
+      "type": "Stage",
+      "domain": "ap",
+      "name_zh": "成品成型",
+      "name_en": "Final Forming",
+      "keywords": [
+        "成品成型",
+        "Final Forming",
+        "成型",
+        "植球",
+        "打标",
+        "Final",
+        "Forming"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "throughput"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/30-stages.yaml"
+    },
+    {
+      "id": "ap.stage.test",
+      "kind": "entity",
+      "type": "Stage",
+      "domain": "ap",
+      "name_zh": "测试",
+      "name_en": "Test",
+      "keywords": [
+        "测试",
+        "Test",
+        "终测",
+        "成测",
+        "Final Test"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "throughput",
+        "capacity_commit",
+        "equipment_oee"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/30-stages.yaml"
+    },
+    {
+      "id": "ap.process.wafer_receive",
+      "kind": "entity",
+      "type": "Process",
+      "domain": "ap",
+      "name_zh": "收片",
+      "name_en": "Wafer Receiving",
+      "keywords": [
+        "收片",
+        "Wafer Receiving",
+        "Wafer",
+        "Receiving"
+      ],
+      "stage": "ap.stage.wafer_prep",
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "capacity_commit",
+        "throughput"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/31-processes-prep-bond.yaml"
+    },
+    {
+      "id": "ap.process.bumping",
+      "kind": "entity",
+      "type": "Process",
+      "domain": "ap",
+      "name_zh": "凸块制作",
+      "name_en": "Bumping",
+      "keywords": [
+        "凸块制作",
+        "Bumping"
+      ],
+      "stage": "ap.stage.interconnect",
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "cost_per_unit"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/31-processes-prep-bond.yaml"
+    },
+    {
+      "id": "ap.process.backgrind",
+      "kind": "entity",
+      "type": "Process",
+      "domain": "ap",
+      "name_zh": "背面研磨",
+      "name_en": "Backgrinding",
+      "keywords": [
+        "背面研磨",
+        "Backgrinding"
+      ],
+      "stage": "ap.stage.wafer_prep",
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "scrap_rate"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/31-processes-prep-bond.yaml"
+    },
+    {
+      "id": "ap.process.wafer_mount",
+      "kind": "entity",
+      "type": "Process",
+      "domain": "ap",
+      "name_zh": "贴膜",
+      "name_en": "Wafer Mounting",
+      "keywords": [
+        "贴膜",
+        "Wafer Mounting",
+        "Wafer",
+        "Mounting"
+      ],
+      "stage": "ap.stage.wafer_prep",
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/31-processes-prep-bond.yaml"
+    },
+    {
+      "id": "ap.process.dicing",
+      "kind": "entity",
+      "type": "Process",
+      "domain": "ap",
+      "name_zh": "晶圆切割",
+      "name_en": "Wafer Dicing",
+      "keywords": [
+        "晶圆切割",
+        "Wafer Dicing",
+        "Wafer",
+        "Dicing"
+      ],
+      "stage": "ap.stage.wafer_prep",
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "scrap_rate",
+        "cost_per_unit"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/31-processes-prep-bond.yaml"
+    },
+    {
+      "id": "ap.process.die_attach",
+      "kind": "entity",
+      "type": "Process",
+      "domain": "ap",
+      "name_zh": "装片",
+      "name_en": "Die Attach",
+      "keywords": [
+        "装片",
+        "Die Attach",
+        "Die",
+        "Attach"
+      ],
+      "stage": "ap.stage.die_bond",
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "throughput"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/31-processes-prep-bond.yaml"
+    },
+    {
+      "id": "ap.process.epoxy_cure",
+      "kind": "entity",
+      "type": "Process",
+      "domain": "ap",
+      "name_zh": "胶体固化",
+      "name_en": "Epoxy Cure",
+      "keywords": [
+        "胶体固化",
+        "Epoxy Cure",
+        "Epoxy",
+        "Cure"
+      ],
+      "stage": "ap.stage.die_bond",
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "cycle_time",
+        "yield"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/31-processes-prep-bond.yaml"
+    },
+    {
+      "id": "ap.process.plasma_clean",
+      "kind": "entity",
+      "type": "Process",
+      "domain": "ap",
+      "name_zh": "等离子清洁",
+      "name_en": "Plasma Clean",
+      "keywords": [
+        "等离子清洁",
+        "Plasma Clean",
+        "Plasma",
+        "Clean"
+      ],
+      "stage": "ap.stage.interconnect",
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "rework_rate"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/31-processes-prep-bond.yaml"
+    },
+    {
+      "id": "ap.process.wire_bond",
+      "kind": "entity",
+      "type": "Process",
+      "domain": "ap",
+      "name_zh": "金线键合",
+      "name_en": "Wire Bonding",
+      "keywords": [
+        "金线键合",
+        "Wire Bonding",
+        "Wire",
+        "Bonding"
+      ],
+      "stage": "ap.stage.interconnect",
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "cost_per_unit",
+        "throughput",
+        "capacity_commit"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/31-processes-prep-bond.yaml"
+    },
+    {
+      "id": "ap.process.flip_chip_bond",
+      "kind": "entity",
+      "type": "Process",
+      "domain": "ap",
+      "name_zh": "倒装接合",
+      "name_en": "Flip Chip Bonding",
+      "keywords": [
+        "倒装接合",
+        "Flip Chip Bonding",
+        "Flip",
+        "Chip",
+        "Bonding"
+      ],
+      "stage": "ap.stage.interconnect",
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "cost_per_unit"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/31-processes-prep-bond.yaml"
+    },
+    {
+      "id": "ap.process.underfill",
+      "kind": "entity",
+      "type": "Process",
+      "domain": "ap",
+      "name_zh": "底部填充",
+      "name_en": "Underfill",
+      "keywords": [
+        "底部填充",
+        "Underfill"
+      ],
+      "stage": "ap.stage.interconnect",
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/31-processes-prep-bond.yaml"
+    },
+    {
+      "id": "ap.process.molding",
+      "kind": "entity",
+      "type": "Process",
+      "domain": "ap",
+      "name_zh": "压模成型",
+      "name_en": "Molding",
+      "keywords": [
+        "压模成型",
+        "Molding"
+      ],
+      "stage": "ap.stage.encapsulation",
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "scrap_rate"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/32-processes-mold-test.yaml"
+    },
+    {
+      "id": "ap.process.pmc",
+      "kind": "entity",
+      "type": "Process",
+      "domain": "ap",
+      "name_zh": "后固化",
+      "name_en": "PMC (Post Mold Cure)",
+      "keywords": [
+        "后固化",
+        "PMC (Post Mold Cure)",
+        "PMC",
+        "Post",
+        "Mold",
+        "Cure"
+      ],
+      "stage": "ap.stage.encapsulation",
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "cycle_time"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/32-processes-mold-test.yaml"
+    },
+    {
+      "id": "ap.process.laser_mark",
+      "kind": "entity",
+      "type": "Process",
+      "domain": "ap",
+      "name_zh": "激光打标",
+      "name_en": "Laser Marking",
+      "keywords": [
+        "激光打标",
+        "Laser Marking",
+        "Laser",
+        "Marking"
+      ],
+      "stage": "ap.stage.final_form",
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/32-processes-mold-test.yaml"
+    },
+    {
+      "id": "ap.process.ball_mount",
+      "kind": "entity",
+      "type": "Process",
+      "domain": "ap",
+      "name_zh": "植球",
+      "name_en": "Ball Mount",
+      "keywords": [
+        "植球",
+        "Ball Mount",
+        "Ball",
+        "Mount"
+      ],
+      "stage": "ap.stage.final_form",
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "rework_rate"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/32-processes-mold-test.yaml"
+    },
+    {
+      "id": "ap.process.singulation",
+      "kind": "entity",
+      "type": "Process",
+      "domain": "ap",
+      "name_zh": "切筋分离",
+      "name_en": "Singulation / Trim & Form",
+      "keywords": [
+        "切筋分离",
+        "Singulation / Trim & Form",
+        "Singulation",
+        "Trim",
+        "Form"
+      ],
+      "stage": "ap.stage.final_form",
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/32-processes-mold-test.yaml"
+    },
+    {
+      "id": "ap.process.final_test",
+      "kind": "entity",
+      "type": "Process",
+      "domain": "ap",
+      "name_zh": "成品终测",
+      "name_en": "Final Test (FT)",
+      "keywords": [
+        "成品终测",
+        "Final Test (FT)",
+        "Final",
+        "Test",
+        "FT"
+      ],
+      "stage": "ap.stage.test",
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "throughput",
+        "capacity_commit",
+        "cost_per_unit"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/32-processes-mold-test.yaml"
+    },
+    {
+      "id": "ap.process.burn_in",
+      "kind": "entity",
+      "type": "Process",
+      "domain": "ap",
+      "name_zh": "烧机",
+      "name_en": "Burn-in",
+      "keywords": [
+        "烧机",
+        "Burn-in",
+        "Burn",
+        "in"
+      ],
+      "stage": "ap.stage.test",
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "cycle_time",
+        "cost_per_unit",
+        "capacity_commit"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/32-processes-mold-test.yaml"
+    },
+    {
+      "id": "ap.process.aoi",
+      "kind": "entity",
+      "type": "Process",
+      "domain": "ap",
+      "name_zh": "自动外观检验",
+      "name_en": "AOI (Automated Optical Inspection)",
+      "keywords": [
+        "自动外观检验",
+        "AOI (Automated Optical Inspection)",
+        "AOI",
+        "Automated",
+        "Optical",
+        "Inspection"
+      ],
+      "stage": "ap.stage.test",
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/32-processes-mold-test.yaml"
+    },
+    {
+      "id": "ap.process.packing",
+      "kind": "entity",
+      "type": "Process",
+      "domain": "ap",
+      "name_zh": "包装出货",
+      "name_en": "Packing & Shipping",
+      "keywords": [
+        "包装出货",
+        "Packing & Shipping",
+        "Packing",
+        "Shipping"
+      ],
+      "stage": "ap.stage.test",
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "capacity_commit"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/32-processes-mold-test.yaml"
+    },
+    {
+      "id": "ap.param.grind_feed_rate",
+      "kind": "entity",
+      "type": "Parameter",
+      "domain": "ap",
+      "name_zh": "研磨进给速率",
+      "name_en": "Grind Feed Rate",
+      "keywords": [
+        "研磨进给速率",
+        "Grind Feed Rate",
+        "Grind",
+        "Feed",
+        "Rate"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": "μm/s",
+      "affects": [
+        "yield",
+        "throughput"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/33-parameters.yaml"
+    },
+    {
+      "id": "ap.param.blade_rpm",
+      "kind": "entity",
+      "type": "Parameter",
+      "domain": "ap",
+      "name_zh": "切割刀转速",
+      "name_en": "Dicing Blade RPM",
+      "keywords": [
+        "切割刀转速",
+        "Dicing Blade RPM",
+        "Dicing",
+        "Blade",
+        "RPM"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": "rpm",
+      "affects": [
+        "yield",
+        "cost_per_unit"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/33-parameters.yaml"
+    },
+    {
+      "id": "ap.param.cut_feed_speed",
+      "kind": "entity",
+      "type": "Parameter",
+      "domain": "ap",
+      "name_zh": "切割进给速度",
+      "name_en": "Cutting Feed Speed",
+      "keywords": [
+        "切割进给速度",
+        "Cutting Feed Speed",
+        "Cutting",
+        "Feed",
+        "Speed"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": "mm/s",
+      "affects": [
+        "yield",
+        "throughput"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/33-parameters.yaml"
+    },
+    {
+      "id": "ap.param.epoxy_dispense_volume",
+      "kind": "entity",
+      "type": "Parameter",
+      "domain": "ap",
+      "name_zh": "点胶量",
+      "name_en": "Epoxy Dispense Volume",
+      "keywords": [
+        "点胶量",
+        "Epoxy Dispense Volume",
+        "Epoxy",
+        "Dispense",
+        "Volume"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": "mg",
+      "affects": [
+        "yield",
+        "cost_per_unit"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/33-parameters.yaml"
+    },
+    {
+      "id": "ap.param.die_bond_force",
+      "kind": "entity",
+      "type": "Parameter",
+      "domain": "ap",
+      "name_zh": "装片压力",
+      "name_en": "Die Bond Force",
+      "keywords": [
+        "装片压力",
+        "Die Bond Force",
+        "Die",
+        "Bond",
+        "Force"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": "gf",
+      "affects": [
+        "yield",
+        "scrap_rate"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/33-parameters.yaml"
+    },
+    {
+      "id": "ap.param.bond_power",
+      "kind": "entity",
+      "type": "Parameter",
+      "domain": "ap",
+      "name_zh": "键合超声功率",
+      "name_en": "Bond Ultrasonic Power",
+      "keywords": [
+        "键合超声功率",
+        "Bond Ultrasonic Power",
+        "Bond",
+        "Ultrasonic",
+        "Power"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": "mW",
+      "affects": [
+        "yield",
+        "rework_rate"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/33-parameters.yaml"
+    },
+    {
+      "id": "ap.param.bond_force",
+      "kind": "entity",
+      "type": "Parameter",
+      "domain": "ap",
+      "name_zh": "键合压力",
+      "name_en": "Bond Force",
+      "keywords": [
+        "键合压力",
+        "Bond Force",
+        "Bond",
+        "Force"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": "gf",
+      "affects": [
+        "yield"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/33-parameters.yaml"
+    },
+    {
+      "id": "ap.param.bond_time",
+      "kind": "entity",
+      "type": "Parameter",
+      "domain": "ap",
+      "name_zh": "键合时间",
+      "name_en": "Bond Time",
+      "keywords": [
+        "键合时间",
+        "Bond Time",
+        "Bond",
+        "Time"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": "ms",
+      "affects": [
+        "yield",
+        "throughput"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/33-parameters.yaml"
+    },
+    {
+      "id": "ap.param.bond_stage_temp",
+      "kind": "entity",
+      "type": "Parameter",
+      "domain": "ap",
+      "name_zh": "键合台温度",
+      "name_en": "Bond Stage Temperature",
+      "keywords": [
+        "键合台温度",
+        "Bond Stage Temperature",
+        "Bond",
+        "Stage",
+        "Temperature"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": "℃",
+      "affects": [
+        "yield"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/33-parameters.yaml"
+    },
+    {
+      "id": "ap.param.mold_temp",
+      "kind": "entity",
+      "type": "Parameter",
+      "domain": "ap",
+      "name_zh": "模具温度",
+      "name_en": "Mold Temperature",
+      "keywords": [
+        "模具温度",
+        "Mold Temperature",
+        "Mold",
+        "Temperature"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": "℃",
+      "affects": [
+        "yield"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/33-parameters.yaml"
+    },
+    {
+      "id": "ap.param.mold_pressure",
+      "kind": "entity",
+      "type": "Parameter",
+      "domain": "ap",
+      "name_zh": "塑封压力",
+      "name_en": "Mold Pressure",
+      "keywords": [
+        "塑封压力",
+        "Mold Pressure",
+        "Mold",
+        "Pressure"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": "kgf/cm²",
+      "affects": [
+        "yield",
+        "scrap_rate"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/33-parameters.yaml"
+    },
+    {
+      "id": "ap.param.transfer_speed",
+      "kind": "entity",
+      "type": "Parameter",
+      "domain": "ap",
+      "name_zh": "转注速度",
+      "name_en": "Transfer Speed",
+      "keywords": [
+        "转注速度",
+        "Transfer Speed",
+        "Transfer",
+        "Speed"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": "mm/s",
+      "affects": [
+        "yield",
+        "throughput"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/33-parameters.yaml"
+    },
+    {
+      "id": "ap.param.cure_temp",
+      "kind": "entity",
+      "type": "Parameter",
+      "domain": "ap",
+      "name_zh": "固化温度",
+      "name_en": "Cure Temperature",
+      "keywords": [
+        "固化温度",
+        "Cure Temperature",
+        "Cure",
+        "Temperature"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": "℃",
+      "affects": [
+        "cycle_time",
+        "yield"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/33-parameters.yaml"
+    },
+    {
+      "id": "ap.param.reflow_peak_temp",
+      "kind": "entity",
+      "type": "Parameter",
+      "domain": "ap",
+      "name_zh": "回流峰值温度",
+      "name_en": "Reflow Peak Temperature",
+      "keywords": [
+        "回流峰值温度",
+        "Reflow Peak Temperature",
+        "Reflow",
+        "Peak",
+        "Temperature"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": "℃",
+      "affects": [
+        "yield",
+        "rework_rate"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/33-parameters.yaml"
+    },
+    {
+      "id": "ap.param.test_time",
+      "kind": "entity",
+      "type": "Parameter",
+      "domain": "ap",
+      "name_zh": "测试时间",
+      "name_en": "Test Time",
+      "keywords": [
+        "测试时间",
+        "Test Time",
+        "Test",
+        "Time"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": "s/unit",
+      "affects": [
+        "cost_per_unit",
+        "throughput",
+        "capacity_commit"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/33-parameters.yaml"
+    },
+    {
+      "id": "ap.param.burn_in_temp",
+      "kind": "entity",
+      "type": "Parameter",
+      "domain": "ap",
+      "name_zh": "烧机温度",
+      "name_en": "Burn-in Temperature",
+      "keywords": [
+        "烧机温度",
+        "Burn-in Temperature",
+        "Burn",
+        "in",
+        "Temperature"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": "℃",
+      "affects": [
+        "cycle_time",
+        "cost_per_unit"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/33-parameters.yaml"
+    },
+    {
+      "id": "ap.metric.wire_pull_strength",
+      "kind": "entity",
+      "type": "Metric",
+      "domain": "ap",
+      "name_zh": "金线拉力",
+      "name_en": "Wire Pull Strength",
+      "keywords": [
+        "金线拉力",
+        "Wire Pull Strength",
+        "Wire",
+        "Pull",
+        "Strength"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": "gf",
+      "affects": [
+        "yield"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/34-metrics-materials.yaml"
+    },
+    {
+      "id": "ap.metric.ball_shear_strength",
+      "kind": "entity",
+      "type": "Metric",
+      "domain": "ap",
+      "name_zh": "球剪切强度",
+      "name_en": "Ball Shear Strength",
+      "keywords": [
+        "球剪切强度",
+        "Ball Shear Strength",
+        "Ball",
+        "Shear",
+        "Strength"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": "gf",
+      "affects": [
+        "yield"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/34-metrics-materials.yaml"
+    },
+    {
+      "id": "ap.metric.die_shear_strength",
+      "kind": "entity",
+      "type": "Metric",
+      "domain": "ap",
+      "name_zh": "芯粒剪切强度",
+      "name_en": "Die Shear Strength",
+      "keywords": [
+        "芯粒剪切强度",
+        "Die Shear Strength",
+        "Die",
+        "Shear",
+        "Strength"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": "kgf",
+      "affects": [
+        "yield"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/34-metrics-materials.yaml"
+    },
+    {
+      "id": "ap.metric.wafer_thickness_var",
+      "kind": "entity",
+      "type": "Metric",
+      "domain": "ap",
+      "name_zh": "晶圆厚度变异",
+      "name_en": "Wafer Thickness Variation (TTV)",
+      "keywords": [
+        "晶圆厚度变异",
+        "Wafer Thickness Variation (TTV)",
+        "Wafer",
+        "Thickness",
+        "Variation",
+        "TTV"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": "μm",
+      "affects": [
+        "yield"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/34-metrics-materials.yaml"
+    },
+    {
+      "id": "ap.metric.chipping_size",
+      "kind": "entity",
+      "type": "Metric",
+      "domain": "ap",
+      "name_zh": "崩边尺寸",
+      "name_en": "Chipping Size",
+      "keywords": [
+        "崩边尺寸",
+        "Chipping Size",
+        "Chipping",
+        "Size"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": "μm",
+      "affects": [
+        "yield",
+        "scrap_rate"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/34-metrics-materials.yaml"
+    },
+    {
+      "id": "ap.metric.void_ratio",
+      "kind": "entity",
+      "type": "Metric",
+      "domain": "ap",
+      "name_zh": "空洞率",
+      "name_en": "Void Ratio",
+      "keywords": [
+        "空洞率",
+        "Void Ratio",
+        "Void",
+        "Ratio"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": "%",
+      "affects": [
+        "yield",
+        "scrap_rate"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/34-metrics-materials.yaml"
+    },
+    {
+      "id": "ap.metric.coplanarity",
+      "kind": "entity",
+      "type": "Metric",
+      "domain": "ap",
+      "name_zh": "共面性",
+      "name_en": "Coplanarity",
+      "keywords": [
+        "共面性",
+        "Coplanarity"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": "μm",
+      "affects": [
+        "yield"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/34-metrics-materials.yaml"
+    },
+    {
+      "id": "ap.metric.ft_yield",
+      "kind": "entity",
+      "type": "Metric",
+      "domain": "ap",
+      "name_zh": "终测良率",
+      "name_en": "Final Test Yield",
+      "keywords": [
+        "终测良率",
+        "Final Test Yield",
+        "Final",
+        "Test",
+        "Yield"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": "%",
+      "affects": [
+        "yield",
+        "capacity_commit",
+        "cost_per_unit"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/34-metrics-materials.yaml"
+    },
+    {
+      "id": "ap.material.bonding_wire",
+      "kind": "entity",
+      "type": "Material",
+      "domain": "ap",
+      "name_zh": "键合线",
+      "name_en": "Bonding Wire",
+      "keywords": [
+        "键合线",
+        "Bonding Wire",
+        "Bonding",
+        "Wire"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "cost_per_unit",
+        "yield"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/34-metrics-materials.yaml"
+    },
+    {
+      "id": "ap.material.mold_compound",
+      "kind": "entity",
+      "type": "Material",
+      "domain": "ap",
+      "name_zh": "塑封料",
+      "name_en": "Mold Compound (EMC)",
+      "keywords": [
+        "塑封料",
+        "Mold Compound (EMC)",
+        "Mold",
+        "Compound",
+        "EMC"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "cost_per_unit"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/34-metrics-materials.yaml"
+    },
+    {
+      "id": "ap.material.die_attach_epoxy",
+      "kind": "entity",
+      "type": "Material",
+      "domain": "ap",
+      "name_zh": "装片胶",
+      "name_en": "Die Attach Epoxy",
+      "keywords": [
+        "装片胶",
+        "Die Attach Epoxy",
+        "Die",
+        "Attach",
+        "Epoxy"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "cost_per_unit"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/34-metrics-materials.yaml"
+    },
+    {
+      "id": "ap.material.dicing_tape",
+      "kind": "entity",
+      "type": "Material",
+      "domain": "ap",
+      "name_zh": "切割膜",
+      "name_en": "Dicing Tape",
+      "keywords": [
+        "切割膜",
+        "Dicing Tape",
+        "Dicing",
+        "Tape"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/34-metrics-materials.yaml"
+    },
+    {
+      "id": "ap.anomaly.wire_nsop",
+      "kind": "entity",
+      "type": "Anomaly",
+      "domain": "ap",
+      "name_zh": "金线不粘",
+      "name_en": "NSOP (Non-Stick On Pad)",
+      "keywords": [
+        "金线不粘",
+        "NSOP (Non-Stick On Pad)",
+        "NSOP",
+        "Non",
+        "Stick",
+        "On",
+        "Pad"
+      ],
+      "stage": null,
+      "severity": "high",
+      "unit": null,
+      "affects": [
+        "yield",
+        "rework_rate",
+        "throughput"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/35-anomalies.yaml"
+    },
+    {
+      "id": "ap.anomaly.mold_void",
+      "kind": "entity",
+      "type": "Anomaly",
+      "domain": "ap",
+      "name_zh": "塑封空洞",
+      "name_en": "Mold Void",
+      "keywords": [
+        "塑封空洞",
+        "Mold Void",
+        "Mold",
+        "Void"
+      ],
+      "stage": null,
+      "severity": "high",
+      "unit": null,
+      "affects": [
+        "yield",
+        "scrap_rate"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/35-anomalies.yaml"
+    },
+    {
+      "id": "ap.anomaly.die_crack",
+      "kind": "entity",
+      "type": "Anomaly",
+      "domain": "ap",
+      "name_zh": "芯粒裂纹",
+      "name_en": "Die Crack",
+      "keywords": [
+        "芯粒裂纹",
+        "Die Crack",
+        "Die",
+        "Crack"
+      ],
+      "stage": null,
+      "severity": "critical",
+      "unit": null,
+      "affects": [
+        "yield",
+        "scrap_rate"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/35-anomalies.yaml"
+    },
+    {
+      "id": "ap.anomaly.delamination",
+      "kind": "entity",
+      "type": "Anomaly",
+      "domain": "ap",
+      "name_zh": "界面分层",
+      "name_en": "Delamination",
+      "keywords": [
+        "界面分层",
+        "Delamination"
+      ],
+      "stage": null,
+      "severity": "high",
+      "unit": null,
+      "affects": [
+        "yield",
+        "scrap_rate"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/35-anomalies.yaml"
+    },
+    {
+      "id": "ap.anomaly.dicing_chipping",
+      "kind": "entity",
+      "type": "Anomaly",
+      "domain": "ap",
+      "name_zh": "切割崩边超规",
+      "name_en": "Dicing Chipping Excursion",
+      "keywords": [
+        "切割崩边超规",
+        "Dicing Chipping Excursion",
+        "Dicing",
+        "Chipping",
+        "Excursion"
+      ],
+      "stage": null,
+      "severity": "high",
+      "unit": null,
+      "affects": [
+        "yield",
+        "scrap_rate",
+        "cost_per_unit"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/35-anomalies.yaml"
+    },
+    {
+      "id": "ap.anomaly.missing_ball",
+      "kind": "entity",
+      "type": "Anomaly",
+      "domain": "ap",
+      "name_zh": "缺球/连球",
+      "name_en": "Missing / Bridged Ball",
+      "keywords": [
+        "缺球/连球",
+        "Missing / Bridged Ball",
+        "Missing",
+        "Bridged",
+        "Ball"
+      ],
+      "stage": null,
+      "severity": "medium",
+      "unit": null,
+      "affects": [
+        "yield",
+        "rework_rate"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/35-anomalies.yaml"
+    },
+    {
+      "id": "ap.anomaly.ft_yield_drop",
+      "kind": "entity",
+      "type": "Anomaly",
+      "domain": "ap",
+      "name_zh": "终测良率下滑",
+      "name_en": "FT Yield Drop",
+      "keywords": [
+        "终测良率下滑",
+        "FT Yield Drop",
+        "FT",
+        "Yield",
+        "Drop"
+      ],
+      "stage": null,
+      "severity": "critical",
+      "unit": null,
+      "affects": [
+        "yield",
+        "capacity_commit",
+        "cost_per_unit"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/35-anomalies.yaml"
+    },
+    {
+      "id": "ap.anomaly.bonder_down",
+      "kind": "entity",
+      "type": "Anomaly",
+      "domain": "ap",
+      "name_zh": "键合机停机",
+      "name_en": "Wire Bonder Down",
+      "keywords": [
+        "键合机停机",
+        "Wire Bonder Down",
+        "Wire",
+        "Bonder",
+        "Down"
+      ],
+      "stage": null,
+      "severity": "high",
+      "unit": null,
+      "affects": [
+        "equipment_oee",
+        "throughput",
+        "cycle_time"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/35-anomalies.yaml"
+    },
+    {
+      "id": "ap.cause.pad_contamination",
+      "kind": "entity",
+      "type": "Cause",
+      "domain": "ap",
+      "name_zh": "焊垫污染",
+      "name_en": "Bond Pad Contamination",
+      "keywords": [
+        "焊垫污染",
+        "Bond Pad Contamination",
+        "Bond",
+        "Pad",
+        "Contamination"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "rework_rate"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/36-causes-actions.yaml"
+    },
+    {
+      "id": "ap.cause.capillary_wear",
+      "kind": "entity",
+      "type": "Cause",
+      "domain": "ap",
+      "name_zh": "瓷嘴磨损",
+      "name_en": "Capillary Wear",
+      "keywords": [
+        "瓷嘴磨损",
+        "Capillary Wear",
+        "Capillary",
+        "Wear"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "cost_per_unit"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/36-causes-actions.yaml"
+    },
+    {
+      "id": "ap.cause.bond_param_drift",
+      "kind": "entity",
+      "type": "Cause",
+      "domain": "ap",
+      "name_zh": "键合参数漂移",
+      "name_en": "Bond Parameter Drift",
+      "keywords": [
+        "键合参数漂移",
+        "Bond Parameter Drift",
+        "Bond",
+        "Parameter",
+        "Drift"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/36-causes-actions.yaml"
+    },
+    {
+      "id": "ap.cause.emc_moisture",
+      "kind": "entity",
+      "type": "Cause",
+      "domain": "ap",
+      "name_zh": "塑封料吸湿",
+      "name_en": "Mold Compound Moisture",
+      "keywords": [
+        "塑封料吸湿",
+        "Mold Compound Moisture",
+        "Mold",
+        "Compound",
+        "Moisture"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "scrap_rate",
+        "cost_per_unit"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/36-causes-actions.yaml"
+    },
+    {
+      "id": "ap.cause.blade_wear",
+      "kind": "entity",
+      "type": "Cause",
+      "domain": "ap",
+      "name_zh": "刀片磨损/崩齿",
+      "name_en": "Dicing Blade Wear / Chipping",
+      "keywords": [
+        "刀片磨损/崩齿",
+        "Dicing Blade Wear / Chipping",
+        "Dicing",
+        "Blade",
+        "Wear",
+        "Chipping"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "cost_per_unit"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/36-causes-actions.yaml"
+    },
+    {
+      "id": "ap.cause.grind_wheel_clog",
+      "kind": "entity",
+      "type": "Cause",
+      "domain": "ap",
+      "name_zh": "砂轮堵塞",
+      "name_en": "Grind Wheel Clogging",
+      "keywords": [
+        "砂轮堵塞",
+        "Grind Wheel Clogging",
+        "Grind",
+        "Wheel",
+        "Clogging"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "scrap_rate"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/36-causes-actions.yaml"
+    },
+    {
+      "id": "ap.cause.epoxy_bleed",
+      "kind": "entity",
+      "type": "Cause",
+      "domain": "ap",
+      "name_zh": "装片胶溢流",
+      "name_en": "Epoxy Bleed Out",
+      "keywords": [
+        "装片胶溢流",
+        "Epoxy Bleed Out",
+        "Epoxy",
+        "Bleed",
+        "Out"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "rework_rate"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/36-causes-actions.yaml"
+    },
+    {
+      "id": "ap.cause.probe_card_wear",
+      "kind": "entity",
+      "type": "Cause",
+      "domain": "ap",
+      "name_zh": "测试治具磨损",
+      "name_en": "Probe Card / Socket Wear",
+      "keywords": [
+        "测试治具磨损",
+        "Probe Card / Socket Wear",
+        "Probe",
+        "Card",
+        "Socket",
+        "Wear"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "cost_per_unit"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/36-causes-actions.yaml"
+    },
+    {
+      "id": "ap.cause.reflow_profile_drift",
+      "kind": "entity",
+      "type": "Cause",
+      "domain": "ap",
+      "name_zh": "回流曲线漂移",
+      "name_en": "Reflow Profile Drift",
+      "keywords": [
+        "回流曲线漂移",
+        "Reflow Profile Drift",
+        "Reflow",
+        "Profile",
+        "Drift"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/36-causes-actions.yaml"
+    },
+    {
+      "id": "ap.cause.fixture_shortage",
+      "kind": "entity",
+      "type": "Cause",
+      "domain": "ap",
+      "name_zh": "治具/载具短缺",
+      "name_en": "Fixture & Carrier Shortage",
+      "keywords": [
+        "治具/载具短缺",
+        "Fixture & Carrier Shortage",
+        "Fixture",
+        "Carrier",
+        "Shortage"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "throughput",
+        "cycle_time",
+        "capacity_commit"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/36-causes-actions.yaml"
+    },
+    {
+      "id": "ap.action.hold_lot",
+      "kind": "entity",
+      "type": "Action",
+      "domain": "ap",
+      "name_zh": "扣留批次",
+      "name_en": "Hold Lot",
+      "keywords": [
+        "扣留批次",
+        "Hold Lot",
+        "Hold",
+        "Lot"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "cycle_time",
+        "capacity_commit"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/36-causes-actions.yaml"
+    },
+    {
+      "id": "ap.action.plasma_clean_rerun",
+      "kind": "entity",
+      "type": "Action",
+      "domain": "ap",
+      "name_zh": "追加等离子清洁",
+      "name_en": "Additional Plasma Clean",
+      "keywords": [
+        "追加等离子清洁",
+        "Additional Plasma Clean",
+        "Additional",
+        "Plasma",
+        "Clean"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "cost_per_unit"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/36-causes-actions.yaml"
+    },
+    {
+      "id": "ap.action.replace_capillary",
+      "kind": "entity",
+      "type": "Action",
+      "domain": "ap",
+      "name_zh": "更换瓷嘴",
+      "name_en": "Replace Capillary",
+      "keywords": [
+        "更换瓷嘴",
+        "Replace Capillary",
+        "Replace",
+        "Capillary"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "cost_per_unit",
+        "equipment_oee"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/36-causes-actions.yaml"
+    },
+    {
+      "id": "ap.action.bond_param_doe",
+      "kind": "entity",
+      "type": "Action",
+      "domain": "ap",
+      "name_zh": "键合参数优化",
+      "name_en": "Bond Parameter DOE",
+      "keywords": [
+        "键合参数优化",
+        "Bond Parameter DOE",
+        "Bond",
+        "Parameter",
+        "DOE"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "rework_rate"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/36-causes-actions.yaml"
+    },
+    {
+      "id": "ap.action.bake_emc",
+      "kind": "entity",
+      "type": "Action",
+      "domain": "ap",
+      "name_zh": "塑封料返烤",
+      "name_en": "Bake Mold Compound",
+      "keywords": [
+        "塑封料返烤",
+        "Bake Mold Compound",
+        "Bake",
+        "Mold",
+        "Compound"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "cost_per_unit"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/36-causes-actions.yaml"
+    },
+    {
+      "id": "ap.action.replace_blade",
+      "kind": "entity",
+      "type": "Action",
+      "domain": "ap",
+      "name_zh": "更换/修整切割刀",
+      "name_en": "Replace or Dress Dicing Blade",
+      "keywords": [
+        "更换/修整切割刀",
+        "Replace or Dress Dicing Blade",
+        "Replace",
+        "or",
+        "Dress",
+        "Dicing",
+        "Blade"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "cost_per_unit"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/36-causes-actions.yaml"
+    },
+    {
+      "id": "ap.action.adjust_dispense",
+      "kind": "entity",
+      "type": "Action",
+      "domain": "ap",
+      "name_zh": "调整点胶参数",
+      "name_en": "Adjust Dispense Parameters",
+      "keywords": [
+        "调整点胶参数",
+        "Adjust Dispense Parameters",
+        "Adjust",
+        "Dispense",
+        "Parameters"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "cost_per_unit"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/36-causes-actions.yaml"
+    },
+    {
+      "id": "ap.action.replace_probe_card",
+      "kind": "entity",
+      "type": "Action",
+      "domain": "ap",
+      "name_zh": "更换/清洗测试治具",
+      "name_en": "Replace or Clean Probe Card",
+      "keywords": [
+        "更换/清洗测试治具",
+        "Replace or Clean Probe Card",
+        "Replace",
+        "or",
+        "Clean",
+        "Probe",
+        "Card"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "cost_per_unit"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/36-causes-actions.yaml"
+    },
+    {
+      "id": "ap.action.retest",
+      "kind": "entity",
+      "type": "Action",
+      "domain": "ap",
+      "name_zh": "重测",
+      "name_en": "Retest",
+      "keywords": [
+        "重测",
+        "Retest"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "throughput"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/36-causes-actions.yaml"
+    },
+    {
+      "id": "ap.action.reallocate_fixture",
+      "kind": "entity",
+      "type": "Action",
+      "domain": "ap",
+      "name_zh": "调配治具/改派机台",
+      "name_en": "Reallocate Fixture or Machine",
+      "keywords": [
+        "调配治具/改派机台",
+        "Reallocate Fixture or Machine",
+        "Reallocate",
+        "Fixture",
+        "or",
+        "Machine"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "throughput",
+        "cycle_time"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/36-causes-actions.yaml"
+    },
+    {
+      "id": "ap.cause.efo_electrode_fouling",
+      "kind": "entity",
+      "type": "Cause",
+      "domain": "ap",
+      "name_zh": "EFO 电极污染/磨损",
+      "name_en": "EFO Electrode Fouling & Wear",
+      "keywords": [
+        "EFO 电极污染/磨损",
+        "EFO Electrode Fouling & Wear",
+        "EFO",
+        "Electrode",
+        "Fouling",
+        "Wear"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "equipment_oee",
+        "throughput",
+        "rework_rate"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/36-causes-actions.yaml"
+    },
+    {
+      "id": "ap.cause.wire_feed_jam",
+      "kind": "entity",
+      "type": "Cause",
+      "domain": "ap",
+      "name_zh": "送线卡线/断线",
+      "name_en": "Wire Feed Jam & Wire Break",
+      "keywords": [
+        "送线卡线/断线",
+        "Wire Feed Jam & Wire Break",
+        "Wire",
+        "Feed",
+        "Jam",
+        "Break"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "equipment_oee",
+        "throughput"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/36-causes-actions.yaml"
+    },
+    {
+      "id": "ap.cause.bond_head_servo_fault",
+      "kind": "entity",
+      "type": "Cause",
+      "domain": "ap",
+      "name_zh": "键合头伺服/Z 轴异常",
+      "name_en": "Bond Head Servo & Z-axis Fault",
+      "keywords": [
+        "键合头伺服/Z 轴异常",
+        "Bond Head Servo & Z-axis Fault",
+        "Bond",
+        "Head",
+        "Servo",
+        "axis",
+        "Fault"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "equipment_oee",
+        "capacity_commit"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/36-causes-actions.yaml"
+    },
+    {
+      "id": "ap.action.clean_efo_electrode",
+      "kind": "entity",
+      "type": "Action",
+      "domain": "ap",
+      "name_zh": "清洗/更换 EFO 电极",
+      "name_en": "Clean or Replace EFO Electrode",
+      "keywords": [
+        "清洗/更换 EFO 电极",
+        "Clean or Replace EFO Electrode",
+        "Clean",
+        "or",
+        "Replace",
+        "EFO",
+        "Electrode"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "equipment_oee",
+        "rework_rate"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/36-causes-actions.yaml"
+    },
+    {
+      "id": "ap.cause.flux_print_defect",
+      "kind": "entity",
+      "type": "Cause",
+      "domain": "ap",
+      "name_zh": "助焊剂印刷不良",
+      "name_en": "Flux Print Defect",
+      "keywords": [
+        "助焊剂印刷不良",
+        "Flux Print Defect",
+        "Flux",
+        "Print",
+        "Defect"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "rework_rate"
+      ],
+      "confidence": "medium",
+      "source_type": "web",
+      "file": "ontology/ap/entities/36-causes-actions.yaml"
+    },
+    {
+      "id": "ap.action.reball_rework",
+      "kind": "entity",
+      "type": "Action",
+      "domain": "ap",
+      "name_zh": "补植/重植锡球",
+      "name_en": "Reball Rework",
+      "keywords": [
+        "补植/重植锡球",
+        "Reball Rework",
+        "Reball",
+        "Rework"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "rework_rate",
+        "yield",
+        "cost_per_unit"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/36-causes-actions.yaml"
+    },
+    {
+      "id": "ap.cause.placement_fixture_clog",
+      "kind": "entity",
+      "type": "Cause",
+      "domain": "ap",
+      "name_zh": "植球治具孔位堵塞",
+      "name_en": "Ball Placement Fixture Aperture Clogging",
+      "keywords": [
+        "植球治具孔位堵塞",
+        "Ball Placement Fixture Aperture Clogging",
+        "Ball",
+        "Placement",
+        "Fixture",
+        "Aperture",
+        "Clogging"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "rework_rate"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/36-causes-actions.yaml"
+    },
+    {
+      "id": "ap.action.clean_placement_fixture",
+      "kind": "entity",
+      "type": "Action",
+      "domain": "ap",
+      "name_zh": "清洁/更换植球治具",
+      "name_en": "Clean or Replace Ball Placement Fixture",
+      "keywords": [
+        "清洁/更换植球治具",
+        "Clean or Replace Ball Placement Fixture",
+        "Clean",
+        "or",
+        "Replace",
+        "Ball",
+        "Placement",
+        "Fixture"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "rework_rate",
+        "equipment_oee"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/36-causes-actions.yaml"
+    },
+    {
+      "id": "ap.route.qfn_wirebond_main",
+      "kind": "entity",
+      "type": "Route",
+      "domain": "ap",
+      "name_zh": "QFN 金线封装主流程",
+      "name_en": "QFN Wire Bond Main Flow",
+      "keywords": [
+        "QFN 金线封装主流程",
+        "QFN Wire Bond Main Flow",
+        "QFN",
+        "Wire",
+        "Bond",
+        "Main",
+        "Flow"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "cycle_time",
+        "yield",
+        "cost_per_unit",
+        "capacity_commit"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/37-routes.yaml"
+    },
+    {
+      "id": "ap.route.bga_flipchip_main",
+      "kind": "entity",
+      "type": "Route",
+      "domain": "ap",
+      "name_zh": "BGA 倒装封装主流程",
+      "name_en": "BGA Flip Chip Main Flow",
+      "keywords": [
+        "BGA 倒装封装主流程",
+        "BGA Flip Chip Main Flow",
+        "BGA",
+        "Flip",
+        "Chip",
+        "Main",
+        "Flow"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "cycle_time",
+        "yield",
+        "cost_per_unit"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/37-routes.yaml"
+    },
+    {
+      "id": "ap.equip.grinder",
+      "kind": "entity",
+      "type": "Equipment",
+      "domain": "ap",
+      "name_zh": "晶圆研磨机",
+      "name_en": "Backgrinder",
+      "keywords": [
+        "晶圆研磨机",
+        "Backgrinder",
+        "single_wafer"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "scrap_rate",
+        "yield",
+        "equipment_oee"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/38-equipment.yaml"
+    },
+    {
+      "id": "ap.equip.dicing_saw",
+      "kind": "entity",
+      "type": "Equipment",
+      "domain": "ap",
+      "name_zh": "晶圆切割机",
+      "name_en": "Dicing Saw",
+      "keywords": [
+        "晶圆切割机",
+        "Dicing Saw",
+        "single_wafer",
+        "bottleneck",
+        "Dicing",
+        "Saw"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "throughput",
+        "cost_per_unit"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/38-equipment.yaml"
+    },
+    {
+      "id": "ap.equip.tape_mounter",
+      "kind": "entity",
+      "type": "Equipment",
+      "domain": "ap",
+      "name_zh": "贴膜机",
+      "name_en": "Wafer Mounter",
+      "keywords": [
+        "贴膜机",
+        "Wafer Mounter",
+        "single_wafer",
+        "Wafer",
+        "Mounter"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "rework_rate"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/38-equipment.yaml"
+    },
+    {
+      "id": "ap.equip.die_bonder",
+      "kind": "entity",
+      "type": "Equipment",
+      "domain": "ap",
+      "name_zh": "黏晶机",
+      "name_en": "Die Bonder",
+      "keywords": [
+        "黏晶机",
+        "Die Bonder",
+        "single_unit",
+        "bottleneck",
+        "Die",
+        "Bonder"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "throughput",
+        "capacity_commit",
+        "yield"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/38-equipment.yaml"
+    },
+    {
+      "id": "ap.equip.cure_oven",
+      "kind": "entity",
+      "type": "Equipment",
+      "domain": "ap",
+      "name_zh": "固化炉",
+      "name_en": "Cure Oven",
+      "keywords": [
+        "固化炉",
+        "Cure Oven",
+        "batch",
+        "Cure",
+        "Oven"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "cycle_time",
+        "yield",
+        "capacity_commit"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/38-equipment.yaml"
+    },
+    {
+      "id": "ap.equip.wire_bonder",
+      "kind": "entity",
+      "type": "Equipment",
+      "domain": "ap",
+      "name_zh": "打线机",
+      "name_en": "Wire Bonder",
+      "keywords": [
+        "打线机",
+        "Wire Bonder",
+        "single_unit",
+        "bottleneck",
+        "Wire",
+        "Bonder"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "throughput",
+        "cost_per_unit",
+        "capacity_commit",
+        "yield"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/38-equipment.yaml"
+    },
+    {
+      "id": "ap.equip.fc_bonder",
+      "kind": "entity",
+      "type": "Equipment",
+      "domain": "ap",
+      "name_zh": "覆晶接合机",
+      "name_en": "Flip Chip Bonder",
+      "keywords": [
+        "覆晶接合机",
+        "Flip Chip Bonder",
+        "single_unit",
+        "bottleneck",
+        "Flip",
+        "Chip",
+        "Bonder"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "capacity_commit",
+        "yield",
+        "cost_per_unit"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/38-equipment.yaml"
+    },
+    {
+      "id": "ap.equip.plasma_cleaner",
+      "kind": "entity",
+      "type": "Equipment",
+      "domain": "ap",
+      "name_zh": "等离子清洗机",
+      "name_en": "Plasma Cleaner",
+      "keywords": [
+        "等离子清洗机",
+        "Plasma Cleaner",
+        "batch",
+        "Plasma",
+        "Cleaner"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "rework_rate"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/38-equipment.yaml"
+    },
+    {
+      "id": "ap.equip.underfill_dispenser",
+      "kind": "entity",
+      "type": "Equipment",
+      "domain": "ap",
+      "name_zh": "底填胶点胶机",
+      "name_en": "Underfill Dispenser",
+      "keywords": [
+        "底填胶点胶机",
+        "Underfill Dispenser",
+        "single_unit",
+        "Underfill",
+        "Dispenser"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "cycle_time",
+        "yield"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/38-equipment.yaml"
+    },
+    {
+      "id": "ap.equip.bumping_line",
+      "kind": "entity",
+      "type": "Equipment",
+      "domain": "ap",
+      "name_zh": "凸块制造线",
+      "name_en": "Bumping Line",
+      "keywords": [
+        "凸块制造线",
+        "Bumping Line",
+        "single_wafer",
+        "Bumping",
+        "Line"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "capacity_commit",
+        "cost_per_unit",
+        "yield"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/38-equipment.yaml"
+    },
+    {
+      "id": "ap.equip.mold_press",
+      "kind": "entity",
+      "type": "Equipment",
+      "domain": "ap",
+      "name_zh": "塑封成型机",
+      "name_en": "Molding Press",
+      "keywords": [
+        "塑封成型机",
+        "Molding Press",
+        "batch",
+        "bottleneck",
+        "Molding",
+        "Press"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "capacity_commit",
+        "cost_per_unit",
+        "yield",
+        "equipment_oee"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/38-equipment.yaml"
+    },
+    {
+      "id": "ap.equip.pmc_oven",
+      "kind": "entity",
+      "type": "Equipment",
+      "domain": "ap",
+      "name_zh": "后固化炉",
+      "name_en": "Post Mold Cure Oven",
+      "keywords": [
+        "后固化炉",
+        "Post Mold Cure Oven",
+        "batch",
+        "Post",
+        "Mold",
+        "Cure",
+        "Oven"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "cycle_time",
+        "yield",
+        "capacity_commit"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/38-equipment.yaml"
+    },
+    {
+      "id": "ap.equip.laser_marker",
+      "kind": "entity",
+      "type": "Equipment",
+      "domain": "ap",
+      "name_zh": "激光打标机",
+      "name_en": "Laser Marker",
+      "keywords": [
+        "激光打标机",
+        "Laser Marker",
+        "single_unit",
+        "Laser",
+        "Marker"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "rework_rate",
+        "scrap_rate"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/38-equipment.yaml"
+    },
+    {
+      "id": "ap.equip.singulation_saw",
+      "kind": "entity",
+      "type": "Equipment",
+      "domain": "ap",
+      "name_zh": "封装切单机",
+      "name_en": "Singulation Saw",
+      "keywords": [
+        "封装切单机",
+        "Singulation Saw",
+        "single_unit",
+        "Singulation",
+        "Saw"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "scrap_rate",
+        "yield"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/38-equipment.yaml"
+    },
+    {
+      "id": "ap.equip.ball_mounter",
+      "kind": "entity",
+      "type": "Equipment",
+      "domain": "ap",
+      "name_zh": "植球机",
+      "name_en": "Ball Mounter",
+      "keywords": [
+        "植球机",
+        "Ball Mounter",
+        "single_unit",
+        "Ball",
+        "Mounter"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "scrap_rate"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/38-equipment.yaml"
+    },
+    {
+      "id": "ap.equip.aoi",
+      "kind": "entity",
+      "type": "Equipment",
+      "domain": "ap",
+      "name_zh": "自动光学检测机",
+      "name_en": "AOI System",
+      "keywords": [
+        "自动光学检测机",
+        "AOI System",
+        "single_unit",
+        "AOI",
+        "System"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "yield",
+        "scrap_rate",
+        "rework_rate"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/38-equipment.yaml"
+    },
+    {
+      "id": "ap.equip.final_tester",
+      "kind": "entity",
+      "type": "Equipment",
+      "domain": "ap",
+      "name_zh": "成品测试机",
+      "name_en": "Final Tester + Handler",
+      "keywords": [
+        "成品测试机",
+        "Final Tester + Handler",
+        "single_unit",
+        "bottleneck",
+        "Final",
+        "Tester",
+        "Handler"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "capacity_commit",
+        "cost_per_unit",
+        "cycle_time"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/38-equipment.yaml"
+    },
+    {
+      "id": "ap.equip.burn_in_oven",
+      "kind": "entity",
+      "type": "Equipment",
+      "domain": "ap",
+      "name_zh": "老化炉",
+      "name_en": "Burn-in Oven",
+      "keywords": [
+        "老化炉",
+        "Burn-in Oven",
+        "batch",
+        "Burn",
+        "in",
+        "Oven"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "cycle_time",
+        "capacity_commit",
+        "cost_per_unit"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/38-equipment.yaml"
+    },
+    {
+      "id": "ap.equip.taping_machine",
+      "kind": "entity",
+      "type": "Equipment",
+      "domain": "ap",
+      "name_zh": "编带包装机",
+      "name_en": "Taping / Packing Machine",
+      "keywords": [
+        "编带包装机",
+        "Taping / Packing Machine",
+        "single_unit",
+        "Taping",
+        "Packing",
+        "Machine"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "scrap_rate",
+        "yield"
+      ],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/ap/entities/38-equipment.yaml"
+    },
+    {
+      "id": "kb.fab.particle_excursion_triage",
+      "kind": "kb_case",
+      "type": "Playbook",
+      "domain": "fab",
+      "name_zh": "颗粒突增排查与处置",
+      "name_en": null,
+      "keywords": [
+        "颗粒突增排查与处置",
+        "缺陷",
+        "颗粒",
+        "排查",
+        "光罩"
+      ],
+      "anomaly_ref": "fab.anomaly.particle_excursion",
+      "detected_at_ref": "fab.process.defect_scan",
+      "severity": "critical",
+      "cause_refs": [
+        "fab.cause.reticle_haze",
+        "fab.cause.chamber_polymer_buildup",
+        "fab.cause.target_end_of_life",
+        "fab.cause.env_excursion",
+        "fab.cause.slurry_agglomeration"
+      ],
+      "action_refs": [
+        "fab.action.hold_lot",
+        "fab.action.reticle_clean",
+        "fab.action.chamber_clean",
+        "fab.action.expand_sampling"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "kb/fab/defect-equipment-cases.yaml"
+    },
+    {
+      "id": "kb.fab.cmp_scratch_triage",
+      "kind": "kb_case",
+      "type": "Playbook",
+      "domain": "fab",
+      "name_zh": "CMP 划伤排查与处置",
+      "name_en": null,
+      "keywords": [
+        "CMP 划伤排查与处置",
+        "CMP",
+        "划伤",
+        "耗材"
+      ],
+      "anomaly_ref": "fab.anomaly.cmp_scratch",
+      "detected_at_ref": "fab.process.defect_scan",
+      "severity": "high",
+      "cause_refs": [
+        "fab.cause.pad_end_of_life",
+        "fab.cause.slurry_agglomeration",
+        "fab.param.cmp_pressure"
+      ],
+      "action_refs": [
+        "fab.action.replace_consumable",
+        "fab.action.hold_lot"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "kb/fab/defect-equipment-cases.yaml"
+    },
+    {
+      "id": "kb.fab.implant_dose_drift_triage",
+      "kind": "kb_case",
+      "type": "Playbook",
+      "domain": "fab",
+      "name_zh": "注入剂量漂移排查与处置",
+      "name_en": null,
+      "keywords": [
+        "注入剂量漂移排查与处置",
+        "注入",
+        "电性",
+        "延迟暴露"
+      ],
+      "anomaly_ref": "fab.anomaly.implant_dose_drift",
+      "detected_at_ref": "fab.process.wat",
+      "severity": "high",
+      "cause_refs": [
+        "fab.cause.beam_current_drift",
+        "fab.cause.recipe_misload",
+        "fab.param.implant_dose"
+      ],
+      "action_refs": [
+        "fab.action.hold_lot",
+        "fab.action.recipe_adjust",
+        "fab.action.expand_sampling"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "kb/fab/defect-equipment-cases.yaml"
+    },
+    {
+      "id": "kb.fab.scanner_down_triage",
+      "kind": "kb_case",
+      "type": "Playbook",
+      "domain": "fab",
+      "name_zh": "光刻机非计划停机排查与处置",
+      "name_en": null,
+      "keywords": [
+        "光刻机非计划停机排查与处置",
+        "光刻",
+        "设备停机",
+        "瓶颈",
+        "排程"
+      ],
+      "anomaly_ref": "fab.anomaly.scanner_down",
+      "detected_at_ref": "fab.process.photo_exposure",
+      "severity": "critical",
+      "cause_refs": [
+        "fab.cause.reticle_stage_error",
+        "fab.cause.light_source_degradation",
+        "fab.cause.pm_overdue",
+        "fab.cause.env_excursion"
+      ],
+      "action_refs": [
+        "fab.action.dispatch_field_service",
+        "fab.action.skip_ahead",
+        "fab.action.hold_lot"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "kb/fab/defect-equipment-cases.yaml"
+    },
+    {
+      "id": "kb.fab.film_thickness_dev_triage",
+      "kind": "kb_case",
+      "type": "Playbook",
+      "domain": "fab",
+      "name_zh": "薄膜膜厚偏移/均匀性超规排查与处置",
+      "name_en": null,
+      "keywords": [
+        "薄膜膜厚偏移/均匀性超规排查与处置",
+        "薄膜",
+        "膜厚",
+        "靶材",
+        "腔体状态",
+        "均匀性"
+      ],
+      "anomaly_ref": "fab.anomaly.film_thickness_dev",
+      "detected_at_ref": "fab.process.pvd_metal",
+      "severity": "high",
+      "cause_refs": [
+        "fab.cause.chamber_wall_condition",
+        "fab.cause.target_erosion_profile",
+        "fab.cause.target_end_of_life",
+        "fab.cause.recipe_misload",
+        "fab.param.chamber_pressure"
+      ],
+      "action_refs": [
+        "fab.action.hold_lot",
+        "fab.action.chamber_season",
+        "fab.action.recipe_adjust",
+        "fab.action.replace_consumable"
+      ],
+      "confidence": "medium",
+      "source_type": "web",
+      "file": "kb/fab/defect-equipment-cases.yaml"
+    },
+    {
+      "id": "kb.fab.cd_out_of_spec_triage",
+      "kind": "kb_case",
+      "type": "Playbook",
+      "domain": "fab",
+      "name_zh": "CD 超规排查与处置",
+      "name_en": null,
+      "keywords": [
+        "CD 超规排查与处置",
+        "光刻",
+        "CD",
+        "排查"
+      ],
+      "anomaly_ref": "fab.anomaly.cd_out_of_spec",
+      "detected_at_ref": "fab.process.cd_measure",
+      "severity": "high",
+      "cause_refs": [
+        "fab.param.exposure_dose",
+        "fab.cause.hotplate_nonuniform",
+        "fab.cause.resist_lot_change",
+        "fab.cause.recipe_misload",
+        "fab.param.exposure_focus",
+        "fab.cause.lens_contamination"
+      ],
+      "action_refs": [
+        "fab.action.hold_lot",
+        "fab.action.photo_rework",
+        "fab.action.recipe_adjust",
+        "fab.action.expand_sampling"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "kb/fab/photo-etch-cases.yaml"
+    },
+    {
+      "id": "kb.fab.etch_residue_triage",
+      "kind": "kb_case",
+      "type": "Playbook",
+      "domain": "fab",
+      "name_zh": "蚀刻残留排查与处置",
+      "name_en": null,
+      "keywords": [
+        "蚀刻残留排查与处置",
+        "蚀刻",
+        "残留",
+        "排查"
+      ],
+      "anomaly_ref": "fab.anomaly.etch_residue",
+      "detected_at_ref": "fab.process.defect_scan",
+      "severity": "high",
+      "cause_refs": [
+        "fab.cause.chamber_polymer_buildup",
+        "fab.cause.epd_failure",
+        "fab.param.etch_time"
+      ],
+      "action_refs": [
+        "fab.action.recipe_adjust",
+        "fab.action.chamber_clean",
+        "fab.action.hold_lot"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "kb/fab/photo-etch-cases.yaml"
+    },
+    {
+      "id": "kb.fab.overlay_shift_triage",
+      "kind": "kb_case",
+      "type": "Playbook",
+      "domain": "fab",
+      "name_zh": "套刻偏移排查与处置",
+      "name_en": null,
+      "keywords": [
+        "套刻偏移排查与处置",
+        "光刻",
+        "套刻",
+        "对位",
+        "排查"
+      ],
+      "anomaly_ref": "fab.anomaly.overlay_shift",
+      "detected_at_ref": "fab.process.overlay_measure",
+      "severity": "high",
+      "cause_refs": [
+        "fab.cause.recipe_misload",
+        "fab.cause.alignment_mark_damage",
+        "fab.cause.wafer_backside_contamination",
+        "fab.cause.lens_heating_drift",
+        "fab.cause.env_excursion",
+        "fab.param.overlay_offset"
+      ],
+      "action_refs": [
+        "fab.action.hold_lot",
+        "fab.action.recipe_adjust",
+        "fab.action.clean_chuck",
+        "fab.action.photo_rework",
+        "fab.action.dispatch_field_service"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "kb/fab/photo-etch-cases.yaml"
+    },
+    {
+      "id": "kb.ap.wire_bond_wip_bubble",
+      "kind": "kb_case",
+      "type": "Playbook",
+      "domain": "ap",
+      "name_zh": "Wire Bond 站点 WIP 堆积排查与处置",
+      "name_en": null,
+      "keywords": [
+        "Wire Bond 站点 WIP 堆积排查与处置",
+        "WIP",
+        "键合",
+        "瓶颈",
+        "排查"
+      ],
+      "anomaly_ref": "core.anomaly.wip_bubble",
+      "detected_at_ref": "ap.process.wire_bond",
+      "severity": "high",
+      "cause_refs": [
+        "ap.anomaly.bonder_down",
+        "ap.cause.fixture_shortage",
+        "ap.anomaly.wire_nsop",
+        "ap.process.wafer_receive",
+        "core.state.hold"
+      ],
+      "action_refs": [
+        "ap.action.reallocate_fixture",
+        "ap.action.hold_lot",
+        "ap.action.bond_param_doe"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "kb/ap/bond-wip-cases.yaml"
+    },
+    {
+      "id": "kb.ap.wire_nsop_triage",
+      "kind": "kb_case",
+      "type": "Playbook",
+      "domain": "ap",
+      "name_zh": "金线不粘 NSOP 排查与处置",
+      "name_en": null,
+      "keywords": [
+        "金线不粘 NSOP 排查与处置",
+        "键合",
+        "NSOP",
+        "排查"
+      ],
+      "anomaly_ref": "ap.anomaly.wire_nsop",
+      "detected_at_ref": "ap.process.wire_bond",
+      "severity": "high",
+      "cause_refs": [
+        "ap.cause.capillary_wear",
+        "ap.cause.epoxy_bleed",
+        "ap.cause.pad_contamination",
+        "ap.param.bond_power",
+        "ap.cause.bond_param_drift"
+      ],
+      "action_refs": [
+        "ap.action.plasma_clean_rerun",
+        "ap.action.replace_capillary",
+        "ap.action.adjust_dispense",
+        "ap.action.bond_param_doe",
+        "ap.action.hold_lot"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "kb/ap/bond-wip-cases.yaml"
+    },
+    {
+      "id": "kb.ap.bonder_down_triage",
+      "kind": "kb_case",
+      "type": "Playbook",
+      "domain": "ap",
+      "name_zh": "键合机停机排查与处置",
+      "name_en": null,
+      "keywords": [
+        "键合机停机排查与处置",
+        "键合",
+        "设备停机",
+        "EFO",
+        "瓶颈"
+      ],
+      "anomaly_ref": "ap.anomaly.bonder_down",
+      "detected_at_ref": "ap.process.wire_bond",
+      "severity": "high",
+      "cause_refs": [
+        "ap.cause.efo_electrode_fouling",
+        "ap.cause.wire_feed_jam",
+        "ap.cause.bond_head_servo_fault",
+        "ap.cause.capillary_wear",
+        "ap.cause.fixture_shortage"
+      ],
+      "action_refs": [
+        "ap.action.clean_efo_electrode",
+        "ap.action.replace_capillary",
+        "ap.action.reallocate_fixture",
+        "ap.action.hold_lot"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "kb/ap/bond-wip-cases.yaml"
+    },
+    {
+      "id": "kb.ap.mold_void_triage",
+      "kind": "kb_case",
+      "type": "Playbook",
+      "domain": "ap",
+      "name_zh": "塑封空洞排查与处置",
+      "name_en": null,
+      "keywords": [
+        "塑封空洞排查与处置",
+        "塑封",
+        "空洞",
+        "材料时效"
+      ],
+      "anomaly_ref": "ap.anomaly.mold_void",
+      "detected_at_ref": "ap.process.aoi",
+      "severity": "high",
+      "cause_refs": [
+        "ap.cause.emc_moisture",
+        "ap.param.transfer_speed",
+        "ap.param.mold_pressure",
+        "ap.param.mold_temp"
+      ],
+      "action_refs": [
+        "ap.action.bake_emc",
+        "ap.action.hold_lot"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "kb/ap/package-test-cases.yaml"
+    },
+    {
+      "id": "kb.ap.die_crack_triage",
+      "kind": "kb_case",
+      "type": "Playbook",
+      "domain": "ap",
+      "name_zh": "芯粒裂纹排查与处置",
+      "name_en": null,
+      "keywords": [
+        "芯粒裂纹排查与处置",
+        "裂片",
+        "减薄",
+        "切割",
+        "延迟暴露"
+      ],
+      "anomaly_ref": "ap.anomaly.die_crack",
+      "detected_at_ref": "ap.process.aoi",
+      "severity": "critical",
+      "cause_refs": [
+        "ap.cause.grind_wheel_clog",
+        "ap.anomaly.dicing_chipping",
+        "ap.param.die_bond_force",
+        "ap.param.grind_feed_rate"
+      ],
+      "action_refs": [
+        "ap.action.hold_lot",
+        "ap.action.replace_blade"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "kb/ap/package-test-cases.yaml"
+    },
+    {
+      "id": "kb.ap.ft_yield_drop_triage",
+      "kind": "kb_case",
+      "type": "Playbook",
+      "domain": "ap",
+      "name_zh": "终测良率下滑排查与处置",
+      "name_en": null,
+      "keywords": [
+        "终测良率下滑排查与处置",
+        "终测",
+        "良率",
+        "治具",
+        "伪失效"
+      ],
+      "anomaly_ref": "ap.anomaly.ft_yield_drop",
+      "detected_at_ref": "ap.process.final_test",
+      "severity": "critical",
+      "cause_refs": [
+        "ap.cause.probe_card_wear",
+        "ap.anomaly.wire_nsop",
+        "ap.anomaly.delamination",
+        "ap.anomaly.die_crack",
+        "ap.param.test_time"
+      ],
+      "action_refs": [
+        "ap.action.replace_probe_card",
+        "ap.action.retest",
+        "ap.action.hold_lot"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "kb/ap/package-test-cases.yaml"
+    },
+    {
+      "id": "kb.ap.dicing_chipping_triage",
+      "kind": "kb_case",
+      "type": "Playbook",
+      "domain": "ap",
+      "name_zh": "切割崩边超规排查与处置",
+      "name_en": null,
+      "keywords": [
+        "切割崩边超规排查与处置",
+        "切割",
+        "崩边",
+        "耗材"
+      ],
+      "anomaly_ref": "ap.anomaly.dicing_chipping",
+      "detected_at_ref": "ap.process.dicing",
+      "severity": "high",
+      "cause_refs": [
+        "ap.cause.blade_wear",
+        "ap.param.cut_feed_speed",
+        "ap.param.blade_rpm"
+      ],
+      "action_refs": [
+        "ap.action.replace_blade",
+        "ap.action.hold_lot"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "kb/ap/package-test-cases.yaml"
+    },
+    {
+      "id": "kb.ap.delamination_triage",
+      "kind": "kb_case",
+      "type": "Playbook",
+      "domain": "ap",
+      "name_zh": "界面分层排查与处置",
+      "name_en": null,
+      "keywords": [
+        "界面分层排查与处置",
+        "塑封",
+        "分层",
+        "可靠性",
+        "材料时效",
+        "MSL"
+      ],
+      "anomaly_ref": "ap.anomaly.delamination",
+      "detected_at_ref": "ap.process.aoi",
+      "severity": "high",
+      "cause_refs": [
+        "ap.cause.emc_moisture",
+        "ap.cause.pad_contamination",
+        "ap.param.cure_temp"
+      ],
+      "action_refs": [
+        "ap.action.hold_lot",
+        "ap.action.bake_emc",
+        "ap.action.plasma_clean_rerun"
+      ],
+      "confidence": "medium",
+      "source_type": "web",
+      "file": "kb/ap/package-test-cases.yaml"
+    },
+    {
+      "id": "kb.ap.missing_ball_triage",
+      "kind": "kb_case",
+      "type": "Playbook",
+      "domain": "ap",
+      "name_zh": "缺球/连球排查与处置",
+      "name_en": null,
+      "keywords": [
+        "缺球/连球排查与处置",
+        "植球",
+        "缺球",
+        "连球",
+        "助焊剂",
+        "印刷"
+      ],
+      "anomaly_ref": "ap.anomaly.missing_ball",
+      "detected_at_ref": "ap.process.aoi",
+      "severity": "medium",
+      "cause_refs": [
+        "ap.cause.flux_print_defect",
+        "ap.cause.reflow_profile_drift",
+        "ap.param.reflow_peak_temp"
+      ],
+      "action_refs": [
+        "ap.action.hold_lot",
+        "ap.action.reball_rework"
+      ],
+      "confidence": "medium",
+      "source_type": "web",
+      "file": "kb/ap/package-test-cases.yaml"
+    }
+  ]
+}

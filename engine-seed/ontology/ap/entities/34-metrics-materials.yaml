@@ -1,0 +1,134 @@
+# ap 层 · 量测指标与物料
+default_provenance:
+  source_type: model_prior
+  ref: null
+  confidence: high
+  created_at: "2026-08-26"
+  reviewed_by: null
+
+entities:
+  - id: ap.metric.wire_pull_strength
+    type: Metric
+    name_zh: 金线拉力
+    name_en: Wire Pull Strength
+    domain: ap
+    unit: gf
+    description: >
+      破坏性拉力测试值，评估键合强度。失效模式(线断/球脱/焊垫剥离)
+      比数值本身更能指示根因。
+    economic_hooks:
+      affects: [yield]
+      note: 破坏性抽测，样本消耗与检出灵敏度成本权衡
+
+  - id: ap.metric.ball_shear_strength
+    type: Metric
+    name_zh: 球剪切强度
+    name_en: Ball Shear Strength
+    domain: ap
+    unit: gf
+    description: 侧向剪切焊球评估球焊接合面积与金属间化合物形成质量。
+    economic_hooks: {affects: [yield], note: 与拉力测试互补，专查球焊界面}
+
+  - id: ap.metric.die_shear_strength
+    type: Metric
+    name_zh: 芯粒剪切强度
+    name_en: Die Shear Strength
+    domain: ap
+    unit: "kgf"
+    description: 评估装片胶附着力与固化充分度。
+    economic_hooks: {affects: [yield], note: 强度不足预示后续分层与失效风险}
+
+  - id: ap.metric.wafer_thickness_var
+    type: Metric
+    name_zh: 晶圆厚度变异
+    name_en: Wafer Thickness Variation (TTV)
+    domain: ap
+    unit: "μm"
+    description: 减薄后总厚度变异。变异过大致切割深度不一与后续贴装应力不均。
+    economic_hooks: {affects: [yield], note: TTV 超规放大下游多个工序的波动}
+
+  - id: ap.metric.chipping_size
+    type: Metric
+    name_zh: 崩边尺寸
+    name_en: Chipping Size
+    domain: ap
+    unit: "μm"
+    typical_range: "< 30 μm（视 Scribe Line 宽度）"
+    description: 切割边缘破损的最大尺寸。超过 Scribe Line 余量即侵入有效电路区。
+    economic_hooks: {affects: [yield, scrap_rate], note: 崩边侵入电路区即判废，不可挽回}
+
+  - id: ap.metric.void_ratio
+    type: Metric
+    name_zh: 空洞率
+    name_en: Void Ratio
+    domain: ap
+    unit: "%"
+    description: >
+      X-Ray 或超声扫描量测的空洞占比。影响散热路径与热循环可靠性，
+      是塑封、装片、底填三个工序共用的判定指标。
+    economic_hooks:
+      affects: [yield, scrap_rate]
+      note: 塑封后空洞不可返工，直接判废
+
+  - id: ap.metric.coplanarity
+    type: Metric
+    name_zh: 共面性
+    name_en: Coplanarity
+    domain: ap
+    unit: "μm"
+    description: 外部接点（锡球或引脚）高度的最大落差，决定客户端 SMT 贴装可靠性。
+    economic_hooks:
+      affects: [yield]
+      note: 共面性不良的后果发生在客户端，客诉成本远高于内部判废
+
+  - id: ap.metric.ft_yield
+    type: Metric
+    name_zh: 终测良率
+    name_en: Final Test Yield
+    domain: ap
+    unit: "%"
+    description: >
+      终测通过比例。需与 CP 良率联动分析：若 FT 良率下滑而 CP 正常，
+      成因在后段；若同步下滑，回溯前段。治具磨损会造成接触不良型伪失效，
+      需与真实功能失效区分。
+    economic_hooks:
+      affects: [yield, capacity_commit, cost_per_unit]
+      note: 后段良率结算点，直接决定可交付数量与单位成本
+
+  - id: ap.material.bonding_wire
+    type: Material
+    name_zh: 键合线
+    name_en: Bonding Wire
+    domain: ap
+    description: >
+      金线、铜线或银合金线。铜线成本低但硬度高需更精细的工艺窗口，
+      线材批号切换是键合参数需重新验证的触发点。
+    economic_hooks:
+      affects: [cost_per_unit, yield]
+      note: 金价波动直接传导至封装成本，铜线替代是主要降本路径
+
+  - id: ap.material.mold_compound
+    type: Material
+    name_zh: 塑封料
+    name_en: Mold Compound (EMC)
+    domain: ap
+    description: >
+      环氧模塑料，具吸湿性，开封后有使用期限并须低温防潮储存。
+      吸湿后模压会汽化产生空洞与分层，是典型的材料状态型风险。
+    economic_hooks: {affects: [yield, cost_per_unit], note: 过期料报废与吸湿返烤均产生成本}
+
+  - id: ap.material.die_attach_epoxy
+    type: Material
+    name_zh: 装片胶
+    name_en: Die Attach Epoxy
+    domain: ap
+    description: 银胶或膜状黏着材料，黏度随温度与放置时间变化，需控制上机时效。
+    economic_hooks: {affects: [yield, cost_per_unit], note: 黏度漂移致点胶量不稳}
+
+  - id: ap.material.dicing_tape
+    type: Material
+    name_zh: 切割膜
+    name_en: Dicing Tape
+    domain: ap
+    description: 固定晶圆的黏性膜，黏着力须兼顾切割固定与取片剥离两个矛盾需求。
+    economic_hooks: {affects: [yield], note: 黏力过强致取片裂片，过弱致切割飞片}

@@ -1,0 +1,18 @@
+{
+  "id": "urn:pxai:semi:knowledge:validation:unit-code-repair-001",
+  "title": "Fab经营变量单位代码门禁修复",
+  "domain": "fab",
+  "summary": "为光刻产能和可销售单元业务变量补齐必需的单位代码，以满足语义校验的最小基数约束。",
+  "content": "既有通用晶圆厂经营模型按月度周期定义光刻产能与可销售单元变量。语义门禁显示两者缺少必需的unitCode，因此补充unit_per_month字符串代码。该补充仅用于模型变量语义完整性和门禁校验，来源边界为model_prior，不应解释为现场测量结果、产能承诺或财务预测。",
+  "source_refs": [
+    "business/models/fab-baseline.yaml"
+  ],
+  "related_iris": [
+    "urn:pxai:semi:unitCode"
+  ],
+  "confidence": "low",
+  "provenance": {
+    "source_type": "web",
+    "source_ref": "business/models/fab-baseline.yaml"
+  }
+}

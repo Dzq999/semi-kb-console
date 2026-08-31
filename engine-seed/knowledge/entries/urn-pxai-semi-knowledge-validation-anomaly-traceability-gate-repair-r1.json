@@ -1,0 +1,25 @@
+{
+  "id": "urn:pxai:semi:knowledge:validation-anomaly-traceability-gate-repair-r1",
+  "title": "异常检测可追溯性发布门禁修复知识",
+  "domain": "eqp",
+  "summary": "异常覆盖校验必须形成异常、检测指标、受影响设备、约束、校验执行、报告和发现项之间的完整可追溯链。",
+  "content": "当品质异常突发或设备停机异常进入发布门禁时，仅声明异常类型不足以支持审计。校验数据应明确关联检测指标；涉及设备影响时还应关联焦点设备，并通过验证发现项连接焦点异常与被评估约束。若校验报告明确为不符合且包含约束违规结果，可由只读规则推导发布阻断标志，但该推导不等同于现场故障诊断结论。",
+  "source_refs": [
+    "model_prior:repair_context.gate_error",
+    "model_prior:gap_analysis.uncovered"
+  ],
+  "related_iris": [
+    "urn:pxai:semi:validation:anomaly-detection-traceability-constraint-r1",
+    "urn:pxai:semi:validation:ontology-validation-run-r1",
+    "urn:pxai:semi:validation:ontology-validation-report-r1",
+    "urn:pxai:semi:validation:quality-excursion-anomaly-case-r1",
+    "urn:pxai:semi:validation:equipment-downtime-anomaly-case-r1",
+    "urn:pxai:semi:validation:quality-anomaly-coverage-finding-r1",
+    "urn:pxai:semi:validation:equipment-anomaly-coverage-finding-r1"
+  ],
+  "confidence": "medium",
+  "provenance": {
+    "source_type": "web",
+    "source_ref": "model_prior:repair_context.gate_error"
+  }
+}

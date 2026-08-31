@@ -1,0 +1,25 @@
+{
+  "id": "urn:pxai:semi:knowledge:fac-utility-constraint-cross-system-r1",
+  "title": "厂务公用系统约束与跨系统异常调查语义",
+  "domain": "fac",
+  "summary": "将公用系统约束、环境观测、监测传感器和设施异常连接起来，为设备停机及品质异常的跨系统调查提供统一语义入口。",
+  "content": "在晶圆厂FAC语境中，暖通、超纯水、气体和电力等公用系统既是设施基础设施，也是制造过程的潜在约束来源。将公用系统约束、环境条件观测、监测传感器和公用系统中断异常分别建模，并通过约束目标、观测来源和异常中断关系连接，可支持后续把厂务告警与设备遥测、维护日志及品质异常调查进行时间和对象关联。本条仅为model_prior，不包含现场实测限值、可用率或根因结论。",
+  "source_refs": [
+    "business/models/fab-baseline.yaml",
+    "business/models/business.agent.run-c163313475f54c2f.r1.run-c163313475f54c2f-a01.1.yaml"
+  ],
+  "related_iris": [
+    "urn:pxai:semi:UtilitySystem",
+    "urn:pxai:semi:HVACSystem",
+    "urn:pxai:semi:UtilityMonitoringSensor",
+    "urn:pxai:semi:FacilityManagementSystem",
+    "urn:pxai:semi:FACUtilityConstraint",
+    "urn:pxai:semi:FACEnvironmentalConditionObservation",
+    "urn:pxai:semi:FACUtilityInterruptionAnomaly"
+  ],
+  "confidence": "medium",
+  "provenance": {
+    "source_type": "web",
+    "source_ref": "business/models/fab-baseline.yaml"
+  }
+}

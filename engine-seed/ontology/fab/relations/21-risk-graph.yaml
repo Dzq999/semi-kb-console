@@ -1,0 +1,426 @@
+# fab 层 · 风险图谱（异常-根因-检出-处置-阻塞）
+# 与 20-flow-precedes.yaml 共同构成"主流程 + 风险图谱"完整框架
+default_provenance:
+  source_type: model_prior
+  ref: null
+  confidence: medium
+  created_at: "2026-08-26"
+  reviewed_by: null
+
+relations:
+  # ---- CD 超规 ----
+  - {from: fab.cause.lens_contamination,  type: may_cause, to: fab.anomaly.cd_out_of_spec, likelihood: low, note: 局部像差致固定位置偏移}
+  - {from: fab.cause.hotplate_nonuniform, type: may_cause, to: fab.anomaly.cd_out_of_spec, likelihood: high, note: 片内梯度型分布}
+  - {from: fab.cause.resist_lot_change,   type: may_cause, to: fab.anomaly.cd_out_of_spec, likelihood: medium, note: 全片均匀偏移，跨机台同步出现}
+  - {from: fab.cause.recipe_misload,      type: may_cause, to: fab.anomaly.cd_out_of_spec, likelihood: medium, note: 批间跳变，边界清晰}
+  - {from: fab.cause.env_excursion,       type: may_cause, to: fab.anomaly.cd_out_of_spec, note: 温湿度漂移影响涂布与显影}
+  - {from: fab.param.exposure_dose,       type: may_cause, to: fab.anomaly.cd_out_of_spec, likelihood: high, note: 剂量为 CD 主控旋钮}
+  - {from: fab.param.exposure_focus,      type: may_cause, to: fab.anomaly.cd_out_of_spec, likelihood: medium, note: 离焦伴随侧壁形貌恶化}
+  - {from: fab.anomaly.cd_out_of_spec,    type: detected_at, to: fab.process.cd_measure}
+  - {from: fab.anomaly.cd_out_of_spec,    type: mitigated_by, to: fab.action.photo_rework, note: 限蚀刻前}
+  - {from: fab.anomaly.cd_out_of_spec,    type: mitigated_by, to: fab.action.recipe_adjust}
+  - {from: fab.anomaly.cd_out_of_spec,    type: mitigated_by, to: fab.action.hold_lot}
+  - {from: fab.anomaly.cd_out_of_spec,    type: blocks, to: fab.process.dry_etch, note: 蚀刻后不可逆，须先判定}
+
+  # ---- 套刻偏移 ----
+  - {from: fab.param.overlay_offset,      type: may_cause, to: fab.anomaly.overlay_shift, likelihood: low, note: 补正模型失配致越修越偏}
+  - {from: fab.cause.recipe_misload,      type: may_cause, to: fab.anomaly.overlay_shift, likelihood: high}
+  - {from: fab.cause.env_excursion,       type: may_cause, to: fab.anomaly.overlay_shift, likelihood: low, note: 热变形致旋转/放大分量}
+  - {from: fab.anomaly.overlay_shift,     type: detected_at, to: fab.process.overlay_measure}
+  - {from: fab.anomaly.overlay_shift,     type: mitigated_by, to: fab.action.photo_rework}
+  - {from: fab.anomaly.overlay_shift,     type: mitigated_by, to: fab.action.recipe_adjust, note: APC 补正回馈}
+  - {from: fab.anomaly.overlay_shift,     type: blocks, to: fab.process.dry_etch}
+
+  # ---- 颗粒突增 ----
+  - {from: fab.cause.env_excursion,        type: may_cause, to: fab.anomaly.particle_excursion, likelihood: medium, note: 随机分布签名}
+  - {from: fab.cause.reticle_haze,         type: may_cause, to: fab.anomaly.particle_excursion, likelihood: high, note: 逐场规律重复签名}
+  - {from: fab.cause.chamber_polymer_buildup, type: may_cause, to: fab.anomaly.particle_excursion, likelihood: high, note: 剥落颗粒}
+  - {from: fab.cause.target_end_of_life,   type: may_cause, to: fab.anomaly.particle_excursion, likelihood: medium, note: 靶材剥落}
+  - {from: fab.cause.slurry_agglomeration, type: may_cause, to: fab.anomaly.particle_excursion, likelihood: medium}
+  - {from: fab.anomaly.particle_excursion, type: detected_at, to: fab.process.defect_scan}
+  - {from: fab.anomaly.particle_excursion, type: mitigated_by, to: fab.action.hold_lot}
+  - {from: fab.anomaly.particle_excursion, type: mitigated_by, to: fab.action.chamber_clean}
+  - {from: fab.anomaly.particle_excursion, type: mitigated_by, to: fab.action.reticle_clean}
+  - {from: fab.anomaly.particle_excursion, type: mitigated_by, to: fab.action.expand_sampling, note: 收窄检出窗口限制受影响批次}
+  - {from: fab.anomaly.particle_excursion, type: blocks, to: fab.route.cmos_logic_main, note: 突增期间该路径产出全部待判}
+
+  # ---- 蚀刻残留 ----
+  - {from: fab.cause.epd_failure,              type: may_cause, to: fab.anomaly.etch_residue, likelihood: medium}
+  - {from: fab.cause.chamber_polymer_buildup,  type: may_cause, to: fab.anomaly.etch_residue, likelihood: high, note: 选择比漂移}
+  - {from: fab.param.etch_time,                type: may_cause, to: fab.anomaly.etch_residue, likelihood: medium, note: 蚀刻量不足}
+  - {from: fab.anomaly.etch_residue,           type: detected_at, to: fab.process.defect_scan}
+  - {from: fab.anomaly.etch_residue,           type: mitigated_by, to: fab.action.recipe_adjust, note: 补蚀刻}
+  - {from: fab.anomaly.etch_residue,           type: mitigated_by, to: fab.action.chamber_clean}
+  - {from: fab.anomaly.etch_residue,           type: blocks, to: fab.process.pvd_metal, note: 残留会被后续金属层覆盖固化}
+
+  # ---- CMP 划伤 ----
+  - {from: fab.cause.slurry_agglomeration, type: may_cause, to: fab.anomaly.cmp_scratch, likelihood: medium}
+  - {from: fab.cause.pad_end_of_life,      type: may_cause, to: fab.anomaly.cmp_scratch, likelihood: high}
+  - {from: fab.param.cmp_pressure,         type: may_cause, to: fab.anomaly.cmp_scratch, likelihood: low, note: 压力过高加剧机械损伤}
+  - {from: fab.anomaly.cmp_scratch,        type: detected_at, to: fab.process.defect_scan}
+  - {from: fab.anomaly.cmp_scratch,        type: mitigated_by, to: fab.action.replace_consumable}
+  - {from: fab.anomaly.cmp_scratch,        type: mitigated_by, to: fab.action.hold_lot}
+  - {from: fab.anomaly.cmp_scratch,        type: blocks, to: fab.process.cvd_ild, note: 金属层划伤短路风险须先确认}
+
+  # ---- 注入剂量漂移 ----
+  - {from: fab.cause.beam_current_drift, type: may_cause, to: fab.anomaly.implant_dose_drift, likelihood: high}
+  - {from: fab.param.implant_dose,       type: may_cause, to: fab.anomaly.implant_dose_drift, likelihood: medium}
+  - {from: fab.anomaly.implant_dose_drift, type: detected_at, to: fab.process.wat, note: 无在线量测，WAT 才暴露}
+  - {from: fab.anomaly.implant_dose_drift, type: mitigated_by, to: fab.action.hold_lot}
+  - {from: fab.anomaly.implant_dose_drift, type: mitigated_by, to: fab.action.recipe_adjust, note: 剂量校验片反算补偿}
+  - {from: fab.anomaly.implant_dose_drift, type: mitigated_by, to: fab.action.expand_sampling, note: 增加方阻抽测提前暴露}
+  - {from: fab.anomaly.implant_dose_drift, type: blocks, to: fab.process.cp_test}
+
+  # ---- 光刻机停机（瓶颈异常，级联到 WIP 堆积）----
+  - {from: fab.anomaly.scanner_down,   type: may_cause, to: core.anomaly.wip_bubble, note: 瓶颈停机同时造成上游堆积与下游断流}
+  - {from: fab.anomaly.scanner_down,   type: detected_at, to: fab.process.photo_exposure}
+  - {from: fab.anomaly.scanner_down,   type: mitigated_by, to: fab.action.skip_ahead, note: 需确认替代机台工艺等价性}
+  - {from: fab.anomaly.scanner_down,   type: blocks, to: fab.process.photo_exposure}
+  - {from: fab.anomaly.scanner_down,   type: blocks, to: fab.route.cmos_logic_main}
+
+  # ---- refines：fab 概念归入 core 骨架 ----
+  - {from: fab.anomaly.scanner_down,       type: refines, to: core.anomaly.equipment_down, provenance: {source_type: model_prior, ref: null, confidence: high, created_at: "2026-08-26", reviewed_by: null}}
+  - {from: fab.anomaly.particle_excursion, type: refines, to: core.anomaly.quality_excursion, provenance: {source_type: model_prior, ref: null, confidence: high, created_at: "2026-08-26", reviewed_by: null}}
+  - {from: fab.anomaly.cd_out_of_spec,     type: refines, to: core.anomaly.quality_excursion}
+  - {from: fab.metric.cd_uniformity,       type: refines, to: core.metric.yield, note: CD 分布宽度决定电参良率上限}
+  - {from: fab.metric.defect_density,      type: refines, to: core.metric.yield}
+  - {from: fab.param.furnace_temp,         type: refines, to: core.param.cleanroom_temp, note: 均为受控温度类参数，控制范式同源, confidence: low}
+  - {from: fab.stage.photo,                type: refines, to: core.risknode.bottleneck_station, note: 光刻通常为前段瓶颈}
+
+  # ---- analogous_to：跨行业类比 ----
+  - from: fab.stage.diffusion
+    type: analogous_to
+    to: ext.stage.thermal_process
+    note: >
+      前段热制程段 ↔ 玻璃制造高温工艺段。共性：热预算控制、温区均匀性、
+      批式装载率与能耗、升降温速率致应力缺陷。玻璃项目已建的热工艺通用
+      框架可直接复用于炉管类工序建模。
+    provenance: {source_type: analogy, ref: null, confidence: high, created_at: "2026-08-26", reviewed_by: null}
+
+  - from: fab.metric.defect_density
+    type: analogous_to
+    to: ext.metric.defect_rate
+    note: 缺陷密度 ↔ 通用不良率。共性：空间分布签名用于溯源、与单位面积/个体数共同决定良率
+    provenance: {source_type: analogy, ref: null, confidence: medium, created_at: "2026-08-26", reviewed_by: null}
+  - from: fab.cause.reticle_stage_error
+    type: may_cause
+    to: fab.anomaly.scanner_down
+    likelihood: high
+    note: 报警集中于扫描动作阶段，常在固定 slit 位置重复
+    confidence: medium
+    provenance:
+      source_type: model_prior
+      ref: null
+      confidence: medium
+      created_at: '2026-08-28'
+      reviewed_by: null
+  - from: fab.cause.light_source_degradation
+    type: may_cause
+    to: fab.anomaly.scanner_down
+    likelihood: medium
+    note: 先表现为产出率缓降，再转硬停机
+    confidence: medium
+    provenance:
+      source_type: model_prior
+      ref: null
+      confidence: medium
+      created_at: '2026-08-28'
+      reviewed_by: null
+  - from: fab.cause.pm_overdue
+    type: may_cause
+    to: fab.anomaly.scanner_down
+    likelihood: medium
+    note: 停机前 PM 已超期，属排程决策后果
+    confidence: medium
+    provenance:
+      source_type: model_prior
+      ref: null
+      confidence: medium
+      created_at: '2026-08-28'
+      reviewed_by: null
+  - from: fab.anomaly.scanner_down
+    type: mitigated_by
+    to: fab.action.dispatch_field_service
+    note: 原厂锁定模块的唯一合规路径
+    confidence: medium
+    provenance:
+      source_type: model_prior
+      ref: null
+      confidence: medium
+      created_at: '2026-08-28'
+      reviewed_by: null
+  - from: fab.cause.alignment_mark_damage
+    type: may_cause
+    to: fab.anomaly.overlay_shift
+    likelihood: high
+    note: 对位基准失准直接导致套刻偏移，换机台重曝仍复现
+    provenance:
+      source_type: model_prior
+      ref: null
+      confidence: medium
+      created_at: '2026-08-28'
+      reviewed_by: null
+  - from: fab.cause.wafer_backside_contamination
+    type: may_cause
+    to: fab.anomaly.overlay_shift
+    likelihood: medium
+    note: 背面颗粒致局部抬升，偏移呈局部化不规则分布
+    provenance:
+      source_type: model_prior
+      ref: null
+      confidence: medium
+      created_at: '2026-08-28'
+      reviewed_by: null
+  - from: fab.cause.lens_heating_drift
+    type: may_cause
+    to: fab.anomaly.overlay_shift
+    likelihood: medium
+    note: 场内分量随曝光量累积漂移，冷却后自行恢复
+    provenance:
+      source_type: model_prior
+      ref: null
+      confidence: medium
+      created_at: '2026-08-28'
+      reviewed_by: null
+  - from: fab.anomaly.overlay_shift
+    type: mitigated_by
+    to: fab.action.clean_chuck
+    note: 背面沾污类偏移的针对性处置
+    provenance:
+      source_type: model_prior
+      ref: null
+      confidence: medium
+      created_at: '2026-08-28'
+      reviewed_by: null
+  - from: fab.cause.wafer_backside_contamination
+    type: may_cause
+    to: fab.anomaly.cd_out_of_spec
+    note: 局部抬升同时引入离焦，CD 与套刻常同时超规
+    provenance:
+      source_type: model_prior
+      ref: null
+      confidence: medium
+      created_at: '2026-08-28'
+      reviewed_by: null
+  - from: fab.anomaly.overlay_shift
+    type: mitigated_by
+    to: fab.action.hold_lot
+    note: 根因未明前先扣留，避免在有问题的机台上重复报废
+    provenance:
+      source_type: model_prior
+      ref: null
+      confidence: medium
+      created_at: '2026-08-28'
+      reviewed_by: null
+  - from: fab.anomaly.overlay_shift
+    type: mitigated_by
+    to: fab.action.dispatch_field_service
+    note: 对位系统或镜头热补偿异常且厂内手段无效时报修
+    provenance:
+      source_type: model_prior
+      ref: null
+      confidence: medium
+      created_at: '2026-08-28'
+      reviewed_by: null
+  - from: fab.cause.target_erosion_profile
+    type: may_cause
+    to: fab.anomaly.film_thickness_dev
+    likelihood: medium
+    note: 侵蚀沟槽演化改变出射角分布，径向剖面形状随之改变
+    provenance:
+      source_type: web
+      ref: https://doi.org/10.3390/molecules28227660
+      confidence: medium
+      created_at: '2026-08-28'
+      reviewed_by: null
+  - from: fab.cause.chamber_wall_condition
+    type: may_cause
+    to: fab.anomaly.film_thickness_dev
+    likelihood: high
+    note: 腔壁残留状态影响片间沉积速率与片内均匀性，表现为清洗后首片偏离
+    provenance:
+      source_type: web
+      ref: https://patents.google.com/patent/US20060093756A1/en
+      confidence: medium
+      created_at: '2026-08-28'
+      reviewed_by: null
+  - from: fab.cause.chamber_wall_condition
+    type: may_cause
+    to: fab.anomaly.particle_excursion
+    note: 内壁残留物脱落成为颗粒源，与膜厚偏移共享同一根因
+    provenance:
+      source_type: web
+      ref: https://patents.google.com/patent/US20060093756A1/en
+      confidence: medium
+      created_at: '2026-08-28'
+      reviewed_by: null
+  - from: fab.cause.target_end_of_life
+    type: may_cause
+    to: fab.anomaly.film_thickness_dev
+    likelihood: medium
+    note: 侵蚀至极限后均匀性恶化，与剖面渐变型的判别见 kb discriminator
+    provenance:
+      source_type: model_prior
+      ref: null
+      confidence: high
+      created_at: '2026-08-28'
+      reviewed_by: null
+  - from: fab.cause.recipe_misload
+    type: may_cause
+    to: fab.anomaly.film_thickness_dev
+    likelihood: medium
+    note: 批间跳变且边界清晰，与渐变型设备漂移可据此区分
+    provenance:
+      source_type: model_prior
+      ref: null
+      confidence: high
+      created_at: '2026-08-28'
+      reviewed_by: null
+  - from: fab.param.pvd_power
+    type: may_cause
+    to: fab.anomaly.film_thickness_dev
+    note: 溅镀功率偏离窗口直接改变沉积速率，全片同向偏移
+    provenance:
+      source_type: model_prior
+      ref: null
+      confidence: high
+      created_at: '2026-08-28'
+      reviewed_by: null
+  - from: fab.param.chamber_pressure
+    type: may_cause
+    to: fab.anomaly.film_thickness_dev
+    likelihood: low
+    note: 腔压改变粒子平均自由程与散射，影响径向剖面而非仅整体厚度
+    provenance:
+      source_type: web
+      ref: https://doi.org/10.3390/molecules28227660
+      confidence: medium
+      created_at: '2026-08-28'
+      reviewed_by: null
+  - from: fab.anomaly.film_thickness_dev
+    type: detected_at
+    to: fab.process.pvd_metal
+    note: 金属层膜厚与方阻在沉积后随线量测，是最早的检出点
+    provenance:
+      source_type: model_prior
+      ref: null
+      confidence: high
+      created_at: '2026-08-28'
+      reviewed_by: null
+  - from: fab.anomaly.film_thickness_dev
+    type: detected_at
+    to: fab.process.cvd_ild
+    note: 介电层膜厚在沉积后量测，偏移会一路影响到 CMP 后的剩余厚度
+    provenance:
+      source_type: model_prior
+      ref: null
+      confidence: high
+      created_at: '2026-08-28'
+      reviewed_by: null
+  - from: fab.anomaly.film_thickness_dev
+    type: mitigated_by
+    to: fab.action.chamber_season
+    note: 清洗或长时间待机后的首片偏离，先做预处理再跑验证片
+    provenance:
+      source_type: web
+      ref: https://patents.google.com/patent/US20060093756A1/en
+      confidence: medium
+      created_at: '2026-08-28'
+      reviewed_by: null
+  - from: fab.anomaly.film_thickness_dev
+    type: mitigated_by
+    to: fab.action.recipe_adjust
+    note: 偏移量稳定且在补偿窗口内时按偏移反算补偿，须留变更与验证记录
+    provenance:
+      source_type: model_prior
+      ref: null
+      confidence: high
+      created_at: '2026-08-28'
+      reviewed_by: null
+  - from: fab.anomaly.film_thickness_dev
+    type: mitigated_by
+    to: fab.action.replace_consumable
+    note: 侵蚀剖面已无法用参数补偿回来时换靶
+    provenance:
+      source_type: model_prior
+      ref: null
+      confidence: high
+      created_at: '2026-08-28'
+      reviewed_by: null
+  - from: fab.anomaly.film_thickness_dev
+    type: mitigated_by
+    to: fab.action.hold_lot
+    note: 根因未明前扣留，避免在同一腔体上继续投片
+    provenance:
+      source_type: model_prior
+      ref: null
+      confidence: high
+      created_at: '2026-08-28'
+      reviewed_by: null
+  - from: fab.anomaly.film_thickness_dev
+    type: blocks
+    to: fab.process.cmp_metal
+    note: '主流程上 pvd_metal 的直接后续。CMP 的去除量按来料厚度设定， 入料厚度未判定就抛光，偏移会转成抛后剩余厚度偏差且不可回补
+
+      '
+    provenance:
+      source_type: model_prior
+      ref: null
+      confidence: medium
+      created_at: '2026-08-28'
+      reviewed_by: null
+  - from: fab.anomaly.film_thickness_dev
+    type: blocks
+    to: fab.process.cmp_oxide
+    note: cvd_ild 侧的下游 CMP，同理：入料厚度未判定不应抛光
+    provenance:
+      source_type: model_prior
+      ref: null
+      confidence: medium
+      created_at: '2026-08-28'
+      reviewed_by: null
+  - from: fab.anomaly.film_thickness_dev
+    type: refines
+    to: core.anomaly.quality_excursion
+    note: 膜厚类超规归入 core 层品质异常骨架
+    provenance:
+      source_type: model_prior
+      ref: null
+      confidence: high
+      created_at: '2026-08-28'
+      reviewed_by: null
+  - from: fab.anomaly.film_thickness_dev
+    type: analogous_to
+    to: ext.coating.coat_weight_deviation
+    note: '与卷材/板材涂布行业的涂布量偏差同构：同为"沉积源几何 + 耗材侵蚀 状态 + 腔体/涂布头预处理"三者决定横向分布，都靠径向（横幅）剖面 形状而非单点均值定位根因。可复用的是"先看剖面形状再看均值"的
+      判别顺序与"预处理省不掉"这条经验。
+
+      '
+    provenance:
+      source_type: analogy
+      ref: null
+      confidence: medium
+      created_at: '2026-08-28'
+      reviewed_by: null
+
+  # ---- 机台状态作为独立异常来源（Equipment -> Anomaly）----
+  # 只收"机台自身状态"这一类成因：老化、PM 逾期、腔体/耗材条件、Tool-to-Tool
+  # 差异。判据是它不能被已有的 Parameter 或 Cause 覆盖——参数是人调的设定值，
+  # 机台状态是设定值不变也会漂的那部分。因此这里不写"某机跑了这道工序所以
+  # 可能出该工序的异常"，那种边只是工序归属的重复，没有排查价值。
+  #
+  # 停机类异常（scanner_down / equipment_down）刻意不连：那类异常本身就是
+  # 机台失能，Equipment -> 它是同义反复。
+  #
+  # likelihood 一律留空：机台维度的先验频度需要现场 PM 记录与稼动数据支撑，
+  # 没有 kb 实例可依。留空表示未评估，比随手填一个数字诚实。
+  - {from: fab.equip.scanner, type: may_cause, to: fab.anomaly.overlay_shift, note: 'Tool-to-Tool 差异与镜头/对位系统漂移：同一配方换机台即偏移，需 Overlay 修正参数补偿'}
+  - {from: fab.equip.scanner, type: may_cause, to: fab.anomaly.cd_out_of_spec, note: 光源能量衰减与镜头污染使实际剂量偏离设定值，表现为随机台固定的 CD 偏置}
+  - {from: fab.equip.etcher_plasma, type: may_cause, to: fab.anomaly.etch_residue, note: 腔体壁沉积与聚合物累积改变刻蚀气氛，PM 周期末段残留率上升}
+  - {from: fab.equip.etcher_plasma, type: may_cause, to: fab.anomaly.particle_excursion, note: 腔体累积物剥落为颗粒源，与 PM 逾期强相关}
+  - {from: fab.equip.cmp, type: may_cause, to: fab.anomaly.cmp_scratch, note: 抛光垫沟槽磨损与修整盘状态劣化，垫寿命末期划伤率抬升}
+  - {from: fab.equip.pvd, type: may_cause, to: fab.anomaly.film_thickness_dev, note: 靶材侵蚀改变沉积源几何，径向均匀性随靶寿命单向漂移}
+  - {from: fab.equip.cvd, type: may_cause, to: fab.anomaly.film_thickness_dev, note: 喷淋头堵塞与腔体温度分布不均致片内厚度分布失衡}
+  - {from: fab.equip.furnace, type: may_cause, to: fab.anomaly.film_thickness_dev, note: 炉管热区剖面漂移与石英件老化，表现为批内片间(舟位)系统性厚度差}
+  - {from: fab.equip.implanter, type: may_cause, to: fab.anomaly.implant_dose_drift, note: 离子源寿命末期束流不稳与法拉第杯标定漂移致实际剂量偏离设定}
+  - {from: fab.equip.wet_bench, type: may_cause, to: fab.anomaly.particle_excursion, note: 槽液颗粒累积与过滤器失效，换液周期末段颗粒数抬升}

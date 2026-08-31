@@ -1,0 +1,25 @@
+@prefix semi: <urn:pxai:semi:> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+<urn:pxai:semi:application-scenario> a owl:Ontology ;
+  owl:imports <urn:pxai:semi:common>, <urn:pxai:semi:business-simulation> .
+
+semi:CustomerProblem a owl:Class ; rdfs:subClassOf semi:InformationEntity .
+semi:PainPoint a owl:Class ; rdfs:subClassOf semi:InformationEntity .
+semi:Capability a owl:Class ; rdfs:subClassOf semi:InformationEntity .
+semi:L1Capability a owl:Class ; rdfs:subClassOf semi:Capability .
+semi:L2Scenario a owl:Class ; rdfs:subClassOf semi:Capability .
+semi:BusinessScenarioCard a owl:Class ; rdfs:subClassOf semi:InformationEntity .
+
+semi:addressesProblem a owl:ObjectProperty ; rdfs:range semi:CustomerProblem .
+semi:describesPainPoint a owl:ObjectProperty ; rdfs:range semi:PainPoint .
+semi:supportsCapability a owl:ObjectProperty ; rdfs:range semi:Capability .
+semi:composesCapability a owl:ObjectProperty ;
+  rdfs:domain semi:L2Scenario ; rdfs:range semi:L1Capability .
+semi:usesOntologyEntity a owl:ObjectProperty ; rdfs:range semi:Entity .
+semi:usesSimulationScenario a owl:ObjectProperty ;
+  rdfs:domain semi:BusinessScenarioCard ; rdfs:range semi:SimulationScenario .
+semi:problemText a owl:DatatypeProperty ; rdfs:domain semi:CustomerProblem .
+semi:painPointText a owl:DatatypeProperty ; rdfs:domain semi:PainPoint .
+semi:scenarioReadiness a owl:DatatypeProperty ; rdfs:domain semi:BusinessScenarioCard .

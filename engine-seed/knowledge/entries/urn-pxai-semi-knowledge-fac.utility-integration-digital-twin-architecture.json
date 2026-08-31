@@ -1,0 +1,23 @@
+{
+  "id": "urn:pxai:semi:knowledge:fac.utility-integration-digital-twin-architecture",
+  "title": "晶圆厂厂务公用系统集成与数字孪生架构",
+  "domain": "fac",
+  "summary": "晶圆厂厂务数据通常由FMS、BMS、维护系统和厂级数字孪生等多个系统共同承载，公用系统集成平台可汇聚UPW、气体、电力及环境监测数据，为跨系统运营分析提供基础。",
+  "content": "资料显示，先进晶圆厂需要同时处理来自工艺设备、HVAC、超纯水质量传感器、气体流量计、电能质量监测器、颗粒计数器和振动传感器的连续数据。行业尚未形成单一的厂务基础设施管理类别，实际功能通常分布在MES、BMS、CMMS、FMS和厂级数字孪生之间。FMS侧重公用系统监控集成，数字孪生则可对基础设施事件及其生产后果进行实时建模和仿真。该结论支持将公用系统集成平台建模为数字孪生和厂务管理系统之间的共享数据基础，但不构成任何特定工厂的实测能力或系统部署证明。",
+  "source_refs": [
+    "https://semiconductorx.com/fab-ops-facility-management.html"
+  ],
+  "related_iris": [
+    "urn:pxai:semi:FacilityManagementSystem",
+    "urn:pxai:semi:FacilityDigitalTwin",
+    "urn:pxai:semi:UtilityIntegrationPlatform",
+    "urn:pxai:semi:UPWSystem",
+    "urn:pxai:semi:GasDeliverySystem",
+    "urn:pxai:semi:PowerDistributionSystem"
+  ],
+  "confidence": "high",
+  "provenance": {
+    "source_type": "web",
+    "source_ref": "https://semiconductorx.com/fab-ops-facility-management.html"
+  }
+}

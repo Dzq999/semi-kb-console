@@ -1,0 +1,122 @@
+# core 层 · 物料与状态
+# 前段厂/后段厂共通的批次载体与 WIP 状态语汇
+default_provenance:
+  source_type: model_prior
+  ref: null
+  confidence: high
+  created_at: "2026-08-26"
+  reviewed_by: null
+
+entities:
+  - id: core.material.lot
+    type: Material
+    name_zh: 批次
+    name_en: Lot
+    domain: core
+    aliases: [Batch, 工单批]
+    description: >
+      生产调度与追溯的最小成组单位。承载工艺路径(Route)、当前状态(State)、
+      在制数量与历史量测记录。前段以片数计，后段以颗/条计。
+    metrics: [core.metric.wip, core.metric.cycle_time]
+    economic_hooks:
+      affects: [cycle_time, throughput, capacity_commit]
+      note: 批次大小与拆批策略直接决定在制周转与产能兑现节奏
+
+  - id: core.material.wafer
+    type: Material
+    name_zh: 晶圆
+    name_en: Wafer
+    domain: core
+    description: >
+      硅基载体，前段厂的加工对象，后段厂的输入物料。以直径(6/8/12 吋)与
+      片号(Slot)标识，是良率统计的基本单元。
+    economic_hooks:
+      affects: [yield, cost_per_unit]
+      note: 单片承载 die 数决定单位成本摊薄程度
+
+  - id: core.state.wip_queue
+    type: State
+    name_zh: 在制等待
+    name_en: WIP Queue
+    domain: core
+    description: 批次已到站但未上机，处于队列中。是 WIP 堆积的直接观测状态。
+    metrics: [core.metric.wip]
+    economic_hooks:
+      affects: [cycle_time, throughput]
+      note: 队列时间占 Cycle Time 主体，远大于纯加工时间
+
+  - id: core.state.hold
+    type: State
+    name_zh: 扣留
+    name_en: Hold
+    domain: core
+    description: >
+      批次被人为冻结，禁止流入下一工序。常见类型：工程扣留(Engineering Hold)、
+      品质扣留(QA Hold)、待判扣留(MRB)。解除需明确责任人与处置结论。
+    economic_hooks:
+      affects: [cycle_time, capacity_commit, scrap_rate]
+      note: Hold 时长是 Cycle Time 异常的首要贡献项，长期 Hold 易转报废
+
+  - id: core.state.rework
+    type: State
+    name_zh: 重工
+    name_en: Rework
+    domain: core
+    description: >
+      批次返回已完成工序重新加工。可挽回良率但消耗额外产能，且部分工序
+      重工次数有上限（如光刻重工受膜层损伤限制）。
+    economic_hooks:
+      affects: [rework_rate, cycle_time, cost_per_unit, equipment_oee]
+      note: 重工占用产能但不产生新产出，直接压低有效 OEE
+
+  - id: core.state.scrap
+    type: State
+    name_zh: 报废
+    name_en: Scrap
+    domain: core
+    description: 批次或部分片/颗判定无法挽回，退出生产流程并计入损失。
+    economic_hooks:
+      affects: [scrap_rate, yield, cost_per_unit]
+      note: 报废发生的工序越靠后，沉没的累计加工成本越高
+
+  - id: core.anomaly.equipment_down
+    type: Anomaly
+    name_zh: 设备停机
+    name_en: Equipment Down
+    domain: core
+    severity: high
+    description: >
+      机台失去产出能力。区分计划内(PM/Qual)与计划外(Breakdown)：
+      前者可排程避让，后者同时冲击 WIP 分布与稼动。前后段各自的具体
+      停机异常通过 refines 归入本节点，共享排查与影响评估骨架。
+    metrics: [core.metric.oee, core.metric.throughput]
+    economic_hooks:
+      affects: [equipment_oee, throughput, capacity_commit, cycle_time]
+      note: 瓶颈机台停机的产出损失不可由后续工序补偿
+
+  - id: core.anomaly.quality_excursion
+    type: Anomaly
+    name_zh: 品质异常突发
+    name_en: Quality Excursion
+    domain: core
+    severity: critical
+    description: >
+      品质指标突然越出控制界限，通常伴随批量性影响。共性处置骨架为
+      止损扣留 → 圈定关联批次 → 定位责任机台/时段 → 根因确认 → 放行或判废。
+      前后段各类突发品质异常通过 refines 归入本节点。
+    economic_hooks:
+      affects: [yield, scrap_rate, capacity_commit]
+      note: 损失规模近似等于检出延迟时间 × 产出速率
+
+  - id: core.risknode.bottleneck_station
+    type: RiskNode
+    name_zh: 瓶颈站点
+    name_en: Bottleneck Station
+    domain: core
+    description: >
+      产能最紧、决定整线节拍的工序位置。瓶颈前必然形成 WIP 缓冲，
+      瓶颈的稼动损失无法被后续工序补偿。
+    metrics: [core.metric.wip, core.metric.throughput, core.metric.oee]
+    economic_hooks:
+      affects: [throughput, capacity_commit, equipment_oee]
+      note: 整线产出上限由瓶颈决定，非瓶颈改善不增加产出

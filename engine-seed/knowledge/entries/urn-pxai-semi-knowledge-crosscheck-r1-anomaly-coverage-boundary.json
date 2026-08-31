@@ -1,0 +1,23 @@
+{
+  "id": "urn:pxai:semi:knowledge:crosscheck-r1-anomaly-coverage-boundary",
+  "title": "异常知识覆盖缺口与本体结构违规的判定边界",
+  "domain": "fab",
+  "summary": "当前19类异常中17类已有知识覆盖，剩余两类应作为证据待补的覆盖警告，而非直接判定为本体类别缺失或结构违规。",
+  "content": "第一轮差距分析给出异常总数19、已覆盖17，并明确列出品质异常突发和设备停机两项未覆盖对象。已知本体中已经存在QualityExcursionAnomaly与EquipmentDowntimeAnomaly类别，因此缺口位于可核查知识实例或案例证据层，不应重复创建类别，也不应在没有现场记录时推断根因、影响批次、停机时长或经济损失。发布门禁可要求人工复核和后续补证，但本轮依据不足以设置为阻断发布。",
+  "source_refs": [
+    "model_prior:round1.gap_analysis",
+    "model_prior:round1.known_ontology"
+  ],
+  "related_iris": [
+    "urn:pxai:semi:QualityExcursionAnomaly",
+    "urn:pxai:semi:EquipmentDowntimeAnomaly",
+    "urn:pxai:semi:validation:crosscheck-r1-anomaly-coverage-report",
+    "urn:pxai:semi:validation:crosscheck-r1-quality-excursion-gap",
+    "urn:pxai:semi:validation:crosscheck-r1-equipment-down-gap"
+  ],
+  "confidence": "medium",
+  "provenance": {
+    "source_type": "web",
+    "source_ref": "model_prior:round1.gap_analysis"
+  }
+}

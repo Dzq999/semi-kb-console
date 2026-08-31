@@ -1,0 +1,27 @@
+@prefix semi: <urn:pxai:semi:> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+<urn:pxai:semi:material-product> a owl:Ontology ; owl:imports <urn:pxai:semi:common> .
+
+semi:Material a owl:Class ; rdfs:subClassOf semi:PhysicalEntity .
+semi:MaterialType a owl:Class ; rdfs:subClassOf semi:CatalogConcept .
+semi:IncomingMaterialLot a owl:Class ; rdfs:subClassOf semi:Material .
+semi:Product a owl:Class ; rdfs:subClassOf semi:InformationEntity .
+semi:Technology a owl:Class ; rdfs:subClassOf semi:InformationEntity .
+semi:Wafer a owl:Class ; rdfs:subClassOf semi:PhysicalEntity .
+semi:Lot a owl:Class ; rdfs:subClassOf semi:PhysicalEntity .
+semi:Recipe a owl:Class ; rdfs:subClassOf semi:InformationEntity .
+
+semi:containsWafer a owl:ObjectProperty ;
+  rdfs:domain semi:Lot ; rdfs:range semi:Wafer ; owl:inverseOf semi:waferOfLot .
+semi:waferOfLot a owl:ObjectProperty, owl:FunctionalProperty ;
+  rdfs:domain semi:Wafer ; rdfs:range semi:Lot .
+semi:manufacturesProduct a owl:ObjectProperty ; rdfs:domain semi:Lot ; rdfs:range semi:Product .
+semi:usesTechnology a owl:ObjectProperty ; rdfs:domain semi:Product ; rdfs:range semi:Technology .
+semi:lotCode a owl:DatatypeProperty ; rdfs:domain semi:Lot ; rdfs:range xsd:string .
+semi:waferCode a owl:DatatypeProperty ; rdfs:domain semi:Wafer ; rdfs:range xsd:string .
+semi:materialCode a owl:DatatypeProperty ; rdfs:domain semi:Material ; rdfs:range xsd:string .
+semi:productCode a owl:DatatypeProperty ; rdfs:domain semi:Product ; rdfs:range xsd:string .
+semi:recipeCode a owl:DatatypeProperty ; rdfs:domain semi:Recipe ; rdfs:range xsd:string .

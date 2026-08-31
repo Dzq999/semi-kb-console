@@ -1,0 +1,23 @@
+schema_version: '2.0'
+scenario:
+  name: 跨系统品质异常诊断支持的光刻产能恢复方向性情景
+  model_ref: business/models/fab-baseline.yaml
+  description: 通用Fab What-if情景：以跨系统品质异常调查和设备诊断支持为业务背景，复用既有模型中的光刻产能增量代理潜在恢复效果。所有干预值沿用已有情景示例，仅用于经营模型方向性讨论，不代表现场停机恢复量、实测产能、良率改善或客户承诺。
+  interventions:
+  - target_ref: fab.equip.scanner
+    variable: lithography_capacity
+    operation: add
+    value: 800
+  - target_ref: fab.action.recipe_adjust
+    variable: intervention_opex
+    operation: set
+    value: 1500000
+  assertions:
+  - type: nondecreasing
+    variable: constrained_input
+  - type: nondecreasing
+    variable: saleable_units
+  investment:
+    one_time: 5000000
+    unit: CNY
+  id: sim.agent.run-253d957fbfc64329.r1.run-253d957fbfc64329-a09.1

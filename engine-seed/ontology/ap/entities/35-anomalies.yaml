@@ -1,0 +1,124 @@
+# ap 层 · 异常模式（风险图谱事件节点）
+default_provenance:
+  source_type: model_prior
+  ref: null
+  confidence: high
+  created_at: "2026-08-26"
+  reviewed_by: null
+
+entities:
+  - id: ap.anomaly.wire_nsop
+    type: Anomaly
+    name_zh: 金线不粘
+    name_en: NSOP (Non-Stick On Pad)
+    domain: ap
+    severity: high
+    description: >
+      焊球未能与焊垫形成有效接合。判别路径：若集中于特定机台特定瓷嘴
+      则指向瓷嘴磨损，若全线同步出现则指向前段焊垫状态或线材批号，
+      若与装片工序关联则查溢胶污染。是后段最高频的键合类不良。
+    metrics: [ap.metric.wire_pull_strength, ap.metric.ball_shear_strength]
+    economic_hooks:
+      affects: [yield, rework_rate, throughput]
+      note: 塑封前可重新键合挽回，塑封后判废
+
+  - id: ap.anomaly.mold_void
+    type: Anomaly
+    name_zh: 塑封空洞
+    name_en: Mold Void
+    domain: ap
+    severity: high
+    description: >
+      塑封体内部气泡。成因分三类：塑封料吸湿汽化、转注速度过快卷气、
+      模具排气不畅。X-Ray 抽检检出，塑封后不可返工。
+    metrics: [ap.metric.void_ratio]
+    economic_hooks:
+      affects: [yield, scrap_rate]
+      note: 不可逆缺陷，且发生在成本累积后期
+
+  - id: ap.anomaly.die_crack
+    type: Anomaly
+    name_zh: 芯粒裂纹
+    name_en: Die Crack
+    domain: ap
+    severity: critical
+    description: >
+      芯粒机械开裂。起点常在减薄引入的亚表面微裂纹或切割崩边，
+      经装片压力或热应力扩展。特征是检出工序与成因工序相隔较远，
+      需回溯多个上游站点。
+    metrics: [ap.metric.die_shear_strength]
+    economic_hooks:
+      affects: [yield, scrap_rate]
+      note: 延迟暴露型，检出时该批已跨多道工序，圈定关联批次范围大
+
+  - id: ap.anomaly.delamination
+    type: Anomaly
+    name_zh: 界面分层
+    name_en: Delamination
+    domain: ap
+    severity: high
+    description: >
+      塑封料与芯粒、基板或引线框架界面剥离。多源于材料吸湿、界面污染
+      或热膨胀系数失配。超声扫描(C-SAM)检出，是可靠性失效的前兆。
+    metrics: [ap.metric.void_ratio, ap.metric.die_shear_strength]
+    economic_hooks:
+      affects: [yield, scrap_rate]
+      note: 可靠性风险，漏出至客户端的代价远高于内部拦截
+
+  - id: ap.anomaly.dicing_chipping
+    type: Anomaly
+    name_zh: 切割崩边超规
+    name_en: Dicing Chipping Excursion
+    domain: ap
+    severity: high
+    description: >
+      崩边尺寸超出 Scribe Line 余量。刀片磨损或崩齿、进给速度过快、
+      贴膜气泡致支撑不良均可致。崩边同时是裂片的起始源。
+    metrics: [ap.metric.chipping_size]
+    economic_hooks:
+      affects: [yield, scrap_rate, cost_per_unit]
+      note: 刀片寿命管理是崩边率与耗材成本的直接权衡
+
+  - id: ap.anomaly.missing_ball
+    type: Anomaly
+    name_zh: 缺球/连球
+    name_en: Missing / Bridged Ball
+    domain: ap
+    severity: medium
+    description: >
+      植球后接点缺失或相邻锡球桥连。助焊剂涂布不均、植球治具孔位堵塞、
+      回流曲线失当为主因。缺球可补植返工，连球通常判废。
+    metrics: [ap.metric.coplanarity]
+    economic_hooks:
+      affects: [yield, rework_rate]
+      note: 缺球返工成本低，是后段少数可挽回的成型类不良
+
+  - id: ap.anomaly.ft_yield_drop
+    type: Anomaly
+    name_zh: 终测良率下滑
+    name_en: FT Yield Drop
+    domain: ap
+    severity: critical
+    description: >
+      终测良率跌破管制下限。首要判别是区分真实失效与治具接触不良型伪失效：
+      重测通过率高、失效点位集中于特定 Site 或特定针位指向治具；
+      失效分布随机且重测不通过则为真实失效，需按 Bin 类型回溯工序。
+      同时应比对 CP 良率以划分前后段责任。
+    metrics: [ap.metric.ft_yield, core.metric.yield]
+    economic_hooks:
+      affects: [yield, capacity_commit, cost_per_unit]
+      note: 直接冲击可交付数量，且过杀会造成良品误报废
+
+  - id: ap.anomaly.bonder_down
+    type: Anomaly
+    name_zh: 键合机停机
+    name_en: Wire Bonder Down
+    domain: ap
+    severity: high
+    description: >
+      键合设备故障。键合站通常机台数多但单机产能低，个别停机影响有限，
+      但同型号批量故障或治具短缺会造成该站 WIP 快速堆积。
+    metrics: [core.metric.oee, core.metric.wip]
+    economic_hooks:
+      affects: [equipment_oee, throughput, cycle_time]
+      note: 键合站为后段常见瓶颈，堆积会向下游塑封传导断流

@@ -1,0 +1,26 @@
+{
+  "id": "urn:pxai:semi:knowledge:QualityGovernanceSPCContainmentBoundaryR1",
+  "title": "SPC控制限越界与疑似批次遏制的证据边界",
+  "domain": "fab",
+  "summary": "控制限越界应作为调查和遏制触发信号，而非产品超规格或根因确认的直接结论。",
+  "content": "SPC控制限越界反映过程稳定性信号发生变化，但不能仅凭越界事实认定产品已超规格、批次必然失效或某项设备及配方因素已构成根因。知识闭环应分别记录检测指标、异常事件、证据指向的批次、疑似批次遏制动作以及后续处置结论；只有当异常证据明确关联某一批次时，才适合推导该异常影响该批次，且推导结果仍需接受适用规范和人工复核。",
+  "source_refs": [
+    "model_prior:semiconductor-quality-spc-containment-pattern",
+    "urn:pxai:semi:QualityExcursionAnomaly",
+    "urn:pxai:semi:SPCOutOfControlCausalInvestigationWorkflow"
+  ],
+  "related_iris": [
+    "urn:pxai:semi:SPCControlLimitBreachExcursionPattern",
+    "urn:pxai:semi:SuspectLotContainmentAction",
+    "urn:pxai:semi:hasSuspectLotContainmentAction",
+    "urn:pxai:semi:QualityGovernanceContainmentPlaybookR1",
+    "urn:pxai:semi:QualityExcursionAnomaly",
+    "urn:pxai:semi:Lot",
+    "urn:pxai:semi:Observation"
+  ],
+  "confidence": "medium",
+  "provenance": {
+    "source_type": "web",
+    "source_ref": "model_prior:semiconductor-quality-spc-containment-pattern"
+  }
+}

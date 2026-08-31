@@ -1,0 +1,18 @@
+{
+  "id": "urn:pxai:semi:knowledge:fab-business-variable-unit-gate-repair-r1",
+  "title": "Fab经营变量单位代码门禁修复",
+  "domain": "fab",
+  "summary": "为光刻产能和可销售产出变量补齐语义校验要求的唯一单位代码。",
+  "content": "月度通用晶圆厂经营模型中的光刻产能变量应以wafer_per_month标识单位，可销售产出变量应以wafer标识单位。该补充用于消除unitCode最小基数违规并明确变量量纲，仅属于模型先验定义，不代表任何晶圆厂的现场产能、实际产出或经营承诺。",
+  "source_refs": [
+    "business/models/fab-baseline.yaml"
+  ],
+  "related_iris": [
+    "urn:pxai:semi:unitCode"
+  ],
+  "confidence": "medium",
+  "provenance": {
+    "source_type": "web",
+    "source_ref": "business/models/fab-baseline.yaml"
+  }
+}

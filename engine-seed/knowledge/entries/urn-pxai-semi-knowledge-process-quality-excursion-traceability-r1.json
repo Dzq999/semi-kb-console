@@ -1,0 +1,25 @@
+{
+  "id": "urn:pxai:semi:knowledge:process-quality-excursion-traceability-r1",
+  "title": "品质异常与设备停机的工艺调查追溯链",
+  "domain": "fab",
+  "summary": "品质异常调查应将检测指标、批次影响、设备状态、候选原因和诊断行动组织为一条可审计的语义链。",
+  "content": "在晶圆厂工艺质量管理中，品质异常不宜仅作为孤立告警处理。建议将异常检测指标、受影响批次、相关设备、候选制程原因、调查证据以及诊断和遏制行动建立关联，并明确候选原因不等同于已确认根因。设备停机可以作为并行异常链纳入调查，但其对周期时间、受约束投入量、可销售产出或利润的影响需要现场事件和经营模型共同验证。本条内容仅为model_prior，未使用现场实测数据。",
+  "source_refs": [
+    "business/models/fab-baseline.yaml",
+    "business/models/business.agent.run-c163313475f54c2f.r1.run-c163313475f54c2f-a01.1.yaml"
+  ],
+  "related_iris": [
+    "urn:pxai:semi:SPCOutOfControlCausalInvestigationWorkflow",
+    "urn:pxai:semi:QualityExcursionAnomaly",
+    "urn:pxai:semi:EquipmentDowntimeAnomaly",
+    "urn:pxai:semi:Metric",
+    "urn:pxai:semi:Cause",
+    "urn:pxai:semi:Lot",
+    "urn:pxai:semi:Equipment"
+  ],
+  "confidence": "medium",
+  "provenance": {
+    "source_type": "web",
+    "source_ref": "business/models/fab-baseline.yaml"
+  }
+}

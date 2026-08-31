@@ -1,0 +1,28 @@
+{
+  "id": "urn:pxai:semi:knowledge:core_anomaly_hypothesis_investigation_pattern",
+  "title": "品质异常与设备停机的候选原因调查结构",
+  "domain": "eqp",
+  "summary": "以异常、候选原因和根因假设三类节点建立可追踪的调查入口。",
+  "content": "对于品质异常突发和设备停机，可先将异常对象连接到候选原因，再由独立的根因假设同时指向异常与候选原因。该结构只表达需要验证的调查路径，不能替代维护日志、设备遥测、量测结果或制程履历，也不得据此认定现场根因。",
+  "source_refs": [
+    "model_prior:gap_analysis.uncovered/core.anomaly.quality_excursion",
+    "model_prior:gap_analysis.uncovered/core.anomaly.equipment_down",
+    "known_ontology:urn:pxai:semi:RootCauseHypothesis"
+  ],
+  "related_iris": [
+    "urn:pxai:semi:EquipmentDowntimeAnomaly",
+    "urn:pxai:semi:QualityExcursionAnomaly",
+    "urn:pxai:semi:RootCauseHypothesis",
+    "urn:pxai:semi:instance:equipment_downtime_anomaly_core",
+    "urn:pxai:semi:instance:equipment_downtime_cause_hypothesis",
+    "urn:pxai:semi:instance:equipment_downtime_root_cause_hypothesis",
+    "urn:pxai:semi:instance:quality_excursion_anomaly_core",
+    "urn:pxai:semi:instance:quality_excursion_cause_hypothesis",
+    "urn:pxai:semi:instance:quality_excursion_root_cause_hypothesis"
+  ],
+  "confidence": "medium",
+  "provenance": {
+    "source_type": "web",
+    "source_ref": "model_prior:gap_analysis.uncovered/core.anomaly.quality_excursion"
+  }
+}

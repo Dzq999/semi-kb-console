@@ -1,0 +1,139 @@
+# fab 层 · 工序（投料/热制程/注入）
+default_provenance:
+  source_type: model_prior
+  ref: null
+  confidence: high
+  created_at: "2026-08-26"
+  reviewed_by: null
+
+entities:
+  - id: fab.process.wafer_start
+    type: Process
+    name_zh: 投料
+    name_en: Wafer Start
+    domain: fab
+    stage: fab.stage.diffusion
+    equipment: [fab.equip.wafer_sorter]
+    materials: [core.material.wafer, core.material.lot]
+    description: >
+      裸片开卡投入产线，绑定产品别、Route 与批次号。投料节奏决定全线 WIP
+      基线水位，脉冲式投料是下游 WIP 堆积的常见上游成因。
+    metrics: [core.metric.wip]
+    economic_hooks:
+      affects: [throughput, cycle_time, capacity_commit]
+      note: 投料计划与瓶颈产能不匹配时，多投只增加在制资金占用而不增产出
+
+  - id: fab.process.thermal_oxidation
+    type: Process
+    name_zh: 热氧化
+    name_en: Thermal Oxidation
+    domain: fab
+    stage: fab.stage.diffusion
+    equipment: [fab.equip.furnace]
+    materials: [core.material.wafer]
+    description: >
+      高温通氧生长 SiO2，用作垫氧化层或牺牲层。干氧致密速率慢，湿氧速率快
+      质量略低。厚度由温度-时间-气氛共同决定。
+    parameters: [fab.param.furnace_temp, fab.param.furnace_time]
+    metrics: [fab.metric.film_thickness]
+    economic_hooks:
+      affects: [yield, cycle_time]
+      note: 炉管为批式设备，等批凑批时间计入 CT
+
+  - id: fab.process.gate_oxidation
+    type: Process
+    name_zh: 栅氧化
+    name_en: Gate Oxidation
+    domain: fab
+    stage: fab.stage.diffusion
+    equipment: [fab.equip.furnace]
+    materials: [core.material.wafer]
+    description: >
+      生长栅极介电层，厚度均匀性与界面缺陷密度直接决定器件阈值电压与可靠性。
+      对颗粒与金属污染最敏感的工序之一。
+    parameters: [fab.param.furnace_temp, fab.param.furnace_time]
+    metrics: [fab.metric.film_thickness, fab.metric.wat_vt]
+    economic_hooks:
+      affects: [yield, scrap_rate]
+      note: 栅氧异常通常导致整批电性失效，属高损失场景
+
+  - id: fab.process.lpcvd_nitride
+    type: Process
+    name_zh: LPCVD 氮化硅沉积
+    name_en: LPCVD Nitride Deposition
+    domain: fab
+    stage: fab.stage.diffusion
+    equipment: [fab.equip.furnace]
+    materials: [core.material.wafer]
+    description: >
+      低压化学气相沉积 Si3N4，作硬掩膜或钝化层。批式炉管加工，
+      片间与片内均匀性受气流分布与温区平衡影响。
+    parameters: [fab.param.furnace_temp, fab.param.chamber_pressure]
+    metrics: [fab.metric.film_thickness]
+    economic_hooks:
+      affects: [yield, equipment_oee]
+      note: 炉管累积镀膜需定期清洗，清洗排程冲击可用产能
+
+  - id: fab.process.poly_deposition
+    type: Process
+    name_zh: 多晶硅沉积
+    name_en: Polysilicon Deposition
+    domain: fab
+    stage: fab.stage.diffusion
+    equipment: [fab.equip.furnace]
+    materials: [core.material.wafer]
+    description: 沉积多晶硅作栅极材料，晶粒尺寸与掺杂浓度影响方阻。
+    parameters: [fab.param.furnace_temp, fab.param.chamber_pressure]
+    metrics: [fab.metric.film_thickness, fab.metric.sheet_resistance]
+    economic_hooks:
+      affects: [yield]
+      note: 方阻偏移传导至器件驱动能力
+
+  - id: fab.process.ion_implant
+    type: Process
+    name_zh: 离子注入
+    name_en: Ion Implantation
+    domain: fab
+    stage: fab.stage.implant
+    equipment: [fab.equip.implanter]
+    materials: [core.material.wafer]
+    description: >
+      加速掺杂离子轰击晶圆形成掺杂区。剂量决定载流子浓度，能量决定结深。
+      束流稳定性与角度精度是主要控制难点。
+    parameters: [fab.param.implant_dose, fab.param.implant_energy, fab.param.implant_tilt]
+    metrics: [fab.metric.sheet_resistance, fab.metric.wat_vt]
+    economic_hooks:
+      affects: [yield, equipment_oee]
+      note: 剂量漂移在 WAT 才暴露，中间已投入多道工序，损失窗口长
+
+  - id: fab.process.rta_anneal
+    type: Process
+    name_zh: 快速热退火
+    name_en: RTA (Rapid Thermal Anneal)
+    domain: fab
+    stage: fab.stage.diffusion
+    equipment: [fab.equip.rtp]
+    materials: [core.material.wafer]
+    description: >
+      秒级升降温激活掺杂并修复注入损伤。单片加工，热预算控制优于炉管退火，
+      抑制掺杂扩散拖尾。
+    parameters: [fab.param.furnace_temp, fab.param.rta_ramp_rate]
+    metrics: [fab.metric.sheet_resistance]
+    economic_hooks:
+      affects: [yield, throughput]
+      note: 单片设备产能有限，易在注入后形成局部瓶颈
+
+  - id: fab.process.furnace_anneal
+    type: Process
+    name_zh: 炉管退火
+    name_en: Furnace Anneal
+    domain: fab
+    stage: fab.stage.diffusion
+    equipment: [fab.equip.furnace]
+    materials: [core.material.wafer]
+    description: 长时间批式退火，用于致密化介电层或应力释放。
+    parameters: [fab.param.furnace_temp, fab.param.furnace_time]
+    metrics: [fab.metric.film_thickness]
+    economic_hooks:
+      affects: [cycle_time, equipment_oee]
+      note: 数小时级工序，是 CT 的固定构成项

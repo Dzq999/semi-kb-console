@@ -1,0 +1,22 @@
+{
+  "id": "urn:pxai:semi:knowledge:reasoning-down-event-equipment-status-dual-typing-r1",
+  "title": "设备停机状态事件的异常语义补齐模式",
+  "domain": "eqp",
+  "summary": "从设备关联的DownEvent补齐EquipmentDowntimeAnomaly类型及affectsEquipment关系。",
+  "content": "当设备通过hasStatusEvent关联一个DownEvent时，可将该事件补充识别为EquipmentDowntimeAnomaly，并以affectsEquipment明确指向对应设备。该模式只补齐可查询的异常语义，不推断停机时长、实际根因、产能损失或财务影响；后续经营评估仍需事件时间、设备范围及独立证据支持。",
+  "source_refs": [
+    "model_prior:known_ontology:round-1"
+  ],
+  "related_iris": [
+    "urn:pxai:semi:Equipment",
+    "urn:pxai:semi:DownEvent",
+    "urn:pxai:semi:EquipmentDowntimeAnomaly",
+    "urn:pxai:semi:hasStatusEvent",
+    "urn:pxai:semi:affectsEquipment"
+  ],
+  "confidence": "medium",
+  "provenance": {
+    "source_type": "web",
+    "source_ref": "model_prior:known_ontology:round-1"
+  }
+}

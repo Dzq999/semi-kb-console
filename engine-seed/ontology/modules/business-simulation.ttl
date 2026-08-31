@@ -1,0 +1,26 @@
+@prefix semi: <urn:pxai:semi:> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+<urn:pxai:semi:business-simulation> a owl:Ontology ; owl:imports <urn:pxai:semi:common> .
+
+semi:BusinessVariable a owl:Class ; rdfs:subClassOf semi:InformationEntity .
+semi:EconomicImpact a owl:Class ; rdfs:subClassOf semi:InformationEntity .
+semi:BusinessModel a owl:Class ; rdfs:subClassOf semi:InformationEntity .
+semi:SimulationScenario a owl:Class ; rdfs:subClassOf semi:InformationEntity .
+semi:Intervention a owl:Class ; rdfs:subClassOf semi:InformationEntity .
+semi:SimulationRun a owl:Class ; rdfs:subClassOf semi:Event .
+semi:Outcome a owl:Class ; rdfs:subClassOf semi:Observation .
+
+semi:affectsBusinessVariable a owl:ObjectProperty ; rdfs:range semi:BusinessVariable .
+semi:usesBusinessModel a owl:ObjectProperty ; rdfs:domain semi:SimulationScenario ; rdfs:range semi:BusinessModel .
+semi:hasIntervention a owl:ObjectProperty ; rdfs:domain semi:SimulationScenario ; rdfs:range semi:Intervention .
+semi:producesOutcome a owl:ObjectProperty ; rdfs:domain semi:SimulationRun ; rdfs:range semi:Outcome .
+semi:simulatesScenario a owl:ObjectProperty ; rdfs:domain semi:SimulationRun ; rdfs:range semi:SimulationScenario .
+semi:hasBusinessVariable a owl:ObjectProperty ; rdfs:domain semi:BusinessModel ; rdfs:range semi:BusinessVariable .
+semi:changesVariable a owl:ObjectProperty ; rdfs:domain semi:Intervention ; rdfs:range semi:BusinessVariable .
+semi:targetsOntologyEntity a owl:ObjectProperty ; rdfs:domain semi:Intervention ; rdfs:range semi:Entity .
+semi:interventionOperation a owl:DatatypeProperty ; rdfs:domain semi:Intervention ; rdfs:range xsd:string .
+semi:interventionValue a owl:DatatypeProperty ; rdfs:domain semi:Intervention ; rdfs:range xsd:decimal .
+semi:oneTimeInvestment a owl:DatatypeProperty ; rdfs:domain semi:SimulationScenario ; rdfs:range xsd:decimal .

@@ -1,0 +1,14 @@
+PREFIX semi: <urn:pxai:semi:>
+
+CONSTRUCT {
+  [] a semi:RootCauseHypothesis ;
+     semi:hypothesizesCause ?cause ;
+     semi:hypothesizesAnomaly ?anomaly ;
+     semi:generatedByRule <urn:pxai:semi:rule:R-INF-004> ;
+     semi:derivedFrom ?cause, ?anomaly, ?playbook .
+}
+WHERE {
+  ?cause semi:mayCause ?anomaly .
+  ?playbook a semi:DiagnosticPlaybook ;
+            semi:diagnosesAnomaly ?anomaly .
+}

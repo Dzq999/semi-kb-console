@@ -1,0 +1,3198 @@
+{
+  "status": "pass",
+  "generated_at": "2026-08-30T18:21:33.731272+00:00",
+  "internal_feature_model": {
+    "source_sha256": "c23a80be00b1a8937a6f3b258a64a0556e1704fe663bf022435dad78d6069ac8",
+    "themes": 7,
+    "entities": 24,
+    "tables": 26,
+    "feature_rows": 1181,
+    "mapped_entities": 24,
+    "entity_aligned_feature_rows": 1181,
+    "property_mapped_feature_rows": 249,
+    "property_unmapped_feature_rows": 932,
+    "property_mapping_coverage": 0.210838
+  },
+  "vfab": {
+    "state": "awaiting_source",
+    "contract_id": "urn:pxai:semi:vfab-source-contract",
+    "datasets": 0,
+    "fields": 0,
+    "fields_matching_internal_feature": 0,
+    "matching_feature_codes": [],
+    "note": "等待 vFab 实际资料，当前不作双源确认。"
+  },
+  "issues": {
+    "unmapped_source_entities": [],
+    "stale_mappings": [],
+    "undeclared_target_terms": [],
+    "undeclared_vfab_targets": [],
+    "undeclared_property_targets": [],
+    "duplicate_property_codes": [],
+    "supplementary_feature_sheets": [],
+    "unmapped_source_features": [
+      {
+        "feature_code": "_biz_ts_",
+        "rows": 21
+      },
+      {
+        "feature_code": "proc_time",
+        "rows": 19
+      },
+      {
+        "feature_code": "unique_record_id",
+        "rows": 17
+      },
+      {
+        "feature_code": "_code_",
+        "rows": 13
+      },
+      {
+        "feature_code": "tech_code",
+        "rows": 9
+      },
+      {
+        "feature_code": "stage_code",
+        "rows": 8
+      },
+      {
+        "feature_code": "item_name",
+        "rows": 8
+      },
+      {
+        "feature_code": "record_id",
+        "rows": 6
+      },
+      {
+        "feature_code": "dt",
+        "rows": 5
+      },
+      {
+        "feature_code": "module_code",
+        "rows": 4
+      },
+      {
+        "feature_code": "step_desc",
+        "rows": 4
+      },
+      {
+        "feature_code": "unique_item_code",
+        "rows": 4
+      },
+      {
+        "feature_code": "setting_type",
+        "rows": 4
+      },
+      {
+        "feature_code": "inline_type",
+        "rows": 4
+      },
+      {
+        "feature_code": "is_rework",
+        "rows": 4
+      },
+      {
+        "feature_code": "wafer_num",
+        "rows": 4
+      },
+      {
+        "feature_code": "capability",
+        "rows": 3
+      },
+      {
+        "feature_code": "nc_name",
+        "rows": 3
+      },
+      {
+        "feature_code": "nc_type",
+        "rows": 3
+      },
+      {
+        "feature_code": "limit_ver",
+        "rows": 3
+      },
+      {
+        "feature_code": "job_name",
+        "rows": 3
+      },
+      {
+        "feature_code": "job_type",
+        "rows": 3
+      },
+      {
+        "feature_code": "range",
+        "rows": 3
+      },
+      {
+        "feature_code": "basic_id",
+        "rows": 3
+      },
+      {
+        "feature_code": "特征编码",
+        "rows": 3
+      },
+      {
+        "feature_code": "wafer_size",
+        "rows": 3
+      },
+      {
+        "feature_code": "eqp_type",
+        "rows": 2
+      },
+      {
+        "feature_code": "eqp_name",
+        "rows": 2
+      },
+      {
+        "feature_code": "bin_type",
+        "rows": 2
+      },
+      {
+        "feature_code": "product_type",
+        "rows": 2
+      },
+      {
+        "feature_code": "product_ver",
+        "rows": 2
+      },
+      {
+        "feature_code": "item_type",
+        "rows": 2
+      },
+      {
+        "feature_code": "metric",
+        "rows": 2
+      },
+      {
+        "feature_code": "score",
+        "rows": 2
+      },
+      {
+        "feature_code": "capbility",
+        "rows": 2
+      },
+      {
+        "feature_code": "test_prog_name",
+        "rows": 2
+      },
+      {
+        "feature_code": "item_num",
+        "rows": 2
+      },
+      {
+        "feature_code": "probe_code",
+        "rows": 2
+      },
+      {
+        "feature_code": "唯一lot编码",
+        "rows": 2
+      },
+      {
+        "feature_code": "所属工艺",
+        "rows": 2
+      },
+      {
+        "feature_code": "内部优先级",
+        "rows": 2
+      },
+      {
+        "feature_code": "优先级",
+        "rows": 2
+      },
+      {
+        "feature_code": "实体编码列",
+        "rows": 2
+      },
+      {
+        "feature_code": "数据业务时间戳",
+        "rows": 2
+      },
+      {
+        "feature_code": "unique_chart_type_code",
+        "rows": 2
+      },
+      {
+        "feature_code": "chart_code",
+        "rows": 2
+      },
+      {
+        "feature_code": "chart_type",
+        "rows": 2
+      },
+      {
+        "feature_code": "limit_cl",
+        "rows": 2
+      },
+      {
+        "feature_code": "limit_proc_time",
+        "rows": 2
+      },
+      {
+        "feature_code": "source_system",
+        "rows": 2
+      },
+      {
+        "feature_code": "apply_status",
+        "rows": 2
+      },
+      {
+        "feature_code": "calc_status",
+        "rows": 2
+      },
+      {
+        "feature_code": "effective_config",
+        "rows": 2
+      },
+      {
+        "feature_code": "calc_ver",
+        "rows": 2
+      },
+      {
+        "feature_code": "bin_number",
+        "rows": 2
+      },
+      {
+        "feature_code": "unique_dl_code",
+        "rows": 2
+      },
+      {
+        "feature_code": "edx_element",
+        "rows": 2
+      },
+      {
+        "feature_code": "unique_dn_code",
+        "rows": 2
+      },
+      {
+        "feature_code": "class_type",
+        "rows": 2
+      },
+      {
+        "feature_code": "class_num",
+        "rows": 2
+      },
+      {
+        "feature_code": "class_name",
+        "rows": 2
+      },
+      {
+        "feature_code": "pass_fail",
+        "rows": 2
+      },
+      {
+        "feature_code": "wafer_t7_code",
+        "rows": 2
+      },
+      {
+        "feature_code": "orig_x",
+        "rows": 2
+      },
+      {
+        "feature_code": "orig_y",
+        "rows": 2
+      },
+      {
+        "feature_code": "rowkey",
+        "rows": 2
+      },
+      {
+        "feature_code": "proc_step_desc",
+        "rows": 2
+      },
+      {
+        "feature_code": "point_id",
+        "rows": 2
+      },
+      {
+        "feature_code": "shot_x",
+        "rows": 2
+      },
+      {
+        "feature_code": "shot_y",
+        "rows": 2
+      },
+      {
+        "feature_code": "event_type",
+        "rows": 2
+      },
+      {
+        "feature_code": "唯一wafer编码",
+        "rows": 2
+      },
+      {
+        "feature_code": "ch_eqp_type",
+        "rows": 2
+      },
+      {
+        "feature_code": "route_ver",
+        "rows": 2
+      },
+      {
+        "feature_code": "factor_code",
+        "rows": 2
+      },
+      {
+        "feature_code": "hit_count",
+        "rows": 2
+      },
+      {
+        "feature_code": "id",
+        "rows": 2
+      },
+      {
+        "feature_code": "model_ver",
+        "rows": 2
+      },
+      {
+        "feature_code": "golden_tool",
+        "rows": 1
+      },
+      {
+        "feature_code": "golden_tool_status",
+        "rows": 1
+      },
+      {
+        "feature_code": "recipe_status",
+        "rows": 1
+      },
+      {
+        "feature_code": "capability_status",
+        "rows": 1
+      },
+      {
+        "feature_code": "constraint",
+        "rows": 1
+      },
+      {
+        "feature_code": "constraint_status",
+        "rows": 1
+      },
+      {
+        "feature_code": "chamber_qty",
+        "rows": 1
+      },
+      {
+        "feature_code": "chamber_list",
+        "rows": 1
+      },
+      {
+        "feature_code": "eqp_group_code",
+        "rows": 1
+      },
+      {
+        "feature_code": "eqp_group_name",
+        "rows": 1
+      },
+      {
+        "feature_code": "module_name",
+        "rows": 1
+      },
+      {
+        "feature_code": "function_type",
+        "rows": 1
+      },
+      {
+        "feature_code": "buffer_type",
+        "rows": 1
+      },
+      {
+        "feature_code": "statistic_w_week",
+        "rows": 1
+      },
+      {
+        "feature_code": "statistic_w_month",
+        "rows": 1
+      },
+      {
+        "feature_code": "statistic_w_year",
+        "rows": 1
+      },
+      {
+        "feature_code": "alarm_action_times_tw",
+        "rows": 1
+      },
+      {
+        "feature_code": "alarm_action_times_tm",
+        "rows": 1
+      },
+      {
+        "feature_code": "alarm_action_times_ty",
+        "rows": 1
+      },
+      {
+        "feature_code": "alarm_action_times_tt",
+        "rows": 1
+      },
+      {
+        "feature_code": "last_pm_time",
+        "rows": 1
+      },
+      {
+        "feature_code": "last_pm_int_d",
+        "rows": 1
+      },
+      {
+        "feature_code": "last_pm_dur_h",
+        "rows": 1
+      },
+      {
+        "feature_code": "last_pm_type",
+        "rows": 1
+      },
+      {
+        "feature_code": "next_plan_pm_start_time",
+        "rows": 1
+      },
+      {
+        "feature_code": "next_plan_pm_code",
+        "rows": 1
+      },
+      {
+        "feature_code": "next_plan_pm_end_time",
+        "rows": 1
+      },
+      {
+        "feature_code": "next_plan_pm_dur_h",
+        "rows": 1
+      },
+      {
+        "feature_code": "next_plan_pm_restore_time",
+        "rows": 1
+      },
+      {
+        "feature_code": "next_plan_pm_type",
+        "rows": 1
+      },
+      {
+        "feature_code": "next_plan_pm_scope",
+        "rows": 1
+      },
+      {
+        "feature_code": "next_plan_pm_chamber",
+        "rows": 1
+      },
+      {
+        "feature_code": "next_plan_pm_status",
+        "rows": 1
+      },
+      {
+        "feature_code": "next_plan_pm_owner",
+        "rows": 1
+      },
+      {
+        "feature_code": "run_dur_h",
+        "rows": 1
+      },
+      {
+        "feature_code": "idle_dur_h",
+        "rows": 1
+      },
+      {
+        "feature_code": "run_wafer_qty_tt",
+        "rows": 1
+      },
+      {
+        "feature_code": "run_wafer_times_tt",
+        "rows": 1
+      },
+      {
+        "feature_code": "wip_list",
+        "rows": 1
+      },
+      {
+        "feature_code": "lip_list",
+        "rows": 1
+      },
+      {
+        "feature_code": "last_track_in_lot_code",
+        "rows": 1
+      },
+      {
+        "feature_code": "last_track_in_time",
+        "rows": 1
+      },
+      {
+        "feature_code": "unique_bin_code",
+        "rows": 1
+      },
+      {
+        "feature_code": "bin_name",
+        "rows": 1
+      },
+      {
+        "feature_code": "bin_code",
+        "rows": 1
+      },
+      {
+        "feature_code": "bin_priority",
+        "rows": 1
+      },
+      {
+        "feature_code": "remark",
+        "rows": 1
+      },
+      {
+        "feature_code": "updated_code",
+        "rows": 1
+      },
+      {
+        "feature_code": "updated_name",
+        "rows": 1
+      },
+      {
+        "feature_code": "created_code",
+        "rows": 1
+      },
+      {
+        "feature_code": "created_name",
+        "rows": 1
+      },
+      {
+        "feature_code": "unique_flow_code",
+        "rows": 1
+      },
+      {
+        "feature_code": "product_desc",
+        "rows": 1
+      },
+      {
+        "feature_code": "product_group",
+        "rows": 1
+      },
+      {
+        "feature_code": "owner_code",
+        "rows": 1
+      },
+      {
+        "feature_code": "owner_name",
+        "rows": 1
+      },
+      {
+        "feature_code": "cost_type",
+        "rows": 1
+      },
+      {
+        "feature_code": "flow_ver",
+        "rows": 1
+      },
+      {
+        "feature_code": "is_new_product",
+        "rows": 1
+      },
+      {
+        "feature_code": "step_type",
+        "rows": 1
+      },
+      {
+        "feature_code": "lw_eqp_total",
+        "rows": 1
+      },
+      {
+        "feature_code": "lw_eqp_avail_count",
+        "rows": 1
+      },
+      {
+        "feature_code": "lw_eqp_unavail_count",
+        "rows": 1
+      },
+      {
+        "feature_code": "lw_golden_eqp_avail_count",
+        "rows": 1
+      },
+      {
+        "feature_code": "lw_golden_eqp_unavail_count",
+        "rows": 1
+      },
+      {
+        "feature_code": "lw_risk",
+        "rows": 1
+      },
+      {
+        "feature_code": "lw_eqp_code",
+        "rows": 1
+      },
+      {
+        "feature_code": "mapping_step_code",
+        "rows": 1
+      },
+      {
+        "feature_code": "grp_name",
+        "rows": 1
+      },
+      {
+        "feature_code": "grp_type",
+        "rows": 1
+      },
+      {
+        "feature_code": "metric_type",
+        "rows": 1
+      },
+      {
+        "feature_code": "golden_weight",
+        "rows": 1
+      },
+      {
+        "feature_code": "rank",
+        "rows": 1
+      },
+      {
+        "feature_code": "golden_mean",
+        "rows": 1
+      },
+      {
+        "feature_code": "golden_stdev",
+        "rows": 1
+      },
+      {
+        "feature_code": "golden_count",
+        "rows": 1
+      },
+      {
+        "feature_code": "nc_mean",
+        "rows": 1
+      },
+      {
+        "feature_code": "nc_stdev",
+        "rows": 1
+      },
+      {
+        "feature_code": "nc_count",
+        "rows": 1
+      },
+      {
+        "feature_code": "mean_shift",
+        "rows": 1
+      },
+      {
+        "feature_code": "stdev_compare",
+        "rows": 1
+      },
+      {
+        "feature_code": "cpk",
+        "rows": 1
+      },
+      {
+        "feature_code": "spec_hi",
+        "rows": 1
+      },
+      {
+        "feature_code": "spec_lo",
+        "rows": 1
+      },
+      {
+        "feature_code": "target",
+        "rows": 1
+      },
+      {
+        "feature_code": "detail_setting_weight",
+        "rows": 1
+      },
+      {
+        "feature_code": "module",
+        "rows": 1
+      },
+      {
+        "feature_code": "inline_score",
+        "rows": 1
+      },
+      {
+        "feature_code": "inline_weight",
+        "rows": 1
+      },
+      {
+        "feature_code": "offline_score",
+        "rows": 1
+      },
+      {
+        "feature_code": "offline_weight",
+        "rows": 1
+      },
+      {
+        "feature_code": "particle_score",
+        "rows": 1
+      },
+      {
+        "feature_code": "particle_weight",
+        "rows": 1
+      },
+      {
+        "feature_code": "defect_score",
+        "rows": 1
+      },
+      {
+        "feature_code": "defect_weight",
+        "rows": 1
+      },
+      {
+        "feature_code": "comprehensive_rank",
+        "rows": 1
+      },
+      {
+        "feature_code": "limit_name",
+        "rows": 1
+      },
+      {
+        "feature_code": "item_unit",
+        "rows": 1
+      },
+      {
+        "feature_code": "sub_job_type",
+        "rows": 1
+      },
+      {
+        "feature_code": "proc_reticle_code",
+        "rows": 1
+      },
+      {
+        "feature_code": "job_update_time",
+        "rows": 1
+      },
+      {
+        "feature_code": "job_create_time",
+        "rows": 1
+      },
+      {
+        "feature_code": "job_proc_time",
+        "rows": 1
+      },
+      {
+        "feature_code": "unique_cp_bin_code",
+        "rows": 1
+      },
+      {
+        "feature_code": "data_type",
+        "rows": 1
+      },
+      {
+        "feature_code": "cp_bin_code",
+        "rows": 1
+      },
+      {
+        "feature_code": "bin_group",
+        "rows": 1
+      },
+      {
+        "feature_code": "color",
+        "rows": 1
+      },
+      {
+        "feature_code": "color_group",
+        "rows": 1
+      },
+      {
+        "feature_code": "unique_mat_code",
+        "rows": 1
+      },
+      {
+        "feature_code": "mat_name",
+        "rows": 1
+      },
+      {
+        "feature_code": "supplier_code",
+        "rows": 1
+      },
+      {
+        "feature_code": "consumable_flag",
+        "rows": 1
+      },
+      {
+        "feature_code": "control_mode",
+        "rows": 1
+      },
+      {
+        "feature_code": "safety_stock_mat_qty",
+        "rows": 1
+      },
+      {
+        "feature_code": "holding_mat_cost",
+        "rows": 1
+      },
+      {
+        "feature_code": "normal_purchase_mat_cost",
+        "rows": 1
+      },
+      {
+        "feature_code": "urgent_purchase_mat_cost",
+        "rows": 1
+      },
+      {
+        "feature_code": "downtime_mat_cost",
+        "rows": 1
+      },
+      {
+        "feature_code": "normal_lead_mat_time",
+        "rows": 1
+      },
+      {
+        "feature_code": "urgent_lead_mat_time",
+        "rows": 1
+      },
+      {
+        "feature_code": "min_purchase_unit_mat_qty",
+        "rows": 1
+      },
+      {
+        "feature_code": "package_mat_qty",
+        "rows": 1
+      },
+      {
+        "feature_code": "available inventory_mat_qty_tt",
+        "rows": 1
+      },
+      {
+        "feature_code": "demand_mat_qty_tt",
+        "rows": 1
+      },
+      {
+        "feature_code": "intransit_mat_qty_tt",
+        "rows": 1
+      },
+      {
+        "feature_code": "return_mat_qty_tt",
+        "rows": 1
+      },
+      {
+        "feature_code": "demand_mat_qty_tm",
+        "rows": 1
+      },
+      {
+        "feature_code": "intransit_mat_qty_tm",
+        "rows": 1
+      },
+      {
+        "feature_code": "return_mat_qty_tm",
+        "rows": 1
+      },
+      {
+        "feature_code": "dt_mat_code",
+        "rows": 1
+      },
+      {
+        "feature_code": "available_inventory_mat_qty_fcst_tt",
+        "rows": 1
+      },
+      {
+        "feature_code": "return_mat_qty_fcst_tm",
+        "rows": 1
+      },
+      {
+        "feature_code": "purchase_mat_qty_fcst_tm",
+        "rows": 1
+      },
+      {
+        "feature_code": "urgent_purchase_mat_qty_fcst_tm",
+        "rows": 1
+      },
+      {
+        "feature_code": "demand_mat_qty_t1cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "demand_mat_qty_t2cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "demand_mat_qty_t3cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "demand_mat_qty_t4cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "demand_mat_qty_t5cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "demand_mat_qty_t6cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "return_mat_qty_t1cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "return_mat_qty_t2cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "return_mat_qty_t3cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "return_mat_qty_t4cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "return_mat_qty_t5cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "return_mat_qty_t6cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "intransit_mat_qty_t1cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "intransit_mat_qty_t2cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "intransit_mat_qty_t3cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "intransit_mat_qty_t4cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "intransit_mat_qty_t5cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "intransit_mat_qty_t6cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "purchase_mat_qty_fcst_t1cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "purchase_mat_qty_fcst_t2cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "purchase_mat_qty_fcst_t3cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "purchase_mat_qty_fcst_t4cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "purchase_mat_qty_fcst_t5cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "purchase_mat_qty_fcst_t6cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "is_purchase_mat_qty_fcst_t1cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "is_purchase_mat_qty_fcst_t2cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "is_purchase_mat_qty_fcst_t3cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "is_purchase_mat_qty_fcst_t4cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "is_purchase_mat_qty_fcst_t5cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "is_purchase_mat_qty_fcst_t6cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "urgent_purchase_mat_qty_fcst_t1cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "urgent_purchase_mat_qty_fcst_t2cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "urgent_purchase_mat_qty_fcst_t3cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "urgent_purchase_mat_qty_fcst_t4cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "urgent_purchase_mat_qty_fcst_t5cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "urgent_purchase_mat_qty_fcst_t6cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "is_urgent_purchase_mat_qty_fcst_t1cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "is_urgent_purchase_mat_qty_fcst_t2cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "is_urgent_purchase_mat_qty_fcst_t3cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "is_urgent_purchase_mat_qty_fcst_t4cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "is_urgent_purchase_mat_qty_fcst_t5cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "is_urgent_purchase_mat_qty_fcst_t6cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "purchase_mat_qty_cost_fcst_n6cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "elapsed_days_in_month",
+        "rows": 1
+      },
+      {
+        "feature_code": "demand_mat_qty_l1cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "demand_mat_qty_l2cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "demand_mat_qty_l3cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "demand_mat_qty_l4cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "demand_mat_qty_l5cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "demand_mat_qty_l6cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "return_mat_qty_l1cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "return_mat_qty_l2cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "return_mat_qty_l3cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "return_mat_qty_l4cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "return_mat_qty_l5cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "return_mat_qty_l6cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "out_repair_mat_qty_l1cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "out_repair_mat_qty_l2cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "out_repair_mat_qty_l3cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "out_repair_mat_qty_l4cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "out_repair_mat_qty_l5cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "out_repair_mat_qty_l6cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "in_repair_mat_qty_l1cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "in_repair_mat_qty_l2cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "in_repair_mat_qty_l3cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "in_repair_mat_qty_l4cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "in_repair_mat_qty_l5cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "in_repair_mat_qty_l6cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "out_clean_mat_qty_l1cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "out_clean_mat_qty_l2cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "out_clean_mat_qty_l3cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "out_clean_mat_qty_l4cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "out_clean_mat_qty_l5cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "out_clean_mat_qty_l6cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "in_clean_mat_qty_l1cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "in_clean_mat_qty_l2cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "in_clean_mat_qty_l3cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "in_clean_mat_qty_l4cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "in_clean_mat_qty_l5cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "in_clean_mat_qty_l6cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "scrap_mat_qty_l1cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "scrap_mat_qty_l2cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "scrap_mat_qty_l3cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "scrap_mat_qty_l4cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "scrap_mat_qty_l5cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "scrap_mat_qty_l6cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "other_mat_qty_l1cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "other_mat_qty_l2cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "other_mat_qty_l3cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "other_mat_qty_l4cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "other_mat_qty_l5cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "other_mat_qty_l6cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "out_clean_mat_qty_tm",
+        "rows": 1
+      },
+      {
+        "feature_code": "in_clean_mat_qty_tm",
+        "rows": 1
+      },
+      {
+        "feature_code": "out_repair_mat_qty_tm",
+        "rows": 1
+      },
+      {
+        "feature_code": "in_repair_mat_qty_tm",
+        "rows": 1
+      },
+      {
+        "feature_code": "scrap_mat_qty_tm",
+        "rows": 1
+      },
+      {
+        "feature_code": "other_mat_qty_tm",
+        "rows": 1
+      },
+      {
+        "feature_code": "return_mat_qty_sum_l6cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "return_demand_mat_qty_ratio_l6cm",
+        "rows": 1
+      },
+      {
+        "feature_code": "demand_mat_qty_sum_l6cm_zero_flag",
+        "rows": 1
+      },
+      {
+        "feature_code": "lot编码",
+        "rows": 1
+      },
+      {
+        "feature_code": "lotl类型",
+        "rows": 1
+      },
+      {
+        "feature_code": "所属厂区",
+        "rows": 1
+      },
+      {
+        "feature_code": "父lot",
+        "rows": 1
+      },
+      {
+        "feature_code": "根lot",
+        "rows": 1
+      },
+      {
+        "feature_code": "供应商",
+        "rows": 1
+      },
+      {
+        "feature_code": "晶圆类型",
+        "rows": 1
+      },
+      {
+        "feature_code": "所属product",
+        "rows": 1
+      },
+      {
+        "feature_code": "所属product类型",
+        "rows": 1
+      },
+      {
+        "feature_code": "node code",
+        "rows": 1
+      },
+      {
+        "feature_code": "所属配方",
+        "rows": 1
+      },
+      {
+        "feature_code": "step列表",
+        "rows": 1
+      },
+      {
+        "feature_code": "当前seq",
+        "rows": 1
+      },
+      {
+        "feature_code": "step描述",
+        "rows": 1
+      },
+      {
+        "feature_code": "当前区域",
+        "rows": 1
+      },
+      {
+        "feature_code": "当前工序",
+        "rows": 1
+      },
+      {
+        "feature_code": "当前位置",
+        "rows": 1
+      },
+      {
+        "feature_code": "当前机台编码",
+        "rows": 1
+      },
+      {
+        "feature_code": "当前机台状态",
+        "rows": 1
+      },
+      {
+        "feature_code": "当前机台限制",
+        "rows": 1
+      },
+      {
+        "feature_code": "当前机台能力",
+        "rows": 1
+      },
+      {
+        "feature_code": "当前机台能力状态",
+        "rows": 1
+      },
+      {
+        "feature_code": "当前机台组",
+        "rows": 1
+      },
+      {
+        "feature_code": "当前机台recipe",
+        "rows": 1
+      },
+      {
+        "feature_code": "当前机台recipe状态",
+        "rows": 1
+      },
+      {
+        "feature_code": "当前golfen_tool",
+        "rows": 1
+      },
+      {
+        "feature_code": "当前step状态",
+        "rows": 1
+      },
+      {
+        "feature_code": "当前step",
+        "rows": 1
+      },
+      {
+        "feature_code": "当前stage",
+        "rows": 1
+      },
+      {
+        "feature_code": "当前layer",
+        "rows": 1
+      },
+      {
+        "feature_code": "当前loop",
+        "rows": 1
+      },
+      {
+        "feature_code": "最近track in 时间",
+        "rows": 1
+      },
+      {
+        "feature_code": "最近track out 时间",
+        "rows": 1
+      },
+      {
+        "feature_code": "最近step开始时间",
+        "rows": 1
+      },
+      {
+        "feature_code": "最近step结束时间",
+        "rows": 1
+      },
+      {
+        "feature_code": "hold时长",
+        "rows": 1
+      },
+      {
+        "feature_code": "当前foup",
+        "rows": 1
+      },
+      {
+        "feature_code": "当前foup 类型",
+        "rows": 1
+      },
+      {
+        "feature_code": "今日以来报废wafer数量",
+        "rows": 1
+      },
+      {
+        "feature_code": "当日晶圆良率",
+        "rows": 1
+      },
+      {
+        "feature_code": "报废原因编码列表",
+        "rows": 1
+      },
+      {
+        "feature_code": "派工类型编码",
+        "rows": 1
+      },
+      {
+        "feature_code": "预约时间",
+        "rows": 1
+      },
+      {
+        "feature_code": "派工优先级",
+        "rows": 1
+      },
+      {
+        "feature_code": "派工截止时间",
+        "rows": 1
+      },
+      {
+        "feature_code": "派工目标机台编码",
+        "rows": 1
+      },
+      {
+        "feature_code": "resource type",
+        "rows": 1
+      },
+      {
+        "feature_code": "qty",
+        "rows": 1
+      },
+      {
+        "feature_code": "位置",
+        "rows": 1
+      },
+      {
+        "feature_code": "内部step",
+        "rows": 1
+      },
+      {
+        "feature_code": "当前路宽机台总数",
+        "rows": 1
+      },
+      {
+        "feature_code": "当前可用路宽机台总数",
+        "rows": 1
+      },
+      {
+        "feature_code": "当前不可用路宽机台总数",
+        "rows": 1
+      },
+      {
+        "feature_code": "当前可用黄金路宽机台总数",
+        "rows": 1
+      },
+      {
+        "feature_code": "当前不可用黄金路宽机台总数",
+        "rows": 1
+      },
+      {
+        "feature_code": "lot状态",
+        "rows": 1
+      },
+      {
+        "feature_code": "wafer数量",
+        "rows": 1
+      },
+      {
+        "feature_code": "recipe编码",
+        "rows": 1
+      },
+      {
+        "feature_code": "是否量产",
+        "rows": 1
+      },
+      {
+        "feature_code": "chart_type_code",
+        "rows": 1
+      },
+      {
+        "feature_code": "edc_plan_name",
+        "rows": 1
+      },
+      {
+        "feature_code": "_code",
+        "rows": 1
+      },
+      {
+        "feature_code": "sigma_multiple_3d",
+        "rows": 1
+      },
+      {
+        "feature_code": "sigma_multiple_7d",
+        "rows": 1
+      },
+      {
+        "feature_code": "sigma_multiple_3w",
+        "rows": 1
+      },
+      {
+        "feature_code": "sigma_multiple_3m",
+        "rows": 1
+      },
+      {
+        "feature_code": "min_sample_qty",
+        "rows": 1
+      },
+      {
+        "feature_code": "coverage_rate_req",
+        "rows": 1
+      },
+      {
+        "feature_code": "outlier_removal_method",
+        "rows": 1
+      },
+      {
+        "feature_code": "insufficient_data_handling",
+        "rows": 1
+      },
+      {
+        "feature_code": "rule_code",
+        "rows": 1
+      },
+      {
+        "feature_code": "rule_name",
+        "rows": 1
+      },
+      {
+        "feature_code": "data_domain",
+        "rows": 1
+      },
+      {
+        "feature_code": "apply_scope",
+        "rows": 1
+      },
+      {
+        "feature_code": "group_dim",
+        "rows": 1
+      },
+      {
+        "feature_code": "point_granularity",
+        "rows": 1
+      },
+      {
+        "feature_code": "min_point_qty",
+        "rows": 1
+      },
+      {
+        "feature_code": "rule_status",
+        "rows": 1
+      },
+      {
+        "feature_code": "defect_qty",
+        "rows": 1
+      },
+      {
+        "feature_code": "defect_qty_mean",
+        "rows": 1
+      },
+      {
+        "feature_code": "scan_wafer_qty",
+        "rows": 1
+      },
+      {
+        "feature_code": "defect_density",
+        "rows": 1
+      },
+      {
+        "feature_code": "generated_chart_qty",
+        "rows": 1
+      },
+      {
+        "feature_code": "rule_update_time",
+        "rows": 1
+      },
+      {
+        "feature_code": "point_qty",
+        "rows": 1
+      },
+      {
+        "feature_code": "last_point_time",
+        "rows": 1
+      },
+      {
+        "feature_code": "series_status",
+        "rows": 1
+      },
+      {
+        "feature_code": "ubl_3d",
+        "rows": 1
+      },
+      {
+        "feature_code": "cl_3d",
+        "rows": 1
+      },
+      {
+        "feature_code": "lbl_3d",
+        "rows": 1
+      },
+      {
+        "feature_code": "stdev_3d",
+        "rows": 1
+      },
+      {
+        "feature_code": "k_3d",
+        "rows": 1
+      },
+      {
+        "feature_code": "sample_qty_3d",
+        "rows": 1
+      },
+      {
+        "feature_code": "coverage_rate_3d",
+        "rows": 1
+      },
+      {
+        "feature_code": "calc_status_3d",
+        "rows": 1
+      },
+      {
+        "feature_code": "ubl_7d",
+        "rows": 1
+      },
+      {
+        "feature_code": "cl_7d",
+        "rows": 1
+      },
+      {
+        "feature_code": "lbl_7d",
+        "rows": 1
+      },
+      {
+        "feature_code": "stdev_7d",
+        "rows": 1
+      },
+      {
+        "feature_code": "k_7d",
+        "rows": 1
+      },
+      {
+        "feature_code": "sample_qty_7d",
+        "rows": 1
+      },
+      {
+        "feature_code": "coverage_rate_7d",
+        "rows": 1
+      },
+      {
+        "feature_code": "calc_status_7d",
+        "rows": 1
+      },
+      {
+        "feature_code": "ubl_3w",
+        "rows": 1
+      },
+      {
+        "feature_code": "cl_3w",
+        "rows": 1
+      },
+      {
+        "feature_code": "lbl_3w",
+        "rows": 1
+      },
+      {
+        "feature_code": "stdev_3w",
+        "rows": 1
+      },
+      {
+        "feature_code": "k_3w",
+        "rows": 1
+      },
+      {
+        "feature_code": "sample_qty_3w",
+        "rows": 1
+      },
+      {
+        "feature_code": "coverage_rate_3w",
+        "rows": 1
+      },
+      {
+        "feature_code": "calc_status_3w",
+        "rows": 1
+      },
+      {
+        "feature_code": "ubl_3m",
+        "rows": 1
+      },
+      {
+        "feature_code": "cl_3m",
+        "rows": 1
+      },
+      {
+        "feature_code": "lbl_3m",
+        "rows": 1
+      },
+      {
+        "feature_code": "stdev_3m",
+        "rows": 1
+      },
+      {
+        "feature_code": "k_3m",
+        "rows": 1
+      },
+      {
+        "feature_code": "sample_qty_3m",
+        "rows": 1
+      },
+      {
+        "feature_code": "coverage_rate_3m",
+        "rows": 1
+      },
+      {
+        "feature_code": "calc_status_3m",
+        "rows": 1
+      },
+      {
+        "feature_code": "platform",
+        "rows": 1
+      },
+      {
+        "feature_code": "loop_code",
+        "rows": 1
+      },
+      {
+        "feature_code": "defect_class",
+        "rows": 1
+      },
+      {
+        "feature_code": "defect_image",
+        "rows": 1
+      },
+      {
+        "feature_code": "defect_map",
+        "rows": 1
+      },
+      {
+        "feature_code": "map_type",
+        "rows": 1
+      },
+      {
+        "feature_code": "die_map",
+        "rows": 1
+      },
+      {
+        "feature_code": "edx_image",
+        "rows": 1
+      },
+      {
+        "feature_code": "address_image",
+        "rows": 1
+      },
+      {
+        "feature_code": "attachment",
+        "rows": 1
+      },
+      {
+        "feature_code": "dn_reference",
+        "rows": 1
+      },
+      {
+        "feature_code": "defect_desc",
+        "rows": 1
+      },
+      {
+        "feature_code": "root_cause",
+        "rows": 1
+      },
+      {
+        "feature_code": "killer_ratio",
+        "rows": 1
+      },
+      {
+        "feature_code": "is_ink",
+        "rows": 1
+      },
+      {
+        "feature_code": "is_killer_defect",
+        "rows": 1
+      },
+      {
+        "feature_code": "hl_spec_type",
+        "rows": 1
+      },
+      {
+        "feature_code": "hl_spec_value",
+        "rows": 1
+      },
+      {
+        "feature_code": "pirun_spec_type",
+        "rows": 1
+      },
+      {
+        "feature_code": "pirun_spec_value",
+        "rows": 1
+      },
+      {
+        "feature_code": "scrap_spec_type",
+        "rows": 1
+      },
+      {
+        "feature_code": "scrap_spec_value",
+        "rows": 1
+      },
+      {
+        "feature_code": "hl_module",
+        "rows": 1
+      },
+      {
+        "feature_code": "hl_step_code",
+        "rows": 1
+      },
+      {
+        "feature_code": "rework_action",
+        "rows": 1
+      },
+      {
+        "feature_code": "fail_mode",
+        "rows": 1
+      },
+      {
+        "feature_code": "note",
+        "rows": 1
+      },
+      {
+        "feature_code": "owner",
+        "rows": 1
+      },
+      {
+        "feature_code": "chamber_code",
+        "rows": 1
+      },
+      {
+        "feature_code": "part_no",
+        "rows": 1
+      },
+      {
+        "feature_code": "part_instance_code",
+        "rows": 1
+      },
+      {
+        "feature_code": "part_name",
+        "rows": 1
+      },
+      {
+        "feature_code": "part_name_en",
+        "rows": 1
+      },
+      {
+        "feature_code": "part_short_name",
+        "rows": 1
+      },
+      {
+        "feature_code": "ext_category_code",
+        "rows": 1
+      },
+      {
+        "feature_code": "ext_category_name",
+        "rows": 1
+      },
+      {
+        "feature_code": "uom",
+        "rows": 1
+      },
+      {
+        "feature_code": "spec_model",
+        "rows": 1
+      },
+      {
+        "feature_code": "base_manage_mode",
+        "rows": 1
+      },
+      {
+        "feature_code": "part_no_type",
+        "rows": 1
+      },
+      {
+        "feature_code": "control_type",
+        "rows": 1
+      },
+      {
+        "feature_code": "is_consumable",
+        "rows": 1
+      },
+      {
+        "feature_code": "ref_unit_price",
+        "rows": 1
+      },
+      {
+        "feature_code": "oem_part_no",
+        "rows": 1
+      },
+      {
+        "feature_code": "vendor_part_no",
+        "rows": 1
+      },
+      {
+        "feature_code": "is_golden",
+        "rows": 1
+      },
+      {
+        "feature_code": "data_source",
+        "rows": 1
+      },
+      {
+        "feature_code": "part_status",
+        "rows": 1
+      },
+      {
+        "feature_code": "part_version",
+        "rows": 1
+      },
+      {
+        "feature_code": "is_latest_version",
+        "rows": 1
+      },
+      {
+        "feature_code": "version_save_time",
+        "rows": 1
+      },
+      {
+        "feature_code": "part_desc",
+        "rows": 1
+      },
+      {
+        "feature_code": "change_content",
+        "rows": 1
+      },
+      {
+        "feature_code": "param_list",
+        "rows": 1
+      },
+      {
+        "feature_code": "image_list",
+        "rows": 1
+      },
+      {
+        "feature_code": "dn_code",
+        "rows": 1
+      },
+      {
+        "feature_code": "defect_type",
+        "rows": 1
+      },
+      {
+        "feature_code": "issue_date",
+        "rows": 1
+      },
+      {
+        "feature_code": "issue_time",
+        "rows": 1
+      },
+      {
+        "feature_code": "ref_dl_code",
+        "rows": 1
+      },
+      {
+        "feature_code": "issue_owner",
+        "rows": 1
+      },
+      {
+        "feature_code": "is_module_feedback",
+        "rows": 1
+      },
+      {
+        "feature_code": "ye_owner",
+        "rows": 1
+      },
+      {
+        "feature_code": "case_status",
+        "rows": 1
+      },
+      {
+        "feature_code": "root_cause_status",
+        "rows": 1
+      },
+      {
+        "feature_code": "is_inline_hl_correct",
+        "rows": 1
+      },
+      {
+        "feature_code": "dn_level",
+        "rows": 1
+      },
+      {
+        "feature_code": "due_date",
+        "rows": 1
+      },
+      {
+        "feature_code": "defect_map_type",
+        "rows": 1
+      },
+      {
+        "feature_code": "hl_times",
+        "rows": 1
+      },
+      {
+        "feature_code": "tool_action",
+        "rows": 1
+      },
+      {
+        "feature_code": "is_op_hl",
+        "rows": 1
+      },
+      {
+        "feature_code": "drb_wafer_qty",
+        "rows": 1
+      },
+      {
+        "feature_code": "scrap_wafer_qty",
+        "rows": 1
+      },
+      {
+        "feature_code": "is_excursion",
+        "rows": 1
+      },
+      {
+        "feature_code": "update_user",
+        "rows": 1
+      },
+      {
+        "feature_code": "status_change_time",
+        "rows": 1
+      },
+      {
+        "feature_code": "status_change_owner",
+        "rows": 1
+      },
+      {
+        "feature_code": "ndefect_mean_7d",
+        "rows": 1
+      },
+      {
+        "feature_code": "scan_wafer_count_7d",
+        "rows": 1
+      },
+      {
+        "feature_code": "ndefect_sum_day",
+        "rows": 1
+      },
+      {
+        "feature_code": "scan_wafer_count_day",
+        "rows": 1
+      },
+      {
+        "feature_code": "lot_type",
+        "rows": 1
+      },
+      {
+        "feature_code": "slot_code",
+        "rows": 1
+      },
+      {
+        "feature_code": "result",
+        "rows": 1
+      },
+      {
+        "feature_code": "test_seq",
+        "rows": 1
+      },
+      {
+        "feature_code": "item_flag",
+        "rows": 1
+      },
+      {
+        "feature_code": "limit_censor_hi",
+        "rows": 1
+      },
+      {
+        "feature_code": "limit_censor_lo",
+        "rows": 1
+      },
+      {
+        "feature_code": "metro_route_code",
+        "rows": 1
+      },
+      {
+        "feature_code": "metro_recipe_code",
+        "rows": 1
+      },
+      {
+        "feature_code": "proc_eqp_group",
+        "rows": 1
+      },
+      {
+        "feature_code": "proc_recipe",
+        "rows": 1
+      },
+      {
+        "feature_code": "proc_recipe_code",
+        "rows": 1
+      },
+      {
+        "feature_code": "proc_recipe_ver",
+        "rows": 1
+      },
+      {
+        "feature_code": "proc_reticle_layer",
+        "rows": 1
+      },
+      {
+        "feature_code": "proc_reticle_id",
+        "rows": 1
+      },
+      {
+        "feature_code": "proc_route_ver",
+        "rows": 1
+      },
+      {
+        "feature_code": "proc_slot_code",
+        "rows": 1
+      },
+      {
+        "feature_code": "proc_step_sqe",
+        "rows": 1
+      },
+      {
+        "feature_code": "proc_start_time",
+        "rows": 1
+      },
+      {
+        "feature_code": "proc_end_time",
+        "rows": 1
+      },
+      {
+        "feature_code": "metro_eqp_code",
+        "rows": 1
+      },
+      {
+        "feature_code": "proc_step_num",
+        "rows": 1
+      },
+      {
+        "feature_code": "row_key",
+        "rows": 1
+      },
+      {
+        "feature_code": "station",
+        "rows": 1
+      },
+      {
+        "feature_code": "cus_pro_num",
+        "rows": 1
+      },
+      {
+        "feature_code": "facility_code",
+        "rows": 1
+      },
+      {
+        "feature_code": "test_job_name",
+        "rows": 1
+      },
+      {
+        "feature_code": "program_ver",
+        "rows": 1
+      },
+      {
+        "feature_code": "test_flow_code",
+        "rows": 1
+      },
+      {
+        "feature_code": "setup_time",
+        "rows": 1
+      },
+      {
+        "feature_code": "tester",
+        "rows": 1
+      },
+      {
+        "feature_code": "tester_type",
+        "rows": 1
+      },
+      {
+        "feature_code": "test_temperature",
+        "rows": 1
+      },
+      {
+        "feature_code": "load_boardid",
+        "rows": 1
+      },
+      {
+        "feature_code": "probecard_code",
+        "rows": 1
+      },
+      {
+        "feature_code": "handler_code",
+        "rows": 1
+      },
+      {
+        "feature_code": "wafer_metro_start_time",
+        "rows": 1
+      },
+      {
+        "feature_code": "wafer_metro_end_time",
+        "rows": 1
+      },
+      {
+        "feature_code": "ocr",
+        "rows": 1
+      },
+      {
+        "feature_code": "orig_xy",
+        "rows": 1
+      },
+      {
+        "feature_code": "ecid",
+        "rows": 1
+      },
+      {
+        "feature_code": "head_num",
+        "rows": 1
+      },
+      {
+        "feature_code": "site_num",
+        "rows": 1
+      },
+      {
+        "feature_code": "touch_down",
+        "rows": 1
+      },
+      {
+        "feature_code": "part_code",
+        "rows": 1
+      },
+      {
+        "feature_code": "hardbin_num",
+        "rows": 1
+      },
+      {
+        "feature_code": "hardbin_name",
+        "rows": 1
+      },
+      {
+        "feature_code": "softbin_num",
+        "rows": 1
+      },
+      {
+        "feature_code": "softbin_name",
+        "rows": 1
+      },
+      {
+        "feature_code": "pf_indicator",
+        "rows": 1
+      },
+      {
+        "feature_code": "queue",
+        "rows": 1
+      },
+      {
+        "feature_code": "retest_num",
+        "rows": 1
+      },
+      {
+        "feature_code": "test_end_time",
+        "rows": 1
+      },
+      {
+        "feature_code": "prober_code",
+        "rows": 1
+      },
+      {
+        "feature_code": "prober_type",
+        "rows": 1
+      },
+      {
+        "feature_code": "insp_wafer_code",
+        "rows": 1
+      },
+      {
+        "feature_code": "insp_start_time",
+        "rows": 1
+      },
+      {
+        "feature_code": "insp_end_time",
+        "rows": 1
+      },
+      {
+        "feature_code": "priority",
+        "rows": 1
+      },
+      {
+        "feature_code": "slot",
+        "rows": 1
+      },
+      {
+        "feature_code": "wafer_diameter",
+        "rows": 1
+      },
+      {
+        "feature_code": "defect_code",
+        "rows": 1
+      },
+      {
+        "feature_code": "test_num",
+        "rows": 1
+      },
+      {
+        "feature_code": "x_defect_size",
+        "rows": 1
+      },
+      {
+        "feature_code": "y_defect_size",
+        "rows": 1
+      },
+      {
+        "feature_code": "defect_area",
+        "rows": 1
+      },
+      {
+        "feature_code": "defect_size",
+        "rows": 1
+      },
+      {
+        "feature_code": "image_path",
+        "rows": 1
+      },
+      {
+        "feature_code": "image_count",
+        "rows": 1
+      },
+      {
+        "feature_code": "x_defect_rel",
+        "rows": 1
+      },
+      {
+        "feature_code": "y_defect_rel",
+        "rows": 1
+      },
+      {
+        "feature_code": "x_defect_index",
+        "rows": 1
+      },
+      {
+        "feature_code": "y_defect_index",
+        "rows": 1
+      },
+      {
+        "feature_code": "review_sample",
+        "rows": 1
+      },
+      {
+        "feature_code": "cluster_code",
+        "rows": 1
+      },
+      {
+        "feature_code": "cluster_num",
+        "rows": 1
+      },
+      {
+        "feature_code": "cluster_type",
+        "rows": 1
+      },
+      {
+        "feature_code": "contrast_value",
+        "rows": 1
+      },
+      {
+        "feature_code": "channel_code",
+        "rows": 1
+      },
+      {
+        "feature_code": "intensity_value",
+        "rows": 1
+      },
+      {
+        "feature_code": "kill_probability",
+        "rows": 1
+      },
+      {
+        "feature_code": "region_code",
+        "rows": 1
+      },
+      {
+        "feature_code": "ebr_line",
+        "rows": 1
+      },
+      {
+        "feature_code": "polarity",
+        "rows": 1
+      },
+      {
+        "feature_code": "critical_area",
+        "rows": 1
+      },
+      {
+        "feature_code": "manopt_class",
+        "rows": 1
+      },
+      {
+        "feature_code": "phi",
+        "rows": 1
+      },
+      {
+        "feature_code": "pci",
+        "rows": 1
+      },
+      {
+        "feature_code": "line_complexity",
+        "rows": 1
+      },
+      {
+        "feature_code": "dci_range",
+        "rows": 1
+      },
+      {
+        "feature_code": "image_type",
+        "rows": 1
+      },
+      {
+        "feature_code": "split_runcard_num",
+        "rows": 1
+      },
+      {
+        "feature_code": "recovery_runcard_code",
+        "rows": 1
+      },
+      {
+        "feature_code": "wafer_char",
+        "rows": 1
+      },
+      {
+        "feature_code": "wafer_start_time",
+        "rows": 1
+      },
+      {
+        "feature_code": "wafer_end_time",
+        "rows": 1
+      },
+      {
+        "feature_code": "qtime_code",
+        "rows": 1
+      },
+      {
+        "feature_code": "qtime_key",
+        "rows": 1
+      },
+      {
+        "feature_code": "qtime_mode",
+        "rows": 1
+      },
+      {
+        "feature_code": "qtime_start_type",
+        "rows": 1
+      },
+      {
+        "feature_code": "qtime_end_type",
+        "rows": 1
+      },
+      {
+        "feature_code": "qtime_unit",
+        "rows": 1
+      },
+      {
+        "feature_code": "qtime_max",
+        "rows": 1
+      },
+      {
+        "feature_code": "qtime_min",
+        "rows": 1
+      },
+      {
+        "feature_code": "err_alarm_num",
+        "rows": 1
+      },
+      {
+        "feature_code": "hole_code",
+        "rows": 1
+      },
+      {
+        "feature_code": "qtime_start_end_flag",
+        "rows": 1
+      },
+      {
+        "feature_code": "start_route_code",
+        "rows": 1
+      },
+      {
+        "feature_code": "start_step_code",
+        "rows": 1
+      },
+      {
+        "feature_code": "start_step_num",
+        "rows": 1
+      },
+      {
+        "feature_code": "start_step_desc",
+        "rows": 1
+      },
+      {
+        "feature_code": "start_split_runcard_num",
+        "rows": 1
+      },
+      {
+        "feature_code": "start_recovery_runcard_code",
+        "rows": 1
+      },
+      {
+        "feature_code": "start_lot_code",
+        "rows": 1
+      },
+      {
+        "feature_code": "start_eqp_code",
+        "rows": 1
+      },
+      {
+        "feature_code": "start_wafer_char",
+        "rows": 1
+      },
+      {
+        "feature_code": "start_track_in_time",
+        "rows": 1
+      },
+      {
+        "feature_code": "start_track_out_time",
+        "rows": 1
+      },
+      {
+        "feature_code": "start_wafer_start_time",
+        "rows": 1
+      },
+      {
+        "feature_code": "start_wafer_end_time",
+        "rows": 1
+      },
+      {
+        "feature_code": "qtime_track_in_track_out_sec",
+        "rows": 1
+      },
+      {
+        "feature_code": "qtime_track_in_wafer_end_sec",
+        "rows": 1
+      },
+      {
+        "feature_code": "qtime_wafer_start_track_out_sec",
+        "rows": 1
+      },
+      {
+        "feature_code": "qtime_wafer_start_wafer_end_sec",
+        "rows": 1
+      },
+      {
+        "feature_code": "qtime_measure_unit",
+        "rows": 1
+      },
+      {
+        "feature_code": "no_start_flag",
+        "rows": 1
+      },
+      {
+        "feature_code": "overtime_track_in_track_out_flag",
+        "rows": 1
+      },
+      {
+        "feature_code": "overtime_track_in_wafer_end_flag",
+        "rows": 1
+      },
+      {
+        "feature_code": "overtime_wafer_start_track_out_flag",
+        "rows": 1
+      },
+      {
+        "feature_code": "overtime_wafer_start_wafer_end_flag",
+        "rows": 1
+      },
+      {
+        "feature_code": "所属lot",
+        "rows": 1
+      },
+      {
+        "feature_code": "所属产品",
+        "rows": 1
+      },
+      {
+        "feature_code": "所属step",
+        "rows": 1
+      },
+      {
+        "feature_code": "wafer编码",
+        "rows": 1
+      },
+      {
+        "feature_code": "wafer图片地址",
+        "rows": 1
+      },
+      {
+        "feature_code": "槽位",
+        "rows": 1
+      },
+      {
+        "feature_code": "hold时间",
+        "rows": 1
+      },
+      {
+        "feature_code": "剩余qime",
+        "rows": 1
+      },
+      {
+        "feature_code": "晶圆缺陷总数",
+        "rows": 1
+      },
+      {
+        "feature_code": "分类缺陷数量",
+        "rows": 1
+      },
+      {
+        "feature_code": "缺陷图片数量",
+        "rows": 1
+      },
+      {
+        "feature_code": "缺陷die数量",
+        "rows": 1
+      },
+      {
+        "feature_code": "扫描die数量",
+        "rows": 1
+      },
+      {
+        "feature_code": "扫描recipe",
+        "rows": 1
+      },
+      {
+        "feature_code": "检测时间",
+        "rows": 1
+      },
+      {
+        "feature_code": "缺陷分类信息",
+        "rows": 1
+      },
+      {
+        "feature_code": "结果",
+        "rows": 1
+      },
+      {
+        "feature_code": "结果汇总",
+        "rows": 1
+      },
+      {
+        "feature_code": "plan_pm_code",
+        "rows": 1
+      },
+      {
+        "feature_code": "plan_pm_chamber",
+        "rows": 1
+      },
+      {
+        "feature_code": "plan_pm_scope",
+        "rows": 1
+      },
+      {
+        "feature_code": "plan_pm_type",
+        "rows": 1
+      },
+      {
+        "feature_code": "plan_pm_status",
+        "rows": 1
+      },
+      {
+        "feature_code": "plan_pm_start_time",
+        "rows": 1
+      },
+      {
+        "feature_code": "plan_pm_end_time",
+        "rows": 1
+      },
+      {
+        "feature_code": "plan_pm_dur_h",
+        "rows": 1
+      },
+      {
+        "feature_code": "plan_pm_restore_time",
+        "rows": 1
+      },
+      {
+        "feature_code": "plan_pm_owner",
+        "rows": 1
+      },
+      {
+        "feature_code": "area_name",
+        "rows": 1
+      },
+      {
+        "feature_code": "before_state",
+        "rows": 1
+      },
+      {
+        "feature_code": "before_state_name",
+        "rows": 1
+      },
+      {
+        "feature_code": "before_state_seq",
+        "rows": 1
+      },
+      {
+        "feature_code": "src_after_state",
+        "rows": 1
+      },
+      {
+        "feature_code": "after_state",
+        "rows": 1
+      },
+      {
+        "feature_code": "after_state_name",
+        "rows": 1
+      },
+      {
+        "feature_code": "after_state_seq",
+        "rows": 1
+      },
+      {
+        "feature_code": "state_type",
+        "rows": 1
+      },
+      {
+        "feature_code": "state_start_time",
+        "rows": 1
+      },
+      {
+        "feature_code": "state_end_time",
+        "rows": 1
+      },
+      {
+        "feature_code": "state_dur_sec",
+        "rows": 1
+      },
+      {
+        "feature_code": "activity",
+        "rows": 1
+      },
+      {
+        "feature_code": "event",
+        "rows": 1
+      },
+      {
+        "feature_code": "lot_name_list",
+        "rows": 1
+      },
+      {
+        "feature_code": "event_id",
+        "rows": 1
+      },
+      {
+        "feature_code": "stage_type",
+        "rows": 1
+      },
+      {
+        "feature_code": "event_time",
+        "rows": 1
+      },
+      {
+        "feature_code": "event_start_time",
+        "rows": 1
+      },
+      {
+        "feature_code": "event_end_time",
+        "rows": 1
+      },
+      {
+        "feature_code": "metric_name",
+        "rows": 1
+      },
+      {
+        "feature_code": "src_record_id",
+        "rows": 1
+      },
+      {
+        "feature_code": "unit_deduct",
+        "rows": 1
+      },
+      {
+        "feature_code": "weight",
+        "rows": 1
+      },
+      {
+        "feature_code": "severity_rate",
+        "rows": 1
+      },
+      {
+        "feature_code": "factor_cap",
+        "rows": 1
+      },
+      {
+        "feature_code": "aggr_method",
+        "rows": 1
+      },
+      {
+        "feature_code": "dedup_window",
+        "rows": 1
+      },
+      {
+        "feature_code": "factor_enabled",
+        "rows": 1
+      },
+      {
+        "feature_code": "trigger_cond",
+        "rows": 1
+      },
+      {
+        "feature_code": "event_category",
+        "rows": 1
+      },
+      {
+        "feature_code": "result_code",
+        "rows": 1
+      },
+      {
+        "feature_code": "ext",
+        "rows": 1
+      },
+      {
+        "feature_code": "jump_params",
+        "rows": 1
+      },
+      {
+        "feature_code": "jump_sys_code",
+        "rows": 1
+      },
+      {
+        "feature_code": "is_npw",
+        "rows": 1
+      },
+      {
+        "feature_code": "load_port",
+        "rows": 1
+      },
+      {
+        "feature_code": "category",
+        "rows": 1
+      },
+      {
+        "feature_code": "event_qty",
+        "rows": 1
+      },
+      {
+        "feature_code": "capped_deduct",
+        "rows": 1
+      },
+      {
+        "feature_code": "category_cap",
+        "rows": 1
+      },
+      {
+        "feature_code": "wafer_status",
+        "rows": 1
+      },
+      {
+        "feature_code": "cur_step_code",
+        "rows": 1
+      },
+      {
+        "feature_code": "cur_step_number",
+        "rows": 1
+      },
+      {
+        "feature_code": "latest_data_time",
+        "rows": 1
+      },
+      {
+        "feature_code": "wat_end_time",
+        "rows": 1
+      },
+      {
+        "feature_code": "wat_status",
+        "rows": 1
+      },
+      {
+        "feature_code": "cp_end_time",
+        "rows": 1
+      },
+      {
+        "feature_code": "cp_status",
+        "rows": 1
+      },
+      {
+        "feature_code": "health_score",
+        "rows": 1
+      },
+      {
+        "feature_code": "risk_level",
+        "rows": 1
+      },
+      {
+        "feature_code": "deduct_spc",
+        "rows": 1
+      },
+      {
+        "feature_code": "deduct_defect",
+        "rows": 1
+      },
+      {
+        "feature_code": "deduct_tool",
+        "rows": 1
+      },
+      {
+        "feature_code": "deduct_rework",
+        "rows": 1
+      },
+      {
+        "feature_code": "deduct_qtime",
+        "rows": 1
+      },
+      {
+        "feature_code": "deduct_watcp",
+        "rows": 1
+      },
+      {
+        "feature_code": "cnt_critical",
+        "rows": 1
+      },
+      {
+        "feature_code": "cnt_high",
+        "rows": 1
+      },
+      {
+        "feature_code": "cnt_medium",
+        "rows": 1
+      },
+      {
+        "feature_code": "cnt_low",
+        "rows": 1
+      },
+      {
+        "feature_code": "cnt_total",
+        "rows": 1
+      },
+      {
+        "feature_code": "anomaly_step_qty",
+        "rows": 1
+      },
+      {
+        "feature_code": "plan_step_qty",
+        "rows": 1
+      },
+      {
+        "feature_code": "rework_add_step_qty",
+        "rows": 1
+      },
+      {
+        "feature_code": "actual_total_step_qty",
+        "rows": 1
+      },
+      {
+        "feature_code": "executed_step_qty",
+        "rows": 1
+      },
+      {
+        "feature_code": "lifecycle_progress",
+        "rows": 1
+      },
+      {
+        "feature_code": "rework_qty",
+        "rows": 1
+      }
+    ]
+  },
+  "alignments": [
+    {
+      "source": "internal.feature_model.ai_fab",
+      "source_code": "eqp",
+      "target_class": "urn:pxai:semi:Equipment",
+      "internal_feature_state": "single_source_confirmed",
+      "vfab_state": "awaiting_source",
+      "combined_state": "partially_supported"
+    },
+    {
+      "source": "internal.feature_model.ai_fab",
+      "source_code": "defect",
+      "target_class": "urn:pxai:semi:Defect",
+      "internal_feature_state": "single_source_confirmed",
+      "vfab_state": "awaiting_source",
+      "combined_state": "partially_supported"
+    },
+    {
+      "source": "internal.feature_model.ai_fab",
+      "source_code": "fop",
+      "target_class": "urn:pxai:semi:Flow",
+      "internal_feature_state": "single_source_confirmed",
+      "vfab_state": "awaiting_source",
+      "combined_state": "partially_supported"
+    },
+    {
+      "source": "internal.feature_model.ai_fab",
+      "source_code": "sof",
+      "target_class": "urn:pxai:semi:Step",
+      "internal_feature_state": "single_source_confirmed",
+      "vfab_state": "awaiting_source",
+      "combined_state": "partially_supported"
+    },
+    {
+      "source": "internal.feature_model.ai_fab",
+      "source_code": "ioc",
+      "target_class": "urn:pxai:semi:ChamberMetric",
+      "internal_feature_state": "single_source_confirmed",
+      "vfab_state": "awaiting_source",
+      "combined_state": "partially_supported"
+    },
+    {
+      "source": "internal.feature_model.ai_fab",
+      "source_code": "soc",
+      "target_class": "urn:pxai:semi:ChamberStep",
+      "internal_feature_state": "single_source_confirmed",
+      "vfab_state": "awaiting_source",
+      "combined_state": "partially_supported"
+    },
+    {
+      "source": "internal.feature_model.ai_fab",
+      "source_code": "wat",
+      "target_class": "urn:pxai:semi:WATMetric",
+      "internal_feature_state": "single_source_confirmed",
+      "vfab_state": "awaiting_source",
+      "combined_state": "partially_supported"
+    },
+    {
+      "source": "internal.feature_model.ai_fab",
+      "source_code": "metro",
+      "target_class": "urn:pxai:semi:MetrologyMetric",
+      "internal_feature_state": "single_source_confirmed",
+      "vfab_state": "awaiting_source",
+      "combined_state": "partially_supported"
+    },
+    {
+      "source": "internal.feature_model.ai_fab",
+      "source_code": "cp",
+      "target_class": "urn:pxai:semi:CPMetric",
+      "internal_feature_state": "single_source_confirmed",
+      "vfab_state": "awaiting_source",
+      "combined_state": "partially_supported"
+    },
+    {
+      "source": "internal.feature_model.ai_fab",
+      "source_code": "wafer",
+      "target_class": "urn:pxai:semi:Wafer",
+      "internal_feature_state": "single_source_confirmed",
+      "vfab_state": "awaiting_source",
+      "combined_state": "partially_supported"
+    },
+    {
+      "source": "internal.feature_model.ai_fab",
+      "source_code": "mat",
+      "target_class": "urn:pxai:semi:Material",
+      "internal_feature_state": "single_source_confirmed",
+      "vfab_state": "awaiting_source",
+      "combined_state": "partially_supported"
+    },
+    {
+      "source": "internal.feature_model.ai_fab",
+      "source_code": "lot",
+      "target_class": "urn:pxai:semi:Lot",
+      "internal_feature_state": "single_source_confirmed",
+      "vfab_state": "awaiting_source",
+      "combined_state": "partially_supported"
+    },
+    {
+      "source": "internal.feature_model.ai_fab",
+      "source_code": "chartlim",
+      "target_class": "urn:pxai:semi:ChartLimit",
+      "internal_feature_state": "single_source_confirmed",
+      "vfab_state": "awaiting_source",
+      "combined_state": "partially_supported"
+    },
+    {
+      "source": "internal.feature_model.ai_fab",
+      "source_code": "dl",
+      "target_class": "urn:pxai:semi:DefectLibraryEntry",
+      "internal_feature_state": "single_source_confirmed",
+      "vfab_state": "awaiting_source",
+      "combined_state": "partially_supported"
+    },
+    {
+      "source": "internal.feature_model.ai_fab",
+      "source_code": "dnch",
+      "target_class": "urn:pxai:semi:DefectNoticeCase",
+      "internal_feature_state": "single_source_confirmed",
+      "vfab_state": "awaiting_source",
+      "combined_state": "partially_supported"
+    },
+    {
+      "source": "internal.feature_model.ai_fab",
+      "source_code": "dboc",
+      "target_class": "urn:pxai:semi:ChamberDefectBin",
+      "internal_feature_state": "single_source_confirmed",
+      "vfab_state": "awaiting_source",
+      "combined_state": "partially_supported"
+    },
+    {
+      "source": "internal.feature_model.ai_fab",
+      "source_code": "partl",
+      "target_class": "urn:pxai:semi:Part",
+      "internal_feature_state": "single_source_confirmed",
+      "vfab_state": "awaiting_source",
+      "combined_state": "partially_supported"
+    },
+    {
+      "source": "internal.feature_model.ai_fab",
+      "source_code": "watd",
+      "target_class": "urn:pxai:semi:WATObservation",
+      "internal_feature_state": "single_source_confirmed",
+      "vfab_state": "awaiting_source",
+      "combined_state": "partially_supported"
+    },
+    {
+      "source": "internal.feature_model.ai_fab",
+      "source_code": "metrod",
+      "target_class": "urn:pxai:semi:MetrologyObservation",
+      "internal_feature_state": "single_source_confirmed",
+      "vfab_state": "awaiting_source",
+      "combined_state": "partially_supported"
+    },
+    {
+      "source": "internal.feature_model.ai_fab",
+      "source_code": "metrocd",
+      "target_class": "urn:pxai:semi:MetrologyConfiguration",
+      "internal_feature_state": "single_source_confirmed",
+      "vfab_state": "awaiting_source",
+      "combined_state": "partially_supported"
+    },
+    {
+      "source": "internal.feature_model.ai_fab",
+      "source_code": "cpd",
+      "target_class": "urn:pxai:semi:CPObservation",
+      "internal_feature_state": "single_source_confirmed",
+      "vfab_state": "awaiting_source",
+      "combined_state": "partially_supported"
+    },
+    {
+      "source": "internal.feature_model.ai_fab",
+      "source_code": "qtimed",
+      "target_class": "urn:pxai:semi:QueueTimeObservation",
+      "internal_feature_state": "single_source_confirmed",
+      "vfab_state": "awaiting_source",
+      "combined_state": "partially_supported"
+    },
+    {
+      "source": "internal.feature_model.ai_fab",
+      "source_code": "defectd",
+      "target_class": "urn:pxai:semi:DefectObservation",
+      "internal_feature_state": "single_source_confirmed",
+      "vfab_state": "awaiting_source",
+      "combined_state": "partially_supported"
+    },
+    {
+      "source": "internal.feature_model.ai_fab",
+      "source_code": "pm",
+      "target_class": "urn:pxai:semi:PreventiveMaintenanceEvent",
+      "internal_feature_state": "single_source_confirmed",
+      "vfab_state": "awaiting_source",
+      "combined_state": "partially_supported"
+    }
+  ]
+}

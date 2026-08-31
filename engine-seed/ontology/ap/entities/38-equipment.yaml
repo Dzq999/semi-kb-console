@@ -1,0 +1,278 @@
+# ap 层 · 机台设备
+# 后段设备与前段的关键差异：多为单元设备(Standalone)按封装型体配置，
+# 换型(Conversion)成本高，产能与产品组合强绑定。
+# belongs_to(Equipment -> Process) 由 Process 的 equipment 字段派生。
+# tags 约定：batch=批式 | single_unit=单颗/单条式 | bottleneck=典型瓶颈机台
+default_provenance:
+  source_type: model_prior
+  ref: null
+  confidence: high
+  created_at: "2026-08-27"
+  reviewed_by: null
+
+entities:
+  - id: ap.equip.grinder
+    type: Equipment
+    name_zh: 晶圆研磨机
+    name_en: Backgrinder
+    domain: ap
+    tags: [single_wafer]
+    description: >
+      粗磨加精磨减薄晶圆背面。砂轮磨耗改变去除速率与表面粗糙度，
+      背面微裂纹是后续 die crack 的潜伏源。减薄越薄翘曲越大，
+      薄片处理能力是封装型体的准入条件。
+    economic_hooks:
+      affects: [scrap_rate, yield, equipment_oee]
+      note: 减薄失效发生在最上游，损失按整片已完成前段价值计
+
+  - id: ap.equip.dicing_saw
+    type: Equipment
+    name_zh: 晶圆切割机
+    name_en: Dicing Saw
+    domain: ap
+    tags: [single_wafer, bottleneck]
+    description: >
+      刀片切割分离晶粒。刀片磨耗与冷却水状态决定崩边(Chipping)大小，
+      切割道宽度直接影响每片可得晶粒数。切割速度与崩边质量成反比，
+      是良率与产能的直接权衡。
+    economic_hooks:
+      affects: [yield, throughput, cost_per_unit]
+      note: 切速与崩边成反比，刀片耗材与产出良率需一并算账
+
+  - id: ap.equip.tape_mounter
+    type: Equipment
+    name_zh: 贴膜机
+    name_en: Wafer Mounter
+    domain: ap
+    tags: [single_wafer]
+    description: >
+      将晶圆贴到切割胶带与钢圈上。贴膜气泡导致切割时晶粒位移，
+      胶带黏性过强则顶出困难。胶带型号与减薄厚度需匹配，
+      属于低成本但影响下游多道工序的前置动作。
+    economic_hooks:
+      affects: [yield, rework_rate]
+      note: 单步成本极低但失效传导至切割与取放，是典型高杠杆低成本工序
+
+  - id: ap.equip.die_bonder
+    type: Equipment
+    name_zh: 黏晶机
+    name_en: Die Bonder
+    domain: ap
+    tags: [single_unit, bottleneck]
+    description: >
+      取放晶粒到基板并点胶固定。UPH(每小时产出)按颗计，
+      是后段最直接的产能计量单位。取放精度决定后续打线可行性，
+      换封装型体需更换治具与吸嘴，换型时间进入有效产能损失。
+    economic_hooks:
+      affects: [throughput, capacity_commit, yield]
+      note: UPH 与换型时间共同决定有效产能，产品组合越杂有效产能越低
+
+  - id: ap.equip.cure_oven
+    type: Equipment
+    name_zh: 固化炉
+    name_en: Cure Oven
+    domain: ap
+    tags: [batch]
+    description: >
+      批式烘烤固化黏晶胶或底填胶。温度曲线(Ramp/Soak)决定固化度，
+      固化不足在后续高温步骤才显现为分层。批式加长周期使其
+      成为在制品排队点，且异常回溯困难 —— 一炉多批同时受影响。
+    economic_hooks:
+      affects: [cycle_time, yield, capacity_commit]
+      note: 批式固化把异常影响面放大到整炉，追溯粒度粗于单批
+
+  - id: ap.equip.wire_bonder
+    type: Equipment
+    name_zh: 打线机
+    name_en: Wire Bonder
+    domain: ap
+    tags: [single_unit, bottleneck]
+    description: >
+      超声波加热压焊形成金属线连接。按线数计时，引脚数越多单颗越慢，
+      因此产能与产品引脚数强相关。金线是直接材料成本主项，
+      线弧形状与线长同时影响成本与电性。
+    economic_hooks:
+      affects: [throughput, cost_per_unit, capacity_commit, yield]
+      note: 产能按线数而非颗数计，高脚数产品挤占的机时远超颗数比例
+
+  - id: ap.equip.fc_bonder
+    type: Equipment
+    name_zh: 覆晶接合机
+    name_en: Flip Chip Bonder
+    domain: ap
+    tags: [single_unit, bottleneck]
+    description: >
+      晶粒翻转对位后热压接合凸块。对位精度要求高于黏晶机一个量级，
+      热压曲线决定凸块塌陷量与接合强度。设备单价与换型成本均高，
+      通常按产品族专机专用。
+    economic_hooks:
+      affects: [capacity_commit, yield, cost_per_unit]
+      note: 专机专用降低换型损失但牺牲调度弹性，产能不可跨产品族借调
+
+  - id: ap.equip.plasma_cleaner
+    type: Equipment
+    name_zh: 等离子清洗机
+    name_en: Plasma Cleaner
+    domain: ap
+    tags: [batch]
+    description: >
+      等离子活化表面并去除有机污染，提升后续接合与塑封附着力。
+      是"预防性"设备 —— 其效果只在下游失效率上体现，
+      因此容易被当作可省略步骤，省略的代价延后暴露。
+    economic_hooks:
+      affects: [yield, rework_rate]
+      note: 效果只在下游体现，省略此步的损失有滞后性，归因困难
+
+  - id: ap.equip.underfill_dispenser
+    type: Equipment
+    name_zh: 底填胶点胶机
+    name_en: Underfill Dispenser
+    domain: ap
+    tags: [single_unit]
+    description: >
+      毛细流动填充晶粒与基板间隙。流动时间随间隙缩小而变长，
+      是覆晶路径的周期时间瓶颈之一。填充不完全形成空洞，
+      空洞在温度循环下成为裂纹起点。
+    economic_hooks:
+      affects: [cycle_time, yield]
+      note: 毛细流动时间不可压缩，是覆晶封装周期时间的物理下限
+
+  - id: ap.equip.bumping_line
+    type: Equipment
+    name_zh: 凸块制造线
+    name_en: Bumping Line
+    domain: ap
+    tags: [single_wafer]
+    description: >
+      电镀或植球形成晶圆级凸块，含光刻、电镀、回流多步。
+      本质是前段式产线放在后段厂，工艺复杂度与设备投资远高于
+      传统后段单元设备，产能规划需按线而非按机台。
+    economic_hooks:
+      affects: [capacity_commit, cost_per_unit, yield]
+      note: 按整线规划产能，任一单元停机即全线停摆，可用性按串联计算
+
+  - id: ap.equip.mold_press
+    type: Equipment
+    name_zh: 塑封成型机
+    name_en: Molding Press
+    domain: ap
+    tags: [batch, bottleneck]
+    description: >
+      转移成型将塑封料压入模腔包封。模具按封装型体专用，
+      换模是主要换型损失。模具磨耗导致溢料(Flash)与填充不全，
+      模具寿命管理是后段最重要的资产管理项之一。
+    economic_hooks:
+      affects: [capacity_commit, cost_per_unit, yield, equipment_oee]
+      note: 模具专用性使产能与封装型体绑定，换模时间决定最小经济批量
+
+  - id: ap.equip.pmc_oven
+    type: Equipment
+    name_zh: 后固化炉
+    name_en: Post Mold Cure Oven
+    domain: ap
+    tags: [batch]
+    description: >
+      长时间(数小时)高温完成塑封料交联。周期长且批量大，
+      是后段最长的单工序周期。固化度不足直接对应分层与
+      可靠性失效，且此时价值已接近成品，损失最大。
+    economic_hooks:
+      affects: [cycle_time, yield, capacity_commit]
+      note: 长周期批式设备，在制品在此累积，也是价值最高的在制品堆积点
+
+  - id: ap.equip.laser_marker
+    type: Equipment
+    name_zh: 激光打标机
+    name_en: Laser Marker
+    domain: ap
+    tags: [single_unit]
+    description: >
+      激光刻蚀封装表面标识。打标内容错误属于可追溯性事故 ——
+      产品本身良好但标识错误需全数重工或报废，
+      是"非工艺性"损失的典型来源。
+    economic_hooks:
+      affects: [rework_rate, scrap_rate]
+      note: 失效原因多为资料错误而非设备能力，防错机制价值高于设备精度
+
+  - id: ap.equip.singulation_saw
+    type: Equipment
+    name_zh: 封装切单机
+    name_en: Singulation Saw
+    domain: ap
+    tags: [single_unit]
+    description: >
+      切割成型后的连片(Strip)为单颗封装体。切割毛边与分层是
+      主要缺陷，此时单位价值已含全部前后段成本，
+      崩损的经济损失是切割晶圆阶段的数倍。
+    economic_hooks:
+      affects: [scrap_rate, yield]
+      note: 同为切割动作，但此处单颗承载全流程成本，损失权重最高
+
+  - id: ap.equip.ball_mounter
+    type: Equipment
+    name_zh: 植球机
+    name_en: Ball Mounter
+    domain: ap
+    tags: [single_unit]
+    description: >
+      锡球植入并回流形成 BGA 外部端子。缺球、连球、共面度超规
+      是主要缺陷。共面度不良在客户端 SMT 才暴露，属于
+      高逃逸风险项。
+    economic_hooks:
+      affects: [yield, scrap_rate]
+      note: 共面度缺陷易逃逸至客户端，内部拦截成本远低于客户退货
+
+  - id: ap.equip.aoi
+    type: Equipment
+    name_zh: 自动光学检测机
+    name_en: AOI System
+    domain: ap
+    tags: [single_unit]
+    description: >
+      影像比对检测外观缺陷。判定门槛决定误杀(Overkill)与
+      漏检(Escape)的平衡，门槛设定本身是经营决策：
+      误杀损失内部良品，漏检损失客户信任。
+    economic_hooks:
+      affects: [yield, scrap_rate, rework_rate]
+      note: 判定门槛是误杀与漏检的取舍，两侧代价量纲不同需人工定策
+
+  - id: ap.equip.final_tester
+    type: Equipment
+    name_zh: 成品测试机
+    name_en: Final Tester + Handler
+    domain: ap
+    tags: [single_unit, bottleneck]
+    description: >
+      测试机配分选机做成品电性与温度条件测试。测试时间乘以
+      测试项数决定机时消耗，多站并测(Multi-site)是主要产能杠杆。
+      测试程式版本管理是误判的常见根源。
+    economic_hooks:
+      affects: [capacity_commit, cost_per_unit, cycle_time]
+      note: 并测数是产能主杠杆，测试成本常占后段成本前两位
+
+  - id: ap.equip.burn_in_oven
+    type: Equipment
+    name_zh: 老化炉
+    name_en: Burn-in Oven
+    domain: ap
+    tags: [batch]
+    description: >
+      高温加电应力筛选早期失效。按小时计的固定时长无法压缩，
+      是周期时间的刚性组成。老化板(Burn-in Board)专用且数量有限，
+      板数常比炉子容量更早成为约束。
+    economic_hooks:
+      affects: [cycle_time, capacity_commit, cost_per_unit]
+      note: 时长刚性且受老化板数量约束，产能扩充需同时投板与投炉
+
+  - id: ap.equip.taping_machine
+    type: Equipment
+    name_zh: 编带包装机
+    name_en: Taping / Packing Machine
+    domain: ap
+    tags: [single_unit]
+    description: >
+      装入卷带或托盘并做防潮包装。干燥包装(Dry Pack)执行不到位
+      直接违背 MSL 楼面寿命要求，使前面所有防潮控制失效。
+      是流程最后一道，也是最容易被视为纯物流而放松管控的一道。
+    economic_hooks:
+      affects: [scrap_rate, yield]
+      note: 防潮包装是 MSL 控制的最后闭环，失效使全部前序湿气管控归零

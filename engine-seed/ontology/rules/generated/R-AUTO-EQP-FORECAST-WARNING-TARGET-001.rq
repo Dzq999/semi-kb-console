@@ -1,0 +1,11 @@
+PREFIX px: <urn:pxai:semi:>
+CONSTRUCT {
+  ?warning a px:PredictedEquipmentFailureWarning ;
+            px:forecastsFailureOfEquipment ?equipment .
+}
+WHERE {
+  ?workflow a px:SensorTimeSeriesEquipmentFailureForecastingWorkflow ;
+             px:forecastsEquipmentFailureWarning ?warning .
+  ?warning px:affectsEquipment ?equipment .
+  FILTER NOT EXISTS { ?warning px:forecastsFailureOfEquipment ?equipment }
+}

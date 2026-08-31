@@ -1,0 +1,23 @@
+schema_version: '2.0'
+scenario:
+  name: 设备停机恢复产能经营影响情景
+  model_ref: business/models/fab-baseline.yaml
+  description: 通用Fab What-if情景：以设备停机恢复为业务背景，通过增加光刻产能并设置干预运营费用，观察约束投入和可销售单元的方向性变化。所有输入为模型情景假设，不代表现场实测数值或客户承诺。
+  interventions:
+  - target_ref: fab.equip.scanner
+    variable: lithography_capacity
+    operation: add
+    value: 800
+  - target_ref: fab.action.recipe_adjust
+    variable: intervention_opex
+    operation: set
+    value: 1500000
+  assertions:
+  - type: nondecreasing
+    variable: constrained_input
+  - type: nondecreasing
+    variable: saleable_units
+  investment:
+    one_time: 5000000
+    unit: CNY
+  id: sim.agent.run-798f33525aa44b1d.r1.run-798f33525aa44b1d-a06.1

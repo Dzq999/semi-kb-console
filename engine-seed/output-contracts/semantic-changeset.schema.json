@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:pxai:semi:semantic-changeset",
+  "type": "object",
+  "required": ["id", "created_at", "provenance", "additions"],
+  "properties": {
+    "id": {"type": "string", "pattern": "^scs\\.[a-z0-9._-]+$"},
+    "created_at": {"type": "string", "format": "date"},
+    "provenance": {"$ref": "#/$defs/provenance"},
+    "additions": {
+      "type": "object",
+      "properties": {
+        "classes": {"type": "array", "items": {"$ref": "#/$defs/class"}},
+        "object_properties": {"type": "array", "items": {"$ref": "#/$defs/objectProperty"}},
+        "datatype_properties": {"type": "array", "items": {"$ref": "#/$defs/datatypeProperty"}},
+        "individuals": {"type": "array", "items": {"$ref": "#/$defs/individual"}},
+        "object_assertions": {"type": "array", "items": {"$ref": "#/$defs/objectAssertion"}},
+        "data_assertions": {"type": "array", "items": {"$ref": "#/$defs/dataAssertion"}}
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "iri": {"type": "string", "pattern": "^urn:pxai:semi:[A-Za-z0-9._:%-]+$"},
+    "provenance": {
+      "type": "object",
+      "required": ["source_type", "confidence", "source_ref"],
+      "properties": {
+        "source_type": {"enum": ["internal_feature", "vfab", "observed", "web", "model_prior", "analogy", "human"]},
+        "confidence": {"enum": ["high", "medium", "low"]},
+        "source_ref": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "class": {
+      "type": "object", "required": ["iri", "label_zh", "subclass_of"],
+      "properties": {"iri": {"$ref": "#/$defs/iri"}, "label_zh": {"type": "string", "minLength": 1}, "subclass_of": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/iri"}}, "equivalent_to": {"type": "array", "items": {"$ref": "#/$defs/iri"}}, "disjoint_with": {"type": "array", "items": {"$ref": "#/$defs/iri"}}, "restrictions": {"type": "array", "items": {"$ref": "#/$defs/restriction"}}},
+      "additionalProperties": false
+    },
+    "restriction": {
+      "type": "object", "required": ["on_property", "kind"],
+      "properties": {"on_property": {"$ref": "#/$defs/iri"}, "kind": {"enum": ["exact_cardinality", "min_cardinality", "max_cardinality", "some_values_from", "all_values_from"]}, "target_class": {"$ref": "#/$defs/iri"}, "target_datatype": {"$ref": "#/$defs/datatype"}, "cardinality": {"type": "integer", "minimum": 0}},
+      "oneOf": [
+        {"required": ["target_class"], "not": {"required": ["target_datatype"]}},
+        {"required": ["target_datatype"], "not": {"required": ["target_class"]}}
+      ],
+      "additionalProperties": false
+    },
+    "objectProperty": {
+      "type": "object", "required": ["iri", "label_zh", "domain", "range"],
+      "properties": {"iri": {"$ref": "#/$defs/iri"}, "label_zh": {"type": "string", "minLength": 1}, "domain": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/iri"}}, "range": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/iri"}}, "inverse_of": {"$ref": "#/$defs/iri"}, "functional": {"type": "boolean"}, "transitive": {"type": "boolean"}},
+      "additionalProperties": false
+    },
+    "datatypeProperty": {
+      "type": "object", "required": ["iri", "label_zh", "domain", "datatype"],
+      "properties": {"iri": {"$ref": "#/$defs/iri"}, "label_zh": {"type": "string", "minLength": 1}, "domain": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/iri"}}, "datatype": {"$ref": "#/$defs/datatype"}, "functional": {"type": "boolean"}},
+      "additionalProperties": false
+    },
+    "individual": {
+      "type": "object", "required": ["iri", "types", "label_zh"],
+      "properties": {"iri": {"$ref": "#/$defs/iri"}, "types": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/iri"}}, "label_zh": {"type": "string", "minLength": 1}, "objects": {"type": "object", "additionalProperties": {"type": "array", "items": {"$ref": "#/$defs/iri"}}}, "data": {"type": "object", "additionalProperties": {"type": "array", "items": {"type": ["string", "number", "boolean"]}}}},
+      "additionalProperties": false
+    },
+    "objectAssertion": {
+      "type": "object", "required": ["subject", "predicate", "object"],
+      "properties": {"subject": {"$ref": "#/$defs/iri"}, "predicate": {"$ref": "#/$defs/iri"}, "object": {"$ref": "#/$defs/iri"}},
+      "additionalProperties": false
+    },
+    "dataAssertion": {
+      "type": "object", "required": ["subject", "predicate", "value"],
+      "properties": {"subject": {"$ref": "#/$defs/iri"}, "predicate": {"$ref": "#/$defs/iri"}, "value": {"type": ["string", "number", "boolean"]}, "datatype": {"$ref": "#/$defs/datatype"}},
+      "additionalProperties": false
+    },
+    "datatype": {"type": "string", "pattern": "^http://www.w3.org/2001/XMLSchema#[A-Za-z]+$"}
+  }
+}

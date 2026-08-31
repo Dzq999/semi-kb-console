@@ -1,0 +1,23 @@
+{
+  "id": "urn:pxai:semi:knowledge:fab:anomaly-triage-impact-chain",
+  "title": "Fab品质异常与设备停机异常的处置关联模式",
+  "domain": "fab",
+  "summary": "品质异常和设备停机异常应分别连接诊断动作、事件及运营影响链，以支持异常处置闭环和经营影响的方向性分析。",
+  "content": "在Fab语义建模中，品质异常突发可连接跨系统因果调查工作流、分诊与证据核查动作以及品质异常至产出影响链；设备停机异常可连接停机事件、设备诊断与恢复评估动作以及产能影响链。该模式仅用于结构化知识和模型分析，不替代现场证据，也不推断实际根因、停机时长、良率或产能数值。",
+  "source_refs": [
+    "business/models/fab-baseline.yaml",
+    "simulation/scenarios/fab-capacity-recovery.yaml"
+  ],
+  "related_iris": [
+    "urn:pxai:semi:QualityExcursionAnomaly",
+    "urn:pxai:semi:EquipmentDowntimeAnomaly",
+    "urn:pxai:semi:FabCrossSystemCausalInvestigationWorkflow",
+    "urn:pxai:semi:CrossSystemEquipmentFailureTracing",
+    "urn:pxai:semi:OperationalImpactChain"
+  ],
+  "confidence": "medium",
+  "provenance": {
+    "source_type": "web",
+    "source_ref": "business/models/fab-baseline.yaml"
+  }
+}

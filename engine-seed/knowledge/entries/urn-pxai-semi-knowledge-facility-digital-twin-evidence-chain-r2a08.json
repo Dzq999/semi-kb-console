@@ -1,0 +1,22 @@
+{
+  "id": "urn:pxai:semi:knowledge:facility-digital-twin-evidence-chain-r2a08",
+  "title": "半导体设施数字孪生应连接区域、资产与运营证据",
+  "domain": "fac",
+  "summary": "设施数字孪生的运营价值不仅在于三维或实时建模，还在于把洁净室信号、公辅系统、资产关系、告警、维修记录和现场执行证据绑定到统一上下文。",
+  "content": "公开资料显示，半导体厂务运营可将洁净室粒子、温度、湿度、压差、气流、公辅系统、资产状态、告警和维修记录连接到分区与资产，并通过现场工单、读数、照片、审批和关闭证据形成可复核闭环。厂级数字孪生还可用于在基础设施事件发生前讨论其对生产的潜在影响，但现场结论仍需依赖客户数据、验证流程和责任人确认。",
+  "source_refs": [
+    "https://datamesh.com/zh-CN/resources/guides/semiconductor-facility-operations-ai-agent",
+    "https://semiconductorx.com/fab-ops-facility-management.html"
+  ],
+  "related_iris": [
+    "urn:pxai:semi:FacilityDigitalTwin",
+    "urn:pxai:semi:FacilityOperationalEvidenceBundle_r2a08",
+    "urn:pxai:semi:FacilitySignalAssetMappingRecord_r2a08",
+    "urn:pxai:semi:CleanroomOperationalZoneContext_r2a08"
+  ],
+  "confidence": "medium",
+  "provenance": {
+    "source_type": "web",
+    "source_ref": "https://datamesh.com/zh-CN/resources/guides/semiconductor-facility-operations-ai-agent"
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "id": "urn:pxai:semi:knowledge:gate_repair:multisource_equipment_rca_required_links",
+  "title": "多源设备根因调查的设备标识与候选原因完整性",
+  "domain": "eqp",
+  "summary": "多源设备调查需要稳定设备标识，并至少连接一个有证据依据的候选原因。",
+  "content": "公开资料指出，系统性缺陷可能与设备状态及工艺参数有关，FDC还会记录设备参数和传感器曲线。因此，多源设备根因调查可把设备状态或工艺参数偏移作为待验证的候选原因；同时，通用设备实例必须具备稳定的equipmentCode，以便跨系统证据关联。该代码是语义标识，不是现场资产编号，候选原因也不等同于已确认根因。",
+  "source_refs": [
+    "https://ai-mst.com/insight/yield-analysis-root-cause-methodology/"
+  ],
+  "related_iris": [
+    "urn:pxai:semi:cause:web:multisource_equipment_rca:equipment_state_or_process_parameter_deviation",
+    "urn:pxai:semi:equipmentCode",
+    "urn:pxai:semi:hasPossibleCause"
+  ],
+  "confidence": "medium",
+  "provenance": {
+    "source_type": "web",
+    "source_ref": "https://ai-mst.com/insight/yield-analysis-root-cause-methodology/"
+  }
+}

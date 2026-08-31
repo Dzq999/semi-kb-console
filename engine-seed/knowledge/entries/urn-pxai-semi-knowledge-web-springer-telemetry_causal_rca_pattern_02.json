@@ -1,0 +1,18 @@
+{
+  "id": "urn:pxai:semi:knowledge:web:springer:telemetry_causal_rca_pattern_02",
+  "title": "设备遥测与因果建模协同的根因分析模式",
+  "domain": "eqp",
+  "summary": "传感器时间序列、模式识别和因果建模可协同支持故障检测与根因分析。",
+  "content": "Springer综述摘要表明，图像和传感器分析可用于半导体故障检测，设备时间序列可支持故障预测，模式识别与因果建模可辅助识别底层制程问题。数据质量和模型可解释性仍是规模化采用的限制，因此行业能力证据不能直接转换成单一工厂的准确率、停机下降或财务收益结论。",
+  "source_refs": [
+    "https://link.springer.com/article/10.1007/s00170-026-18777-0"
+  ],
+  "related_iris": [
+    "urn:pxai:semi:ext:web:springer:telemetry_causal_integration_pattern_02"
+  ],
+  "confidence": "medium",
+  "provenance": {
+    "source_type": "web",
+    "source_ref": "https://link.springer.com/article/10.1007/s00170-026-18777-0"
+  }
+}

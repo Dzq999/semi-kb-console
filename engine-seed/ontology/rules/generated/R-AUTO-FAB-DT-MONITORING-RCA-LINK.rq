@@ -1,0 +1,1 @@
+PREFIX semi: <urn:pxai:semi:> CONSTRUCT { ?twin semi:enablesRCAFor ?anomaly . } WHERE { ?twin a semi:FacilityDigitalTwin ; semi:hasCapability ?cap . ?cap semi:analyzesTimeSeriesObservation ?observation ; semi:diagnosesAnomaly ?anomaly . }

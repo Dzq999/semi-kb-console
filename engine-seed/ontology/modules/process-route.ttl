@@ -1,0 +1,41 @@
+@prefix semi: <urn:pxai:semi:> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+<urn:pxai:semi:process-route> a owl:Ontology ;
+  owl:imports <urn:pxai:semi:common>, <urn:pxai:semi:material-product>,
+              <urn:pxai:semi:equipment>, <urn:pxai:semi:quality-metrology> .
+
+semi:Process a owl:Class ; rdfs:subClassOf semi:InformationEntity .
+semi:Flow a owl:Class ; rdfs:subClassOf semi:InformationEntity .
+semi:Route a owl:Class ; rdfs:subClassOf semi:InformationEntity .
+semi:Stage a owl:Class ; rdfs:subClassOf semi:InformationEntity .
+semi:Step a owl:Class ; rdfs:subClassOf semi:InformationEntity .
+semi:ProcessParameter a owl:Class ; rdfs:subClassOf semi:InformationEntity .
+
+semi:hasStage a owl:ObjectProperty ; rdfs:domain semi:Flow ; rdfs:range semi:Stage .
+semi:hasStep a owl:ObjectProperty ; rdfs:domain semi:Route ; rdfs:range semi:Step .
+semi:stepOfStage a owl:ObjectProperty ; rdfs:domain semi:Step ; rdfs:range semi:Stage .
+semi:routeForProduct a owl:ObjectProperty ; rdfs:domain semi:Route ; rdfs:range semi:Product .
+semi:usesRecipeDefinition a owl:ObjectProperty ; rdfs:domain semi:Step ; rdfs:range semi:Recipe .
+semi:directlyPrecedes a owl:ObjectProperty ;
+  rdfs:domain semi:Step ; rdfs:range semi:Step ; rdfs:subPropertyOf semi:precedes .
+semi:precedes a owl:ObjectProperty, owl:TransitiveProperty ;
+  rdfs:domain semi:Step ; rdfs:range semi:Step .
+semi:precedesProcess a owl:ObjectProperty, owl:TransitiveProperty ;
+  rdfs:domain semi:Process ; rdfs:range semi:Process .
+semi:hasProcessParameter a owl:ObjectProperty ;
+  rdfs:domain semi:Process ; rdfs:range semi:ProcessParameter .
+semi:controlsProcess a owl:ObjectProperty ;
+  rdfs:domain semi:ProcessParameter ; rdfs:range semi:Process .
+semi:measuredByMetric a owl:ObjectProperty ;
+  rdfs:domain semi:Process ; rdfs:range semi:Metric .
+semi:performedOnMaterial a owl:ObjectProperty ;
+  rdfs:domain semi:Process ; rdfs:range semi:MaterialType .
+semi:belongsToStage a owl:ObjectProperty ; rdfs:domain semi:Process ; rdfs:range semi:Stage .
+semi:supportsProcess a owl:ObjectProperty ; rdfs:domain semi:EquipmentType ; rdfs:range semi:Process .
+semi:stepNumber a owl:DatatypeProperty ; rdfs:domain semi:Step ; rdfs:range xsd:integer .
+semi:stepCode a owl:DatatypeProperty ; rdfs:domain semi:Step ; rdfs:range xsd:string .
+semi:flowCode a owl:DatatypeProperty ; rdfs:domain semi:Flow ; rdfs:range xsd:string .
+semi:routeCode a owl:DatatypeProperty ; rdfs:domain semi:Route ; rdfs:range xsd:string .

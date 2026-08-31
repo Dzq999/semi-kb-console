@@ -1,0 +1,23 @@
+@prefix semi: <urn:pxai:semi:> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+<urn:pxai:semi:capacity-performance> a owl:Ontology ;
+  owl:imports <urn:pxai:semi:common>, <urn:pxai:semi:equipment>,
+              <urn:pxai:semi:quality-metrology> .
+
+semi:PerformanceMetric a owl:Class ; rdfs:subClassOf semi:Metric .
+semi:Capacity a owl:Class ; rdfs:subClassOf semi:PerformanceMetric .
+semi:WPH a owl:Class ; rdfs:subClassOf semi:PerformanceMetric .
+semi:OEE a owl:Class ; rdfs:subClassOf semi:PerformanceMetric .
+semi:Utilization a owl:Class ; rdfs:subClassOf semi:PerformanceMetric .
+semi:CycleTime a owl:Class ; rdfs:subClassOf semi:PerformanceMetric .
+semi:CapacityConstraint a owl:Class ; rdfs:subClassOf semi:InformationEntity .
+semi:Bottleneck a owl:Class ; rdfs:subClassOf semi:InformationEntity .
+semi:DeliveryRisk a owl:Class ; rdfs:subClassOf semi:InformationEntity .
+
+semi:performanceOf a owl:ObjectProperty ; rdfs:domain semi:Observation ; rdfs:range semi:Entity .
+semi:identifiesBottleneck a owl:ObjectProperty ; rdfs:domain semi:Observation ; rdfs:range semi:Bottleneck .
+semi:constrains a owl:ObjectProperty ; rdfs:domain semi:Bottleneck ; rdfs:range semi:Entity .
+semi:constraintOn a owl:ObjectProperty ;
+  rdfs:domain semi:CapacityConstraint ; rdfs:range semi:Entity .

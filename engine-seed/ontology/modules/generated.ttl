@@ -1,0 +1,662 @@
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix semi: <urn:pxai:semi:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+semi:ChemicalDeliverySystem a owl:Class ;
+    rdfs:label "化学品输送系统"@zh ;
+    rdfs:subClassOf semi:UtilitySystem .
+
+semi:ConstraintWarningValidationResult a owl:Class ;
+    rdfs:label "约束警告校验结果"@zh ;
+    rdfs:subClassOf semi:ValidationAssertion .
+
+semi:CustomerReturnManufacturingTraceInvestigationWorkflow a owl:Class ;
+    rdfs:label "客户退回制造履历追溯调查工作流"@zh ;
+    rdfs:subClassOf semi:FabCrossSystemCausalInvestigationWorkflow .
+
+semi:EquipmentDowntimeAnomaly a owl:Class ;
+    rdfs:label "设备停机异常"@zh ;
+    rdfs:subClassOf semi:Anomaly .
+
+semi:ExhaustAbatementSystem a owl:Class ;
+    rdfs:label "废气处理系统"@zh ;
+    rdfs:subClassOf semi:UtilitySystem .
+
+semi:FacilityInfrastructureEvent a owl:Class ;
+    rdfs:label "设施基础设施事件"@zh ;
+    rdfs:subClassOf semi:Event .
+
+semi:GasDeliverySystem a owl:Class ;
+    rdfs:label "气体输送系统"@zh ;
+    rdfs:subClassOf semi:UtilitySystem .
+
+semi:GasFlowMeter a owl:Class ;
+    rdfs:label "气体流量计"@zh ;
+    rdfs:subClassOf semi:UtilityMonitoringSensor .
+
+semi:HVACSystem a owl:Class ;
+    rdfs:label "暖通空调系统"@zh ;
+    rdfs:subClassOf semi:UtilitySystem .
+
+semi:HighDimensionalDynamicManufacturingDataChallenge a owl:Class ;
+    rdfs:label "高维动态制造数据挑战"@zh ;
+    rdfs:subClassOf semi:RiskNode .
+
+semi:ImageAndSensorDrivenFabFaultDetectionWorkflow a owl:Class ;
+    rdfs:label "图像与传感器驱动的晶圆厂故障检测工作流"@zh ;
+    rdfs:subClassOf semi:Process .
+
+semi:IncomingWaferSubstrateComponentInvestigationWorkflow a owl:Class ;
+    rdfs:label "来料晶圆基板与组件质量调查工作流"@zh ;
+    rdfs:subClassOf semi:FabCrossSystemCausalInvestigationWorkflow .
+
+semi:LotFinalTestAndYieldExcursionInvestigationWorkflow a owl:Class ;
+    rdfs:label "批次终测失败与良率异常调查工作流"@zh ;
+    rdfs:subClassOf semi:FabCrossSystemCausalInvestigationWorkflow .
+
+semi:ManufacturingAIDataQualityAdoptionRisk a owl:Class ;
+    rdfs:label "制造AI数据质量采用风险"@zh ;
+    rdfs:subClassOf semi:RiskNode .
+
+semi:ManufacturingAIModelInterpretabilityAdoptionRisk a owl:Class ;
+    rdfs:label "制造AI模型可解释性采用风险"@zh ;
+    rdfs:subClassOf semi:RiskNode .
+
+semi:ParticleCounter a owl:Class ;
+    rdfs:label "颗粒计数器"@zh ;
+    rdfs:subClassOf semi:UtilityMonitoringSensor .
+
+semi:PowerDistributionSystem a owl:Class ;
+    rdfs:label "电力分配系统"@zh ;
+    rdfs:subClassOf semi:UtilitySystem .
+
+semi:PowerQualityMonitor a owl:Class ;
+    rdfs:label "电能质量监测器"@zh ;
+    rdfs:subClassOf semi:UtilityMonitoringSensor .
+
+semi:QualityExcursionAnomaly a owl:Class ;
+    rdfs:label "品质异常突发"@zh ;
+    rdfs:subClassOf semi:Anomaly .
+
+semi:SPCOutOfControlCausalInvestigationWorkflow a owl:Class ;
+    rdfs:label "SPC失控因果调查工作流"@zh ;
+    rdfs:subClassOf semi:FabCrossSystemCausalInvestigationWorkflow .
+
+semi:SemanticConsistencyConstraint a owl:Class ;
+    rdfs:label "语义一致性约束"@zh ;
+    rdfs:subClassOf semi:OntologyIntegrityConstraint .
+
+semi:SerializationContractConstraint a owl:Class ;
+    rdfs:label "序列化契约约束"@zh ;
+    rdfs:subClassOf semi:StructuralIntegrityConstraint .
+
+semi:UPWQualitySensor a owl:Class ;
+    rdfs:label "超纯水质量传感器"@zh ;
+    rdfs:subClassOf semi:UtilityMonitoringSensor .
+
+semi:UPWSystem a owl:Class ;
+    rdfs:label "超纯水系统"@zh ;
+    rdfs:subClassOf semi:UtilitySystem .
+
+semi:VibrationSensor a owl:Class ;
+    rdfs:label "振动传感器"@zh ;
+    rdfs:subClassOf semi:UtilityMonitoringSensor .
+
+semi:aggregatesUtilityData a owl:ObjectProperty ;
+    rdfs:label "汇聚公用系统数据"@zh ;
+    rdfs:domain semi:UtilityIntegrationPlatform ;
+    rdfs:range semi:UtilitySystem .
+
+semi:aggregatesWorkstation a owl:ObjectProperty ;
+    rdfs:label "聚合工作站"@zh ;
+    rdfs:domain semi:AggregateWorkArea ;
+    rdfs:range semi:Equipment .
+
+semi:analyzesTimeSeriesObservation a owl:ObjectProperty ;
+    rdfs:label "分析时间序列观测"@zh ;
+    rdfs:domain semi:SensorTimeSeriesEquipmentFailureForecastingWorkflow ;
+    rdfs:range semi:Observation .
+
+semi:constrainedByDataQualityChallenge a owl:ObjectProperty ;
+    rdfs:label "受数据质量挑战约束"@zh ;
+    rdfs:domain semi:AIEnabledRootCauseAnalysisWorkflow ;
+    rdfs:range semi:ManufacturingAIDataQualityChallenge .
+
+semi:constrainedByInterpretabilityChallenge a owl:ObjectProperty ;
+    rdfs:label "受可解释性挑战约束"@zh ;
+    rdfs:domain semi:AIEnabledRootCauseAnalysisWorkflow ;
+    rdfs:range semi:ManufacturingAIInterpretabilityChallenge .
+
+semi:containsAggregateQueueingModel a owl:ObjectProperty ;
+    rdfs:label "包含聚合排队模型"@zh ;
+    rdfs:domain semi:FabAggregateModelNetwork ;
+    rdfs:range semi:SingleServerQueueingSystem .
+
+semi:containsOntologyValidationResult a owl:ObjectProperty ;
+    rdfs:label "包含本体校验结果"@zh ;
+    rdfs:domain semi:OntologyValidationReport ;
+    rdfs:range semi:ValidationAssertion .
+
+semi:correlatesFactorySourceArtifact a owl:ObjectProperty ;
+    rdfs:label "关联工厂源资料"@zh ;
+    rdfs:domain semi:FabCrossSystemCausalInvestigationWorkflow ;
+    rdfs:range semi:SourceArtifact .
+
+semi:correlatesFactoryTimestamps a owl:ObjectProperty ;
+    rdfs:label "关联工厂系统时间戳"@zh ;
+    rdfs:domain semi:CrossSystemEquipmentFailureTracing ;
+    rdfs:range semi:FactoryTimestampCrossReferenceEvidence .
+
+semi:correlatesMaintenanceLogEvidence a owl:ObjectProperty ;
+    rdfs:label "关联维护日志证据"@zh ;
+    rdfs:domain semi:CrossSystemEquipmentFailureTracing ;
+    rdfs:range semi:MaintenanceLogCorrelationEvidence .
+
+semi:decisionUseText a owl:DatatypeProperty ;
+    rdfs:label "决策用途文本"@zh ;
+    rdfs:domain semi:ScenarioDecisionBrief ;
+    rdfs:range xsd:string .
+
+semi:derivedFromArrivalDepartureData a owl:ObjectProperty ;
+    rdfs:label "由到达离开数据推导"@zh ;
+    rdfs:domain semi:SingleServerQueueingSystem ;
+    rdfs:range semi:ArrivalDepartureDataRecord .
+
+semi:enablesRCAFor a owl:ObjectProperty ;
+    rdfs:label "支持其根因分析"@zh ;
+    rdfs:domain semi:RCAEvidenceIntegrationPattern ;
+    rdfs:range semi:Anomaly .
+
+semi:evaluatesFocusEntity a owl:ObjectProperty ;
+    rdfs:label "评估焦点实体"@zh ;
+    rdfs:domain semi:ValidationAssertion ;
+    rdfs:range semi:Entity .
+
+semi:evaluatesOntologyConstraint a owl:ObjectProperty ;
+    rdfs:label "评估本体约束"@zh ;
+    rdfs:domain semi:OntologyValidationRun ;
+    rdfs:range semi:OntologyIntegrityConstraint .
+
+semi:evidenceCoverageRatio a owl:DatatypeProperty ;
+    rdfs:label "证据覆盖率"@zh ;
+    rdfs:domain semi:EvidenceCompletenessReview ;
+    rdfs:range xsd:decimal .
+
+semi:feedsFailureForecasting a owl:ObjectProperty ;
+    rdfs:label "向故障预测提供实时监控信息"@zh ;
+    rdfs:domain semi:SensorDrivenRealTimeEquipmentMonitoring ;
+    rdfs:range semi:HistoricalPatternEquipmentFailureForecasting .
+
+semi:findingCode a owl:DatatypeProperty ;
+    rdfs:label "发现项代码"@zh ;
+    rdfs:domain semi:ValidationFinding ;
+    rdfs:range xsd:string .
+
+semi:forecastsEquipmentFailureWarning a owl:ObjectProperty ;
+    rdfs:label "预测设备故障预警"@zh ;
+    rdfs:domain semi:HistoricalPatternEquipmentFailureForecasting ;
+    rdfs:range semi:PredictedEquipmentFailureWarning .
+
+semi:forecastsFailureOfEquipment a owl:ObjectProperty ;
+    rdfs:label "预测设备故障"@zh ;
+    rdfs:domain semi:SensorTimeSeriesEquipmentFailureForecastingWorkflow ;
+    rdfs:range semi:Equipment .
+
+semi:fusesSECSGEMTelemetryEvidence a owl:ObjectProperty ;
+    rdfs:label "融合SECS/GEM遥测证据"@zh ;
+    rdfs:domain semi:InspectionTelemetryFusionAnalysis ;
+    rdfs:range semi:SECSGEMEquipmentTelemetryEvidence .
+
+semi:gateDecisionCode a owl:DatatypeProperty ;
+    rdfs:label "门禁决策代码"@zh ;
+    rdfs:domain semi:ReleaseGate ;
+    rdfs:range xsd:string .
+
+semi:generated-schema a owl:Ontology ;
+    owl:imports semi:common .
+
+semi:hasOntologyIntegrityConstraint a owl:ObjectProperty ;
+    rdfs:label "包含本体完整性约束"@zh ;
+    rdfs:domain semi:OntologyValidationProfile ;
+    rdfs:range semi:OntologyIntegrityConstraint .
+
+semi:hasOperationalImpactChain a owl:ObjectProperty ;
+    rdfs:label "具有运营影响链"@zh ;
+    rdfs:domain semi:CustomerProblemPainPattern ;
+    rdfs:range semi:OperationalImpactChain .
+
+semi:hasPainPattern a owl:ObjectProperty ;
+    rdfs:label "具有痛点模式"@zh ;
+    rdfs:domain semi:BusinessScenarioCard ;
+    rdfs:range semi:CustomerProblemPainPattern .
+
+semi:hasQueueingSystem a owl:ObjectProperty ;
+    rdfs:label "具有排队系统"@zh ;
+    rdfs:domain semi:AggregateWorkArea ;
+    rdfs:range semi:SingleServerQueueingSystem .
+
+semi:hasValidationFinding a owl:ObjectProperty ;
+    rdfs:label "具有验证发现项"@zh ;
+    rdfs:domain semi:ReleaseGate ;
+    rdfs:range semi:ValidationFinding .
+
+semi:identifiesUnderlyingProcessCause a owl:ObjectProperty ;
+    rdfs:label "识别底层制程原因"@zh ;
+    rdfs:domain semi:PatternAndCausalModelRootCauseAnalysisWorkflow ;
+    rdfs:range semi:Cause .
+
+semi:impactMechanismText a owl:DatatypeProperty ;
+    rdfs:label "影响机制文本"@zh ;
+    rdfs:domain semi:OperationalImpactChain ;
+    rdfs:range xsd:string .
+
+semi:integratesEvidenceFrom a owl:ObjectProperty ;
+    rdfs:label "集成证据来源"@zh ;
+    rdfs:domain semi:CrossSystemRCAInvestigation ;
+    rdfs:range semi:Evidence .
+
+semi:investigatesAssemblyPackagingFailure a owl:ObjectProperty ;
+    rdfs:label "调查组装封装失效"@zh ;
+    rdfs:domain semi:AssemblyPackagingFailureInvestigation ;
+    rdfs:range semi:Anomaly .
+
+semi:investigatesCustomerReturnFailure a owl:ObjectProperty ;
+    rdfs:label "调查客户退货失效"@zh ;
+    rdfs:domain semi:CustomerReturnEightDInvestigation ;
+    rdfs:range semi:Anomaly .
+
+semi:investigatesFinalTestLotFailure a owl:ObjectProperty ;
+    rdfs:label "调查终测批次失效"@zh ;
+    rdfs:domain semi:FinalTestLotFailureInvestigation ;
+    rdfs:range semi:Anomaly .
+
+semi:investigatesIncomingMaterialQuality a owl:ObjectProperty ;
+    rdfs:label "调查来料质量"@zh ;
+    rdfs:domain semi:IncomingMaterialQualityInvestigation ;
+    rdfs:range semi:Material .
+
+semi:linksAnomalyToImpact a owl:ObjectProperty ;
+    rdfs:label "连接异常与经营影响"@zh ;
+    rdfs:domain semi:AnomalyToBusinessImpactLink ;
+    rdfs:range semi:OperationalImpactChain .
+
+semi:modelingLimitationText a owl:DatatypeProperty ;
+    rdfs:label "建模局限文本"@zh ;
+    rdfs:domain semi:FabAggregateModelNetwork ;
+    rdfs:range xsd:string .
+
+semi:modelsFacility a owl:ObjectProperty ;
+    rdfs:label "孪生建模于"@zh ;
+    rdfs:domain semi:FacilityDigitalTwin ;
+    rdfs:range semi:Facility .
+
+semi:monitorsFacilityInfrastructure a owl:ObjectProperty ;
+    rdfs:label "监测设施基础设施"@zh ;
+    rdfs:domain semi:UtilityMonitoringSensor ;
+    rdfs:range semi:Facility .
+
+semi:monitorsUtilitySystem a owl:ObjectProperty ;
+    rdfs:label "监控公用系统"@zh ;
+    rdfs:domain semi:BuildingManagementSystem,
+        semi:FacilityManagementSystem ;
+    rdfs:range semi:UtilitySystem .
+
+semi:ontologyConstraintCode a owl:DatatypeProperty ;
+    rdfs:label "本体约束代码"@zh ;
+    rdfs:domain semi:OntologyIntegrityConstraint ;
+    rdfs:range xsd:string .
+
+semi:ontologyConstraintMessage a owl:DatatypeProperty ;
+    rdfs:label "本体约束消息"@zh ;
+    rdfs:domain semi:ValidationAssertion ;
+    rdfs:range xsd:string .
+
+semi:ontologyReportConforms a owl:DatatypeProperty ;
+    rdfs:label "本体报告是否符合"@zh ;
+    rdfs:domain semi:OntologyValidationReport ;
+    rdfs:range xsd:boolean .
+
+semi:ontologyResultPath a owl:DatatypeProperty ;
+    rdfs:label "本体结果路径"@zh ;
+    rdfs:domain semi:ValidationAssertion ;
+    rdfs:range xsd:string .
+
+semi:ontologyViolationCount a owl:DatatypeProperty ;
+    rdfs:label "本体违规数量"@zh ;
+    rdfs:domain semi:OntologyValidationReport ;
+    rdfs:range xsd:nonNegativeInteger .
+
+semi:ontologyWarningCount a owl:DatatypeProperty ;
+    rdfs:label "本体警告数量"@zh ;
+    rdfs:domain semi:OntologyValidationReport ;
+    rdfs:range xsd:nonNegativeInteger .
+
+semi:predictsCycleTimeDistribution a owl:ObjectProperty ;
+    rdfs:label "预测周期时间分布"@zh ;
+    rdfs:domain semi:FabAggregateModelNetwork ;
+    rdfs:range semi:CycleTime .
+
+semi:predictsWIPLevel a owl:ObjectProperty ;
+    rdfs:label "预测WIP水平"@zh ;
+    rdfs:domain semi:FabAggregateModelNetwork ;
+    rdfs:range semi:WIP .
+
+semi:producesAuditReadyCausalFaultTree a owl:ObjectProperty ;
+    rdfs:label "产出审计就绪因果故障树"@zh ;
+    rdfs:domain semi:FabCrossSystemCausalInvestigationWorkflow ;
+    rdfs:range semi:AuditReadyUnifiedCausalFaultTree .
+
+semi:producesOntologyValidationReport a owl:ObjectProperty ;
+    rdfs:label "生成本体校验报告"@zh ;
+    rdfs:domain semi:OntologyValidationRun ;
+    rdfs:range semi:OntologyValidationReport .
+
+semi:producesUnifiedEquipmentFaultTree a owl:ObjectProperty ;
+    rdfs:label "生成统一设备因果故障树"@zh ;
+    rdfs:domain semi:CrossSystemEquipmentFailureTracing ;
+    rdfs:range semi:UnifiedEquipmentCausalFaultTree .
+
+semi:realizesTelemetryAssistedDiagnosis a owl:ObjectProperty ;
+    rdfs:label "实现遥测辅助诊断能力"@zh ;
+    rdfs:domain semi:InspectionTelemetryFusionAnalysis ;
+    rdfs:range semi:TelemetryAssistedRootCauseCapability .
+
+semi:releaseBlockingFlag a owl:DatatypeProperty ;
+    rdfs:label "阻断发布标志"@zh ;
+    rdfs:domain semi:ValidationFinding ;
+    rdfs:range xsd:boolean .
+
+semi:requiredEvidenceType a owl:DatatypeProperty ;
+    rdfs:label "所需证据类型"@zh ;
+    rdfs:domain semi:EvidenceCompletenessReview ;
+    rdfs:range xsd:string .
+
+semi:requiresEvidenceFor a owl:ObjectProperty ;
+    rdfs:label "为对象要求证据"@zh ;
+    rdfs:domain semi:ReleaseGate ;
+    rdfs:range semi:Entity .
+
+semi:reviewStatusCode a owl:DatatypeProperty ;
+    rdfs:label "审查状态代码"@zh ;
+    rdfs:domain semi:ValidationAssertion ;
+    rdfs:range xsd:string .
+
+semi:reviewsEvidenceOf a owl:ObjectProperty ;
+    rdfs:label "审查其证据对象"@zh ;
+    rdfs:domain semi:EvidenceCompletenessReview ;
+    rdfs:range semi:Entity .
+
+semi:reviewsProvenanceOf a owl:ObjectProperty ;
+    rdfs:label "审查其来源对象"@zh ;
+    rdfs:domain semi:ProvenanceQualityReview ;
+    rdfs:range semi:Entity .
+
+semi:summarizedByDecisionBrief a owl:ObjectProperty ;
+    rdfs:label "由决策简报总结"@zh ;
+    rdfs:domain semi:OperationalImpactChain ;
+    rdfs:range semi:ScenarioDecisionBrief .
+
+semi:suppliesUtilityTo a owl:ObjectProperty ;
+    rdfs:label "供给公用资源给"@zh ;
+    rdfs:domain semi:UtilitySystem ;
+    rdfs:range semi:Equipment .
+
+semi:supportsPredictiveMaintenance a owl:ObjectProperty ;
+    rdfs:label "支持预测性维护"@zh ;
+    rdfs:domain semi:RCAEvidenceIntegrationPattern ;
+    rdfs:range semi:MaintenancePlan .
+
+semi:tracesPotentialCauseAcrossEntity a owl:ObjectProperty ;
+    rdfs:label "跨实体追溯潜在原因"@zh ;
+    rdfs:domain semi:FabCrossSystemCausalInvestigationWorkflow ;
+    rdfs:range semi:Entity .
+
+semi:triggersForecastPreventiveAction a owl:ObjectProperty ;
+    rdfs:label "触发预测性预防措施"@zh ;
+    rdfs:domain semi:PredictedEquipmentFailureWarning ;
+    rdfs:range semi:ForecastTriggeredPreventiveAction .
+
+semi:usesCausalModeling a owl:ObjectProperty ;
+    rdfs:label "使用因果建模"@zh ;
+    rdfs:domain semi:AIEnabledRootCauseAnalysisWorkflow ;
+    rdfs:range semi:CausalModelingForRootCauseAnalysis .
+
+semi:usesImageBasedAnalytics a owl:ObjectProperty ;
+    rdfs:label "使用基于图像的分析"@zh ;
+    rdfs:domain semi:AIEnabledRootCauseAnalysisWorkflow ;
+    rdfs:range semi:ImageBasedFaultDetection .
+
+semi:usesOntologyValidationProfile a owl:ObjectProperty ;
+    rdfs:label "使用本体校验配置"@zh ;
+    rdfs:domain semi:OntologyValidationRun ;
+    rdfs:range semi:OntologyValidationProfile .
+
+semi:usesSensorDrivenAnalytics a owl:ObjectProperty ;
+    rdfs:label "使用传感器驱动分析"@zh ;
+    rdfs:domain semi:AIEnabledRootCauseAnalysisWorkflow ;
+    rdfs:range semi:SensorDrivenFaultDetection .
+
+semi:utilityAvailability a owl:DatatypeProperty ;
+    rdfs:label "公用系统可用率"@zh ;
+    rdfs:domain semi:UtilitySystem ;
+    rdfs:range xsd:decimal .
+
+semi:validationEngineVersion a owl:DatatypeProperty ;
+    rdfs:label "校验引擎版本"@zh ;
+    rdfs:domain semi:OntologyValidationRun ;
+    rdfs:range xsd:string .
+
+semi:violatesOntologyConstraint a owl:ObjectProperty ;
+    rdfs:label "违反本体约束"@zh ;
+    rdfs:domain semi:ConstraintViolationValidationResult ;
+    rdfs:range semi:OntologyIntegrityConstraint .
+
+semi:workstationGroupingBasis a owl:DatatypeProperty ;
+    rdfs:label "工作站分组依据"@zh ;
+    rdfs:domain semi:AggregateWorkArea ;
+    rdfs:range xsd:string .
+
+semi:AnomalyToBusinessImpactLink a owl:Class ;
+    rdfs:label "异常至经营影响链路"@zh ;
+    rdfs:subClassOf semi:InformationEntity .
+
+semi:ArrivalDepartureDataRecord a owl:Class ;
+    rdfs:label "到达离开数据记录"@zh ;
+    rdfs:subClassOf semi:Observation .
+
+semi:AssemblyPackagingFailureInvestigation a owl:Class ;
+    rdfs:label "组装封装失效分析"@zh ;
+    rdfs:subClassOf semi:DiagnosticPlaybook .
+
+semi:AuditReadyUnifiedCausalFaultTree a owl:Class ;
+    rdfs:label "审计就绪统一因果故障树"@zh ;
+    rdfs:subClassOf semi:Evidence .
+
+semi:BuildingManagementSystem a owl:Class ;
+    rdfs:label "楼宇管理系统"@zh ;
+    rdfs:subClassOf semi:InformationEntity .
+
+semi:CausalModelingForRootCauseAnalysis a owl:Class ;
+    rdfs:label "根因分析因果建模"@zh ;
+    rdfs:subClassOf semi:Capability .
+
+semi:ConstraintViolationValidationResult a owl:Class ;
+    rdfs:label "约束违规校验结果"@zh ;
+    rdfs:subClassOf semi:ValidationAssertion .
+
+semi:CrossSystemRCAInvestigation a owl:Class ;
+    rdfs:label "跨系统根因分析调查"@zh ;
+    rdfs:subClassOf semi:DiagnosticPlaybook .
+
+semi:CustomerReturnEightDInvestigation a owl:Class ;
+    rdfs:label "客户退货八D调查"@zh ;
+    rdfs:subClassOf semi:DiagnosticPlaybook .
+
+semi:FacilityDigitalTwin a owl:Class ;
+    rdfs:label "厂级数字孪生"@zh ;
+    rdfs:subClassOf semi:InformationEntity .
+
+semi:FactoryTimestampCrossReferenceEvidence a owl:Class ;
+    rdfs:label "工厂时间戳交叉引用证据"@zh ;
+    rdfs:subClassOf semi:Evidence .
+
+semi:FinalTestLotFailureInvestigation a owl:Class ;
+    rdfs:label "终测批次失效调查"@zh ;
+    rdfs:subClassOf semi:DiagnosticPlaybook .
+
+semi:ForecastTriggeredPreventiveAction a owl:Class ;
+    rdfs:label "预测触发的设备预防措施"@zh ;
+    rdfs:subClassOf semi:Action .
+
+semi:ImageBasedFaultDetection a owl:Class ;
+    rdfs:label "基于图像的故障检测"@zh ;
+    rdfs:subClassOf semi:Capability .
+
+semi:IncomingMaterialQualityInvestigation a owl:Class ;
+    rdfs:label "来料质量调查"@zh ;
+    rdfs:subClassOf semi:DiagnosticPlaybook .
+
+semi:MaintenanceLogCorrelationEvidence a owl:Class ;
+    rdfs:label "维护日志关联证据"@zh ;
+    rdfs:subClassOf semi:Evidence .
+
+semi:ManufacturingAIDataQualityChallenge a owl:Class ;
+    rdfs:label "制造AI数据质量挑战"@zh ;
+    rdfs:subClassOf semi:PainPoint .
+
+semi:ManufacturingAIInterpretabilityChallenge a owl:Class ;
+    rdfs:label "制造AI模型可解释性挑战"@zh ;
+    rdfs:subClassOf semi:PainPoint .
+
+semi:PatternAndCausalModelRootCauseAnalysisWorkflow a owl:Class ;
+    rdfs:label "模式识别与因果建模根因分析工作流"@zh ;
+    rdfs:subClassOf semi:Process .
+
+semi:ProvenanceQualityReview a owl:Class ;
+    rdfs:label "来源质量审查"@zh ;
+    rdfs:subClassOf semi:ValidationAssertion .
+
+semi:SECSGEMEquipmentTelemetryEvidence a owl:Class ;
+    rdfs:label "SECS/GEM设备遥测证据"@zh ;
+    rdfs:subClassOf semi:Evidence .
+
+semi:SensorDrivenFaultDetection a owl:Class ;
+    rdfs:label "传感器驱动故障检测"@zh ;
+    rdfs:subClassOf semi:Capability .
+
+semi:SensorDrivenRealTimeEquipmentMonitoring a owl:Class ;
+    rdfs:label "传感器驱动的设备实时监控"@zh ;
+    rdfs:subClassOf semi:EquipmentCapability .
+
+semi:StructuralIntegrityConstraint a owl:Class ;
+    rdfs:label "结构完整性约束"@zh ;
+    rdfs:subClassOf semi:OntologyIntegrityConstraint .
+
+semi:TelemetryAssistedRootCauseCapability a owl:Class ;
+    rdfs:label "设备遥测辅助根因分析能力"@zh ;
+    rdfs:subClassOf semi:EquipmentCapability .
+
+semi:UnifiedEquipmentCausalFaultTree a owl:Class ;
+    rdfs:label "统一设备因果故障树"@zh ;
+    rdfs:subClassOf semi:InformationEntity .
+
+semi:UtilityIntegrationPlatform a owl:Class ;
+    rdfs:label "公用系统集成平台"@zh ;
+    rdfs:subClassOf semi:FacilityManagementSystem .
+
+semi:CustomerProblemPainPattern a owl:Class ;
+    rdfs:label "客户痛点模式"@zh ;
+    rdfs:subClassOf semi:CustomerProblem .
+
+semi:FacilityManagementSystem a owl:Class ;
+    rdfs:label "厂务管理系统"@zh ;
+    rdfs:subClassOf semi:InformationEntity .
+
+semi:HistoricalPatternEquipmentFailureForecasting a owl:Class ;
+    rdfs:label "基于历史模式的设备故障预测"@zh ;
+    rdfs:subClassOf semi:EquipmentCapability .
+
+semi:InspectionTelemetryFusionAnalysis a owl:Class ;
+    rdfs:label "检测图像与设备遥测融合分析"@zh ;
+    rdfs:subClassOf semi:Process .
+
+semi:OntologyValidationProfile a owl:Class ;
+    rdfs:label "本体校验配置"@zh ;
+    rdfs:subClassOf semi:InformationEntity .
+
+semi:PredictedEquipmentFailureWarning a owl:Class ;
+    rdfs:label "设备预测故障预警"@zh ;
+    rdfs:subClassOf semi:AlarmEvent .
+
+semi:RCAEvidenceIntegrationPattern a owl:Class ;
+    rdfs:label "根因分析证据集成模式"@zh ;
+    rdfs:subClassOf semi:Capability .
+
+semi:ScenarioDecisionBrief a owl:Class ;
+    rdfs:label "场景决策简报"@zh ;
+    rdfs:subClassOf semi:BusinessScenarioCard .
+
+semi:SensorTimeSeriesEquipmentFailureForecastingWorkflow a owl:Class ;
+    rdfs:label "传感器时间序列设备故障预测工作流"@zh ;
+    rdfs:subClassOf semi:Process .
+
+semi:AggregateWorkArea a owl:Class ;
+    rdfs:label "聚合工作区域"@zh ;
+    rdfs:subClassOf semi:Area .
+
+semi:CrossSystemEquipmentFailureTracing a owl:Class ;
+    rdfs:label "跨系统设备故障追溯"@zh ;
+    rdfs:subClassOf semi:Process .
+
+semi:EvidenceCompletenessReview a owl:Class ;
+    rdfs:label "证据完备性审查"@zh ;
+    rdfs:subClassOf semi:ValidationAssertion .
+
+semi:ReleaseGate a owl:Class ;
+    rdfs:label "发布门禁"@zh ;
+    rdfs:subClassOf semi:ValidationAssertion .
+
+semi:SingleServerQueueingSystem a owl:Class ;
+    rdfs:label "单服务器排队系统"@zh ;
+    rdfs:subClassOf semi:InformationEntity .
+
+semi:ValidationFinding a owl:Class ;
+    rdfs:label "验证发现项"@zh ;
+    rdfs:subClassOf semi:ValidationAssertion .
+
+semi:FabAggregateModelNetwork a owl:Class ;
+    rdfs:label "晶圆厂聚合模型网络"@zh ;
+    rdfs:subClassOf semi:InformationEntity .
+
+semi:OntologyValidationRun a owl:Class ;
+    rdfs:label "本体校验执行"@zh ;
+    rdfs:subClassOf semi:Event .
+
+semi:OperationalImpactChain a owl:Class ;
+    rdfs:label "运营影响链"@zh ;
+    rdfs:subClassOf semi:EconomicImpact .
+
+semi:AIEnabledRootCauseAnalysisWorkflow a owl:Class ;
+    rdfs:label "AI辅助根因分析工作流"@zh ;
+    rdfs:subClassOf semi:Process .
+
+semi:OntologyValidationReport a owl:Class ;
+    rdfs:label "本体校验报告"@zh ;
+    rdfs:subClassOf semi:InformationEntity .
+
+semi:OntologyIntegrityConstraint a owl:Class ;
+    rdfs:label "本体完整性约束"@zh ;
+    rdfs:subClassOf semi:InformationEntity .
+
+semi:UtilityMonitoringSensor a owl:Class ;
+    rdfs:label "公用系统监测传感器"@zh ;
+    rdfs:subClassOf semi:Equipment .
+
+semi:FabCrossSystemCausalInvestigationWorkflow a owl:Class ;
+    rdfs:label "晶圆厂跨系统因果调查工作流"@zh ;
+    rdfs:subClassOf semi:Process .
+
+semi:UtilitySystem a owl:Class ;
+    rdfs:label "厂务公用系统"@zh ;
+    rdfs:subClassOf semi:Facility .

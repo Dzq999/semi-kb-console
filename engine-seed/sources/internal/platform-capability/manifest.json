@@ -1,0 +1,10 @@
+{
+  "source_id": "internal.platform_capability.l1_l2",
+  "display_name": "一站式工程智能平台 L1/L2 能力图",
+  "canonical_file": "sources/internal/platform-capability/raw/L1-L2-Platform.png",
+  "source_sha256": "6e6fc15b269426a4e27362005d72ec6272bd530af1e6719cc0b6f750bee17b9a",
+  "source_size_bytes": 469522,
+  "authority": "user_provided_internal",
+  "derived_artifact": "ontology/application-capabilities.json",
+  "external_publication": false
+}

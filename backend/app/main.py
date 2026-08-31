@@ -356,7 +356,7 @@ async def scheduler_tick() -> None:
 @app.get("/api/health")
 def health() -> dict:
     return {
-        "status": "ok", "app": settings.app_name, "semi_kb_root": str(settings.semi_kb_root),
+        "status": "ok", "app": settings.app_name, "engine_root": str(settings.engine_root),
         "max_agents": settings.max_agent_count, "database": engine.dialect.name,
         "orchestrator_engine": settings.orchestrator_engine, "checkpoint_backend": checkpoint_runtime.backend,
     }
@@ -720,7 +720,7 @@ async def ontology_metrics(user: User = Depends(current_user), db: Session = Dep
 @app.get("/api/ontology/entities")
 def ontology_entities(search: str = "", limit: int = Query(100, ge=1, le=500), user: User = Depends(current_user)) -> dict:
     graph = Graph()
-    for path in sorted((settings.semi_kb_root / "ontology" / "modules").glob("*.ttl")):
+    for path in sorted((settings.engine_root / "ontology" / "modules").glob("*.ttl")):
         graph.parse(path, format="turtle")
     items = []
     kinds = [(OWL.Class, "Class"), (OWL.ObjectProperty, "ObjectProperty"), (OWL.DatatypeProperty, "DatatypeProperty")]
@@ -735,12 +735,12 @@ def ontology_entities(search: str = "", limit: int = Query(100, ge=1, le=500), u
 
 def yaml_catalog(pattern: str) -> list[dict]:
     items = []
-    for path in sorted(settings.semi_kb_root.glob(pattern)):
+    for path in sorted(settings.engine_root.glob(pattern)):
         try:
             doc = yaml.safe_load(path.read_text(encoding="utf-8"))
         except (OSError, yaml.YAMLError):
             doc = None
-        items.append({"path": path.relative_to(settings.semi_kb_root).as_posix(), "name": path.stem, "document": doc})
+        items.append({"path": path.relative_to(settings.engine_root).as_posix(), "name": path.stem, "document": doc})
     return items
 
 
@@ -761,12 +761,12 @@ def simulations(user: User = Depends(current_user)) -> dict:
 
 @app.get("/api/scenario-articles")
 def scenario_articles(user: User = Depends(current_user)) -> dict:
-    path = settings.semi_kb_root / "knowledge" / "articles" / "current-scenarios.md"
-    return {"content": path.read_text(encoding="utf-8") if path.is_file() else "", "path": path.relative_to(settings.semi_kb_root).as_posix()}
+    path = settings.engine_root / "knowledge" / "articles" / "current-scenarios.md"
+    return {"content": path.read_text(encoding="utf-8") if path.is_file() else "", "path": path.relative_to(settings.engine_root).as_posix()}
 
 
 def _scenario_knowledge_paths() -> list[Path]:
-    root = settings.semi_kb_root
+    root = settings.engine_root
     paths: list[Path] = []
     current = root / "knowledge" / "articles" / "current-scenarios.md"
     if current.is_file():
@@ -786,7 +786,7 @@ def scenario_knowledge(user: User = Depends(current_user)) -> dict:
             stat = path.stat()
             updated_at = datetime.fromtimestamp(stat.st_mtime, timezone.utc)
             items.append({
-                "path": path.relative_to(settings.semi_kb_root).as_posix(),
+                "path": path.relative_to(settings.engine_root).as_posix(),
                 "name": path.stem,
                 "size": stat.st_size,
                 "updated_at": updated_at,
@@ -805,7 +805,7 @@ def scenario_knowledge_file(path: str = Query(..., min_length=1), user: User = D
     if candidate not in allowed or candidate.suffix.lower() != ".md":
         raise HTTPException(status_code=403, detail="不允许访问该场景知识产物")
     content = candidate.read_text(encoding="utf-8")
-    return {"path": candidate.relative_to(settings.semi_kb_root).as_posix(), "content": content, "size": len(content)}
+    return {"path": candidate.relative_to(settings.engine_root).as_posix(), "content": content, "size": len(content)}
 
 
 def topic_payload(topic: ArticleTopic) -> dict:
@@ -986,7 +986,7 @@ def article_asset(article_id: int, asset_id: int, user: User = Depends(current_u
     if not article or article.user_id != user.id or not asset or asset.article_id != article.id:
         raise HTTPException(status_code=404, detail="文章图片不存在")
     path = Path(asset.file_path).resolve()
-    root = (settings.semi_kb_root / "knowledge" / "articles").resolve()
+    root = (settings.engine_root / "knowledge" / "articles").resolve()
     if root not in path.parents or not path.is_file():
         raise HTTPException(status_code=404, detail="文章图片文件不存在")
     return FileResponse(path, media_type=asset.mime_type, filename=path.name)
@@ -1013,7 +1013,7 @@ async def run_article_now(user: User = Depends(current_user), db: Session = Depe
 
 
 def _safe_catalog_path(relative_path: str) -> Path:
-    root = settings.semi_kb_root.resolve()
+    root = settings.engine_root.resolve()
     candidate = (root / relative_path).resolve()
     if root not in candidate.parents or not candidate.is_file():
         raise HTTPException(status_code=404, detail="知识库文件不存在")
@@ -1026,7 +1026,7 @@ def knowledge_file(path: str = Query(..., min_length=1), user: User = Depends(cu
     if not (candidate.suffix.lower() in {".yaml", ".yml", ".json", ".ttl", ".md"} and ("kb" in candidate.parts or "business" in candidate.parts or "simulation" in candidate.parts)):
         raise HTTPException(status_code=403, detail="不允许访问该文件")
     text = candidate.read_text(encoding="utf-8")
-    return {"path": candidate.relative_to(settings.semi_kb_root).as_posix(), "content": text, "size": len(text)}
+    return {"path": candidate.relative_to(settings.engine_root).as_posix(), "content": text, "size": len(text)}
 
 
 @app.get("/api/report-settings")

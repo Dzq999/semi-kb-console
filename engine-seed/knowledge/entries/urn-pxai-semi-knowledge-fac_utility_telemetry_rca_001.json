@@ -1,0 +1,21 @@
+{
+  "id": "urn:pxai:semi:knowledge:fac_utility_telemetry_rca_001",
+  "title": "厂务公用系统遥测与半导体故障根因分析的关联建模",
+  "domain": "fac",
+  "summary": "建立公用系统可用率观测、数据集成平台与AI制造遥测分析工作流之间的可审计语义连接。",
+  "content": "网页综述指出，半导体制造中的故障检测和根因分析可综合使用图像分析、传感器驱动分析、时间序列预测维护、模式识别及因果建模；同时，数据质量和模型可解释性会影响规模化采用。本轮据此将厂务公用系统、可用率观测和公用数据汇聚平台建模为可关联对象，但没有把网页综述中的一般性结论扩写成任何特定工厂的实测能源、环境或停机事实。",
+  "source_refs": [
+    "https://link.springer.com/article/10.1007/s00170-026-18777-0"
+  ],
+  "related_iris": [
+    "urn:pxai:semi:UtilitySystem",
+    "urn:pxai:semi:UtilityAvailabilityObservation",
+    "urn:pxai:semi:UtilityIntegrationPlatform",
+    "urn:pxai:semi:AIEnhancedManufacturingTelemetryAnalysis"
+  ],
+  "confidence": "medium",
+  "provenance": {
+    "source_type": "web",
+    "source_ref": "https://link.springer.com/article/10.1007/s00170-026-18777-0"
+  }
+}

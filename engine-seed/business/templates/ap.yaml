@@ -1,0 +1,19 @@
+schema_version: "2.0"
+template:
+  id: template.ap
+  name: 半导体封装测试领域模块
+  extends: [business/templates/semiconductor.yaml]
+  variables:
+    - {id: die_attach_yield, unit: ratio}
+    - {id: bonding_yield, unit: ratio}
+    - {id: molding_yield, unit: ratio}
+    - {id: finishing_yield, unit: ratio}
+    - {id: rework_rate, unit: ratio}
+    - {id: scrap_rate, unit: ratio}
+    - {id: equipment_oee, unit: ratio}
+  calculations:
+    - id: manufacturing_yield
+      algorithm: yield.cascade
+      inputs: [die_attach_yield, bonding_yield, molding_yield, finishing_yield]
+      unit: ratio
+      override: true

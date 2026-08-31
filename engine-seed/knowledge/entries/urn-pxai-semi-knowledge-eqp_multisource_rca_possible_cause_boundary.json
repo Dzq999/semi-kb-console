@@ -1,0 +1,20 @@
+{
+  "id": "urn:pxai:semi:knowledge:eqp_multisource_rca_possible_cause_boundary",
+  "title": "多源设备根因分析中的可能原因证据边界",
+  "domain": "eqp",
+  "summary": "设备根因分析可把底层制程问题登记为待验证的可能原因，但不能直接提升为已确认根因。",
+  "content": "公开综述表明，AI驱动的半导体根因分析能够结合模式识别与因果建模识别底层制程问题。因此，多源设备调查可以将此类问题关联为hasPossibleCause，以形成可审计的诊断假设链；该关系只表达调查候选，不证明具体设备已经发生该问题，也不构成现场根因结论。",
+  "source_refs": [
+    "https://link.springer.com/content/pdf/10.1007/s00170-026-18777-0.pdf"
+  ],
+  "related_iris": [
+    "urn:pxai:semi:cause:web_multisource_equipment_rca_underlying_process_issue",
+    "urn:pxai:semi:hasPossibleCause",
+    "urn:pxai:semi:Cause"
+  ],
+  "confidence": "medium",
+  "provenance": {
+    "source_type": "web",
+    "source_ref": "https://link.springer.com/content/pdf/10.1007/s00170-026-18777-0.pdf"
+  }
+}

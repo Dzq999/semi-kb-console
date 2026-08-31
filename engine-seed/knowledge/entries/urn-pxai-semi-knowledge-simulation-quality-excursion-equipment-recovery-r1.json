@@ -1,0 +1,21 @@
+{
+  "id": "urn:pxai:semi:knowledge:simulation:quality-excursion-equipment-recovery:r1",
+  "title": "品质异常与设备停机联合恢复的经营仿真边界",
+  "domain": "fab",
+  "summary": "使用既有通用晶圆厂经营模型和光刻产能恢复示例，可对品质异常处置背景下的设备恢复方向进行What-if分析，但不能替代现场证据调查。",
+  "content": "在缺少现场实测证据的情况下，可复用通用晶圆厂经营模型，将光刻产能增加作为设备停机恢复的代理干预，观察受约束投入量和可销售产出的方向性变化。该仿真只能说明模型假设下的经营输出关系，不能确认品质异常的实际根因、恢复规模、良率改善、投资回报或交付承诺；后续判断仍需结合批次质量结果、设备状态、维护日志和跨系统时间戳证据。",
+  "source_refs": [
+    "business/models/fab-baseline.yaml",
+    "simulation/scenarios/fab-capacity-recovery.yaml"
+  ],
+  "related_iris": [
+    "urn:pxai:semi:SimulationScenario",
+    "urn:pxai:semi:QualityExcursionAnomaly",
+    "urn:pxai:semi:simScenario:qualityExcursionEquipmentRecovery:r1"
+  ],
+  "confidence": "medium",
+  "provenance": {
+    "source_type": "web",
+    "source_ref": "business/models/fab-baseline.yaml"
+  }
+}

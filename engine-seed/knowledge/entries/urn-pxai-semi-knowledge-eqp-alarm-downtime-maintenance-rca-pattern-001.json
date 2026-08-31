@@ -1,0 +1,24 @@
+{
+  "id": "urn:pxai:semi:knowledge:eqp-alarm-downtime-maintenance-rca-pattern-001",
+  "title": "设备报警、停机与维护日志的根因分析关联模式",
+  "domain": "eqp",
+  "summary": "建立设备报警、停机异常、纠正性维护和维护日志证据之间的结构化关联，为设备故障根因分析提供可追溯语义路径。",
+  "content": "在设备故障调查中，可将报警事件、设备停机异常、受影响设备、纠正性维护事件及维护日志关联证据组织为统一证据链，再由根因分析工作流引用该证据链进行诊断。该模式仅描述知识建模方法，不代表特定工厂已经发生对应事件，也不能替代现场时间戳、维护记录或工程师确认。",
+  "source_refs": [
+    "business/models/fab-baseline.yaml",
+    "known ontology terms: AlarmEvent, EquipmentDowntimeAnomaly, CorrectiveMaintenanceEvent, MaintenanceLogCorrelationEvidence, AIEnabledRootCauseAnalysisWorkflow"
+  ],
+  "related_iris": [
+    "urn:pxai:semi:AlarmEvent",
+    "urn:pxai:semi:EquipmentDowntimeAnomaly",
+    "urn:pxai:semi:CorrectiveMaintenanceEvent",
+    "urn:pxai:semi:MaintenanceLogCorrelationEvidence",
+    "urn:pxai:semi:AIEnabledRootCauseAnalysisWorkflow",
+    "urn:pxai:semi:EQPAlarmMaintenanceCorrelationRecord"
+  ],
+  "confidence": "medium",
+  "provenance": {
+    "source_type": "web",
+    "source_ref": "business/models/fab-baseline.yaml"
+  }
+}

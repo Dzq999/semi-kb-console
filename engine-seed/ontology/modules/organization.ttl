@@ -1,0 +1,17 @@
+@prefix semi: <urn:pxai:semi:> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+<urn:pxai:semi:organization> a owl:Ontology ; owl:imports <urn:pxai:semi:common> .
+
+semi:Organization a owl:Class ; rdfs:subClassOf semi:Entity .
+semi:Department a owl:Class ; rdfs:subClassOf semi:Organization .
+semi:Role a owl:Class ; rdfs:subClassOf semi:InformationEntity .
+semi:Shift a owl:Class ; rdfs:subClassOf semi:InformationEntity .
+semi:Person a owl:Class ; rdfs:subClassOf semi:PhysicalEntity .
+semi:Supplier a owl:Class ; rdfs:subClassOf semi:Organization .
+
+semi:memberOf a owl:ObjectProperty ; rdfs:domain semi:Person ; rdfs:range semi:Organization .
+semi:hasRole a owl:ObjectProperty ; rdfs:domain semi:Person ; rdfs:range semi:Role .
+semi:responsibleFor a owl:ObjectProperty ; rdfs:domain semi:Role ; rdfs:range semi:Entity .
+semi:workedOnShift a owl:ObjectProperty ; rdfs:domain semi:Person ; rdfs:range semi:Shift .

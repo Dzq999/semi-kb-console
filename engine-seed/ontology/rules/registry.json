@@ -1,0 +1,589 @@
+{
+  "rules": [
+    {
+      "rule_id": "R-INF-001",
+      "name": "设备位置归属推理",
+      "purpose": "由设备所在区域与区域所属Fab推出设备所属Fab",
+      "implementation": "owl_property_chain",
+      "required_sources": [
+        "equipment",
+        "facility"
+      ],
+      "preconditions": [
+        "Equipment locatedIn Area",
+        "Area belongsToFab Fab"
+      ],
+      "conclusion": "Equipment belongsToFab Fab",
+      "exclusions": [],
+      "confidence_policy": "取输入事实中的最低可信度",
+      "tests": [
+        "tests/semantic/test_reasoning.py::test_facility_property_chain"
+      ]
+    },
+    {
+      "rule_id": "R-INF-002",
+      "name": "流程后继闭包",
+      "purpose": "由直接工序顺序推出任意后续工序",
+      "implementation": "owl_transitive_property",
+      "required_sources": [
+        "process-route"
+      ],
+      "preconditions": [
+        "Step directlyPrecedes Step"
+      ],
+      "conclusion": "Step precedes Step",
+      "exclusions": [
+        "directlyPrecedes不得用于查询任意后续节点"
+      ],
+      "confidence_policy": "结构事实",
+      "tests": [
+        "tests/semantic/test_reasoning.py::test_precedes_transitive"
+      ]
+    },
+    {
+      "rule_id": "R-INF-003",
+      "name": "受影响批次候选",
+      "purpose": "设备停机时间窗与加工事件重叠时生成受影响批次关系",
+      "implementation": "ontology/rules/impacted-lot.rq",
+      "required_sources": [
+        "equipment_event",
+        "processing_event"
+      ],
+      "preconditions": [
+        "DownEvent affectsEquipment Equipment",
+        "ProcessingEvent usesEquipment Equipment",
+        "时间窗重叠"
+      ],
+      "conclusion": "DownEvent impactsLot Lot",
+      "exclusions": [
+        "缺少结束时间时不自动推出"
+      ],
+      "confidence_policy": "候选事实，保留规则和输入来源",
+      "tests": [
+        "tests/semantic/test_rules.py::test_impacted_lot_overlap"
+      ]
+    },
+    {
+      "rule_id": "R-INF-004",
+      "name": "根因假设候选",
+      "purpose": "由已声明因果知识生成RootCauseHypothesis而不是确认根因",
+      "implementation": "ontology/rules/root-cause-hypothesis.rq",
+      "required_sources": [
+        "risk_graph",
+        "diagnostic_playbook"
+      ],
+      "preconditions": [
+        "Cause mayCause Anomaly",
+        "Playbook diagnosesAnomaly Anomaly"
+      ],
+      "conclusion": "RootCauseHypothesis",
+      "exclusions": [
+        "不得生成ConfirmedRootCause"
+      ],
+      "confidence_policy": "继承因果边证据等级",
+      "tests": [
+        "tests/semantic/test_rules.py::test_root_cause_is_hypothesis"
+      ]
+    },
+    {
+      "rule_id": "R-AUTO-RELEASE-GATE-BLOCKING-FINDING-ROUND1",
+      "name": "阻断型验证发现推导发布门禁阻断决策",
+      "purpose": "当发布门禁关联至少一个明确标记为阻断发布的验证发现，且门禁尚无决策代码时，构造BLOCK决策三元组。",
+      "implementation": "ontology/rules/generated/R-AUTO-RELEASE-GATE-BLOCKING-FINDING-ROUND1.rq",
+      "preconditions": [
+        "焦点实体必须是urn:pxai:semi:ReleaseGate的实例。",
+        "发布门禁必须通过urn:pxai:semi:hasValidationFinding关联验证发现项。",
+        "至少一个关联发现项的urn:pxai:semi:releaseBlockingFlag词法值为true或1。",
+        "发布门禁当前不得已有urn:pxai:semi:gateDecisionCode。"
+      ],
+      "conclusion": "为满足前置条件且尚无决策的发布门禁构造BLOCK决策和阻断发布标志，不修改源数据。",
+      "required_sources": [
+        "model_prior:round1.gap_analysis.uncovered"
+      ],
+      "tests": [],
+      "confidence": "low",
+      "provenance": {
+        "source_type": "model_prior",
+        "source_ref": "model:gpt-5.6-sol"
+      }
+    },
+    {
+      "rule_id": "R-AUTO-VALIDATION-NONCONFORMING-REPORT-BLOCK-R1",
+      "name": "非符合校验报告发布阻断推导",
+      "purpose": "当本体校验报告明确为不符合且包含约束违规校验结果时，只读推导该报告应阻断发布。",
+      "implementation": "ontology/rules/generated/R-AUTO-VALIDATION-NONCONFORMING-REPORT-BLOCK-R1.rq",
+      "preconditions": [
+        "报告实例具有urn:pxai:semi:OntologyValidationReport类型。",
+        "报告具有ontologyReportConforms值且其词法值为false。",
+        "报告通过hasValidationFinding关联至少一个ConstraintViolationValidationResult实例。"
+      ],
+      "conclusion": "为符合前置条件的校验报告构造releaseBlockingFlag为true的只读推理三元组。",
+      "required_sources": [
+        "model_prior:repair_context.gate_error",
+        "model_prior:known_ontology"
+      ],
+      "tests": [],
+      "confidence": "medium",
+      "provenance": {
+        "source_type": "model_prior",
+        "source_ref": "model:gpt-5.6-sol"
+      }
+    },
+    {
+      "rule_id": "R-AUTO-FAB-RCA-TELEMETRY-ANOMALY-REPAIR3",
+      "name": "多源证据融合工作流支持品质异常根因分析",
+      "purpose": "当同一跨系统根因分析证据融合模式集成设备遥测来源并诊断品质异常突发时，生成其支持该异常根因分析的只读关系。",
+      "implementation": "ontology/rules/generated/R-AUTO-FAB-RCA-TELEMETRY-ANOMALY-REPAIR3.rq",
+      "preconditions": [
+        "工作流实例属于RCAEvidenceIntegrationPattern。",
+        "工作流通过integratesEvidenceFrom关联SourceArtifact。",
+        "工作流通过diagnosesAnomaly关联QualityExcursionAnomaly。",
+        "证据来源IRI或其标识包含设备遥测来源线索。"
+      ],
+      "conclusion": "为该工作流和品质异常突发建立enablesRCAFor关系。",
+      "required_sources": [
+        "https://www.sixsense.ai/blog/ai-powered-root-cause-analysis-in-an-advanced-fab/"
+      ],
+      "tests": [],
+      "confidence": "medium",
+      "provenance": {
+        "source_type": "web",
+        "source_ref": "https://link.springer.com/content/pdf/10.1007/s00170-026-18777-0.pdf"
+      }
+    },
+    {
+      "rule_id": "R-AUTO-CROSS-SYSTEM-RCA-ENABLEMENT-02",
+      "name": "由跨系统来源资料关联推导品质异常根因分析支持关系",
+      "purpose": "当一个跨系统根因调查已经诊断品质异常，并且关联了明确的工厂来源资料时，构造该调查支持该异常根因分析的关系。",
+      "implementation": "ontology/rules/generated/R-AUTO-CROSS-SYSTEM-RCA-ENABLEMENT-02.rq",
+      "preconditions": [
+        "调查实例必须显式属于urn:pxai:semi:CrossSystemRCAInvestigation。",
+        "调查实例必须通过urn:pxai:semi:diagnosesAnomaly指向品质异常实例。",
+        "调查实例必须通过urn:pxai:semi:correlatesFactorySourceArtifact关联至少一个来源资料实例。",
+        "异常和来源资料必须分别具有QualityExcursionAnomaly与SourceArtifact类型。"
+      ],
+      "conclusion": "构造调查实例通过urn:pxai:semi:enablesRCAFor支持对应品质异常根因分析的关系，不修改原始数据。",
+      "required_sources": [
+        "https://www.runlattice.com/industries/semiconductor"
+      ],
+      "tests": [],
+      "confidence": "high",
+      "provenance": {
+        "source_type": "web",
+        "source_ref": "https://ai-mst.com/insight/en-semiconductor-yield-improvement-ai/"
+      }
+    },
+    {
+      "rule_id": "R-AUTO-CROSS-SYSTEM-EVIDENCE-CLOSURE-001",
+      "name": "跨系统调查证据引用闭包",
+      "purpose": "当调查关联一个证据集成模式，且该模式明确集成某项证据时，为调查构造对该证据的直接引用，便于统一查询调查证据范围。",
+      "implementation": "ontology/rules/generated/R-AUTO-CROSS-SYSTEM-EVIDENCE-CLOSURE-001.rq",
+      "preconditions": [
+        "调查实例必须具有urn:pxai:semi:CrossSystemEvidenceIntegratedRCAInvestigation类型。",
+        "调查必须通过urn:pxai:semi:hasEvidenceIntegrationPattern关联证据集成模式。",
+        "证据集成模式必须通过urn:pxai:semi:integratesEvidenceFrom关联urn:pxai:semi:Evidence实例。"
+      ],
+      "conclusion": "为满足前置条件的调查构造urn:pxai:semi:hasEvidence关系，不修改源数据。",
+      "required_sources": [
+        "跨系统根因调查实例",
+        "证据集成模式实例",
+        "证据实例及其集成关系"
+      ],
+      "tests": [],
+      "confidence": "medium",
+      "provenance": {
+        "source_type": "web",
+        "source_ref": "https://datacalculus.com/en/blog/semiconductor-manufacturing/process-control-engineer/root-cause-analysis-in-semiconductor-manufacturing"
+      }
+    },
+    {
+      "rule_id": "R-AUTO-EQP-EVIDENCE-LINK-001",
+      "name": "设备根因分析工作流的遥测证据链接",
+      "purpose": "当已有根因分析工作流明确集成SECS/GEM设备遥测证据时，补充其对该证据的直接证据关联，便于统一检索和审计追溯。",
+      "implementation": "ontology/rules/generated/R-AUTO-EQP-EVIDENCE-LINK-001.rq",
+      "preconditions": [
+        "工作流实例必须属于urn:pxai:semi:AIEnabledRootCauseAnalysisWorkflow。",
+        "遥测证据实例必须属于urn:pxai:semi:SECSGEMEquipmentTelemetryEvidence。",
+        "图谱中必须存在工作流通过urn:pxai:semi:integratesEvidenceFrom关联该遥测证据。"
+      ],
+      "conclusion": "为该工作流和已集成的SECS/GEM设备遥测证据生成urn:pxai:semi:hasEvidence关系；规则仅构造缺失的只读关系，不修改或删除原始事实。",
+      "required_sources": [
+        "https://www.runlattice.com/industries/semiconductor",
+        "https://link.springer.com/article/10.1007/s00170-026-18777-0"
+      ],
+      "tests": [],
+      "confidence": "medium",
+      "provenance": {
+        "source_type": "web",
+        "source_ref": "https://datacalculus.com/en/blog/semiconductor-manufacturing/maintenance-technician/root-cause-analysis-of-equipment-failures-in-semiconductor-manufacturing"
+      }
+    },
+    {
+      "rule_id": "R-AUTO-EVIDENCE-INTEGRATION-SECSGEM-001",
+      "name": "遥测证据融合关系推导证据来源集成关系",
+      "purpose": "当既有工作流明确融合SECS/GEM设备遥测证据时，补充该工作流集成对应证据来源的只读派生关系。",
+      "implementation": "ontology/rules/generated/R-AUTO-EVIDENCE-INTEGRATION-SECSGEM-001.rq",
+      "preconditions": [
+        "工作流与SECS/GEM遥测证据之间已存在fusesSECSGEMTelemetryEvidence关系。",
+        "规则只生成integratesEvidenceFrom派生关系，不修改或删除既有事实。"
+      ],
+      "conclusion": "为同一工作流及同一遥测证据补充semi:integratesEvidenceFrom关系。",
+      "required_sources": [
+        "已有本体关系semi:fusesSECSGEMTelemetryEvidence",
+        "已有本体关系semi:integratesEvidenceFrom"
+      ],
+      "tests": [],
+      "confidence": "medium",
+      "provenance": {
+        "source_type": "model_prior",
+        "source_ref": "model:gpt-5.6-sol"
+      }
+    },
+    {
+      "rule_id": "R-AUTO-DIAGNOSIS-ENABLES-RCA-001",
+      "name": "异常诊断工作流支持根因分析推导",
+      "purpose": "将已显式诊断某异常的分析工作流纳入该异常的根因分析支持关系，便于统一能力检索和工作流编排。",
+      "implementation": "ontology/rules/generated/R-AUTO-DIAGNOSIS-ENABLES-RCA-001.rq",
+      "preconditions": [
+        "工作流实体存在px:diagnosesAnomaly关系。",
+        "被诊断对象具有px:Anomaly类型。",
+        "目标关系px:enablesRCAFor已存在于本体中。",
+        "推导结果仅作为只读查询结果使用，不回写源数据。"
+      ],
+      "conclusion": "对于每个已诊断异常的工作流，构造该工作流px:enablesRCAFor该异常的推导关系。",
+      "required_sources": [
+        "known_ontology:urn:pxai:semi:diagnosesAnomaly",
+        "known_ontology:urn:pxai:semi:enablesRCAFor",
+        "known_ontology:urn:pxai:semi:Anomaly"
+      ],
+      "tests": [],
+      "confidence": "medium",
+      "provenance": {
+        "source_type": "model_prior",
+        "source_ref": "model:gpt-5.6-sol"
+      }
+    },
+    {
+      "rule_id": "R-AUTO-EQP-001",
+      "name": "停机异常证据完备性关联构造",
+      "purpose": "当设备停机异常已关联SECS/GEM遥测证据，且同一设备存在纠正性维护事件及维护日志证据时，构造该停机异常与维护日志证据的关联，支持后续根因分析审查。",
+      "implementation": "ontology/rules/generated/R-AUTO-EQP-001.rq",
+      "preconditions": [
+        "停机异常类型为EquipmentDowntimeAnomaly",
+        "停机异常关联SECS/GEM设备遥测证据",
+        "同一设备存在纠正性维护事件",
+        "纠正性维护事件关联维护日志证据"
+      ],
+      "conclusion": "为停机异常构造correlatesMaintenanceLogEvidence关系；该关系表示证据关联，不表示维护已被证明为根因。",
+      "required_sources": [
+        "SECS/GEM设备遥测证据",
+        "纠正性维护事件",
+        "维护日志关联证据"
+      ],
+      "tests": [],
+      "confidence": "medium",
+      "provenance": {
+        "source_type": "model_prior",
+        "source_ref": "model:gpt-5.6-sol"
+      }
+    },
+    {
+      "rule_id": "R-AUTO-EQP-ALARM-DOWNTIME-MAINTENANCE-EVIDENCE-001",
+      "name": "设备报警停机维护证据链构造",
+      "purpose": "只读构造同时关联同一设备的报警事件、停机异常、纠正性维护事件和维护日志证据的设备故障调查证据链。",
+      "implementation": "ontology/rules/generated/R-AUTO-EQP-ALARM-DOWNTIME-MAINTENANCE-EVIDENCE-001.rq",
+      "preconditions": [
+        "报警事件实例具有affectsEquipment关系",
+        "设备停机异常实例具有affectsEquipment关系",
+        "纠正性维护事件与报警和停机异常指向同一设备",
+        "纠正性维护事件具有correlatesMaintenanceLogEvidence关系"
+      ],
+      "conclusion": "为同一设备上的报警、停机、纠正性维护和维护日志证据构造一个只读证据关联记录。",
+      "required_sources": [
+        "AlarmEvent",
+        "EquipmentDowntimeAnomaly",
+        "CorrectiveMaintenanceEvent",
+        "MaintenanceLogCorrelationEvidence"
+      ],
+      "tests": [],
+      "confidence": "medium",
+      "provenance": {
+        "source_type": "model_prior",
+        "source_ref": "model:gpt-5.6-sol"
+      }
+    },
+    {
+      "rule_id": "R-AUTO-EQP-FORECAST-WARNING-TARGET-001",
+      "name": "预测故障预警补充设备指向关系",
+      "purpose": "当设备时间序列故障预测工作流已生成预测故障预警且预警已有设备指向时，补充预警的预测设备关系，便于设备级故障检索和维护闭环分析。",
+      "implementation": "ontology/rules/generated/R-AUTO-EQP-FORECAST-WARNING-TARGET-001.rq",
+      "preconditions": [
+        "存在SensorTimeSeriesEquipmentFailureForecastingWorkflow实例。",
+        "工作流通过forecastsEquipmentFailureWarning关联PredictedEquipmentFailureWarning实例。",
+        "预警通过affectsEquipment关联Equipment实例。"
+      ],
+      "conclusion": "为预测故障预警补充forecastsFailureOfEquipment关系，并确保预警具有PredictedEquipmentFailureWarning类型。",
+      "required_sources": [
+        "urn:pxai:semi:SensorTimeSeriesEquipmentFailureForecastingWorkflow",
+        "urn:pxai:semi:PredictedEquipmentFailureWarning",
+        "urn:pxai:semi:Equipment"
+      ],
+      "tests": [],
+      "confidence": "medium",
+      "provenance": {
+        "source_type": "model_prior",
+        "source_ref": "model:gpt-5.6-sol"
+      }
+    },
+    {
+      "rule_id": "R-AUTO-QUALITY-EVIDENCE-LOT-IMPACT-R1",
+      "name": "由异常证据指向批次推导影响批次",
+      "purpose": "当品质异常所含观测证据明确以某一批次为对象时，补齐异常到受影响批次的可追溯关系。",
+      "implementation": "ontology/rules/generated/R-AUTO-QUALITY-EVIDENCE-LOT-IMPACT-R1.rq",
+      "preconditions": [
+        "异常实体必须显式属于urn:pxai:semi:QualityExcursionAnomaly。",
+        "证据实体必须显式属于urn:pxai:semi:Observation，并通过urn:pxai:semi:aboutEntity指向批次。",
+        "被指向实体必须显式属于urn:pxai:semi:Lot。",
+        "规则只补齐关系，不判定根因、报废、放行或产品超规格。"
+      ],
+      "conclusion": "构造品质异常通过urn:pxai:semi:impactsLot指向证据所关联批次的关系。",
+      "required_sources": [
+        "异常类型断言",
+        "异常与观测证据关系",
+        "观测证据与批次关系",
+        "批次类型断言"
+      ],
+      "tests": [],
+      "confidence": "medium",
+      "provenance": {
+        "source_type": "model_prior",
+        "source_ref": "model:gpt-5.6-sol"
+      }
+    },
+    {
+      "rule_id": "R-AUTO-EQP-DOWN-STATUS-ANOMALY-001",
+      "name": "由设备停机状态事件补齐停机异常关系",
+      "purpose": "将设备已关联的DownEvent补充分类为EquipmentDowntimeAnomaly，并建立该异常对设备的affectsEquipment关系，以支持统一异常查询和后续影响链分析。",
+      "implementation": "ontology/rules/generated/R-AUTO-EQP-DOWN-STATUS-ANOMALY-001.rq",
+      "preconditions": [
+        "设备实例必须显式具有urn:pxai:semi:Equipment类型。",
+        "设备必须通过urn:pxai:semi:hasStatusEvent关联到状态事件。",
+        "关联事件必须显式具有urn:pxai:semi:DownEvent类型。",
+        "规则运行环境采用RDF集合语义，使重复执行得到幂等三元组结果。"
+      ],
+      "conclusion": "满足前置条件的DownEvent被补充为EquipmentDowntimeAnomaly，并通过affectsEquipment关联到承载该状态事件的设备。",
+      "required_sources": [
+        "Equipment类型断言",
+        "DownEvent类型断言",
+        "设备到事件的hasStatusEvent关系"
+      ],
+      "tests": [],
+      "confidence": "medium",
+      "provenance": {
+        "source_type": "model_prior",
+        "source_ref": "model:gpt-5.6-sol"
+      }
+    },
+    {
+      "rule_id": "R-AUTO-VALIDATION-WARNING-REVIEW-R1",
+      "name": "本体警告触发人工复核状态",
+      "purpose": "当本体校验报告记录一个或多个警告且尚未设置校验状态时，自动构造review_required状态，避免警告被静默忽略，同时不自动生成发布阻断结论。",
+      "implementation": "ontology/rules/generated/R-AUTO-VALIDATION-WARNING-REVIEW-R1.rq",
+      "preconditions": [
+        "输入图中报告必须显式属于urn:pxai:semi:OntologyValidationReport。",
+        "报告必须具有可转换为xsd:integer且大于零的ontologyWarningCount值。",
+        "报告尚未具有validationStatus，规则不会覆盖既有人工或系统状态。"
+      ],
+      "conclusion": "为存在警告且尚无状态的本体校验报告构造validationStatus等于review_required的只读推理结果。",
+      "required_sources": [
+        "model_prior:round1.known_ontology",
+        "model_prior:round1.gap_analysis"
+      ],
+      "tests": [],
+      "confidence": "medium",
+      "provenance": {
+        "source_type": "model_prior",
+        "source_ref": "model:gpt-5.6-sol"
+      }
+    },
+    {
+      "rule_id": "R-AUTO-FAB-DT-MONITORING-RCA-LINK",
+      "name": "数字孪生实时监控能力支持异常根因分析关联",
+      "purpose": "当数字孪生拥有可分析时间序列观测且已关联异常诊断能力时，推导数字孪生支持该异常的根因分析关联，便于建立可解释的证据链。",
+      "implementation": "ontology/rules/generated/R-AUTO-FAB-DT-MONITORING-RCA-LINK.rq",
+      "preconditions": [
+        "主体为FacilityDigitalTwin实例",
+        "数字孪生通过hasCapability连接能力实例",
+        "能力实例同时具有analyzesTimeSeriesObservation和diagnosesAnomaly关系"
+      ],
+      "conclusion": "为数字孪生实例补充enablesRCAFor到已诊断异常实例的只读推导关系。",
+      "required_sources": [
+        "Siemens Calibre Fab Insights网页关于实时监控、制程漂移预测和根因识别的描述",
+        "现有本体中的FacilityDigitalTwin、analyzesTimeSeriesObservation、diagnosesAnomaly和enablesRCAFor"
+      ],
+      "tests": [],
+      "confidence": "medium",
+      "provenance": {
+        "source_type": "web",
+        "source_ref": "https://cn.comsol.com/industry/semiconductor-manufacturing/fabrication"
+      }
+    },
+    {
+      "rule_id": "R-AUTO-FAC-DT-UTILITY-SUBSYSTEM-001",
+      "name": "由数字孪生公用数据集成关系推导厂务子系统覆盖",
+      "purpose": "当厂级基础设施数字孪生包含公用系统集成平台，且该平台汇聚公用系统数据时，构造数字孪生对相关公用系统的子系统覆盖关系，便于跨系统查询和影响追踪。",
+      "implementation": "ontology/rules/generated/R-AUTO-FAC-DT-UTILITY-SUBSYSTEM-001.rq",
+      "preconditions": [
+        "存在FacilityDigitalTwin实例。",
+        "数字孪生通过hasPart连接到UtilityIntegrationPlatform。",
+        "集成平台通过aggregatesUtilityData连接到UtilitySystem实例。"
+      ],
+      "conclusion": "构造FacilityDigitalTwin到UtilitySystem的hasSubsystem关系。",
+      "required_sources": [
+        "https://semiconductorx.com/fab-ops-facility-management.html"
+      ],
+      "tests": [],
+      "confidence": "medium",
+      "provenance": {
+        "source_type": "web",
+        "source_ref": "https://datamesh.com/zh-CN/industries/semiconductor"
+      }
+    },
+    {
+      "rule_id": "R-AUTO-EQP-MAINTENANCE-EVIDENCE-LINK",
+      "name": "设备停机异常维护证据链发现规则",
+      "purpose": "只读发现同时关联同一设备的设备停机异常、维护事件和维护日志证据，供审计和根因分析检索使用；不自动写入生产数据。",
+      "implementation": "ontology/rules/generated/R-AUTO-EQP-MAINTENANCE-EVIDENCE-LINK.rq",
+      "preconditions": [
+        "异常实例属于EquipmentDowntimeAnomaly。",
+        "异常和维护事件均通过affectsEquipment关联同一Equipment实例。",
+        "维护事件通过hasEvidence关联MaintenanceLogCorrelationEvidence实例。"
+      ],
+      "conclusion": "可推导设备停机异常与维护日志关联证据之间的候选关联关系。",
+      "required_sources": [
+        "设备事件系统",
+        "维护管理系统",
+        "维护日志关联证据记录"
+      ],
+      "tests": [],
+      "confidence": "medium",
+      "provenance": {
+        "source_type": "web",
+        "source_ref": "https://www.bing.com/ck/a?!&&p=096acbf2de9c47978192b7d6ed82604b2623e543574e8ec4c2469f6a8fa2bc08JmltdHM9MTc4ODA0ODAwMA&ptn=3&ver=2&hsh=4&fclid=0c8d3747-a12b-60a9-1f7c-2082a02a6166&u=a1aHR0cHM6Ly93d3cuaWJtLmNvbS90aGluay90b3BpY3Mvc2VtaWNvbmR1Y3RvcnM&ntb=1"
+      }
+    },
+    {
+      "rule_id": "R-AUTO-YIELD-WAFERMAP-SYSTEMATIC-PATTERN",
+      "name": "晶圆图重复空间模式提示系统性良率损失",
+      "purpose": "当晶圆图观测文本或模式代码包含资料中描述的典型空间模式时，生成系统性良率损失模式的只读推断。",
+      "implementation": "ontology/rules/generated/R-AUTO-YIELD-WAFERMAP-SYSTEMATIC-PATTERN.rq",
+      "preconditions": [
+        "观测实例属于urn:pxai:semi:WaferMapSpatialPatternObservation。",
+        "存在patternCategoryCode或signalText文字特征。",
+        "观测尚未存在classifiesYieldLossMode断言。"
+      ],
+      "conclusion": "为具有典型重复空间模式的晶圆图观测构造classifiesYieldLossMode到urn:pxai:semi:yieldLossMode:systematic的断言；该断言仅表示候选分类，不等同于已验证根因。",
+      "required_sources": [
+        "https://ai-mst.com/insight/en-semiconductor-yield-improvement-ai/"
+      ],
+      "tests": [],
+      "confidence": "high",
+      "provenance": {
+        "source_type": "web",
+        "source_ref": "https://ai-mst.com/insight/en-semiconductor-yield-improvement-ai/"
+      }
+    },
+    {
+      "rule_id": "R-AUTO-EQP-TS-FORECAST-LINK-001",
+      "name": "时间序列监控连接设备故障预测工作流",
+      "purpose": "当传感器驱动的实时设备监控明确分析时间序列观测时，生成其连接设备时间序列故障预测工作流的只读推理关系。",
+      "implementation": "ontology/rules/generated/R-AUTO-EQP-TS-FORECAST-LINK-001.rq",
+      "preconditions": [
+        "监控节点实例属于SensorDrivenRealTimeEquipmentMonitoring。",
+        "监控节点通过analyzesTimeSeriesObservation连接到Observation实例。",
+        "目标故障预测工作流实例已登记为urn:pxai:semi:eqpFailureForecastWorkflowDemo01。"
+      ],
+      "conclusion": "为满足条件的监控实例补充feedsFailureForecasting到设备时间序列故障预测工作流的只读推理关系。",
+      "required_sources": [
+        "https://link.springer.com/content/pdf/10.1007/s00170-026-18777-0.pdf"
+      ],
+      "tests": [],
+      "confidence": "medium",
+      "provenance": {
+        "source_type": "web",
+        "source_ref": "https://ai-mst.com/insight/semiconductor-equipment-qualification-iq-oq-pq/"
+      }
+    },
+    {
+      "rule_id": "R-AUTO-FAB-MES-TRACE-COMPLETENESS-001",
+      "name": "制造执行运营追踪记录来源完备性审查触发规则",
+      "purpose": "当制造执行运营追踪记录已关联网页来源资料时，生成只读的来源完备性审查节点，便于后续验证其跨系统追踪证据是否充分。",
+      "implementation": "ontology/rules/generated/R-AUTO-FAB-MES-TRACE-COMPLETENESS-001.rq",
+      "preconditions": [
+        "记录实例属于urn:pxai:semi:FabMESOperationalTraceRecord。",
+        "记录通过urn:pxai:semi:integratesEvidenceFrom关联至少一个来源资料。",
+        "来源资料的urn:pxai:sourceType值为web。"
+      ],
+      "conclusion": "为具备网页来源关联的制造执行运营追踪记录构造来源完备性审查类型及aboutEntity关系。",
+      "required_sources": [
+        "https://semiconductorx.com/fab-ops-facility-management.html",
+        "urn:pxai:semi:FabMESOperationalTraceRecord",
+        "urn:pxai:semi:integratesEvidenceFrom",
+        "urn:pxai:semi:sourceType"
+      ],
+      "tests": [],
+      "confidence": "medium",
+      "provenance": {
+        "source_type": "web",
+        "source_ref": "https://datacalculus.com/en/blog/semiconductor-manufacturing/data-scientist/failure-analysis-and-root-cause-identification-in-semiconductor-manufacturing"
+      }
+    },
+    {
+      "rule_id": "R-AUTO-FAC-SIGNAL-CONTEXT-r2a08",
+      "name": "设施信号映射完整性上下文推导",
+      "purpose": "当设施信号映射记录同时指向洁净室运营区域和公辅资产时，为相关设施数字孪生补充运营证据上下文，便于只读查询中识别具备区域与资产双重定位的信号记录。",
+      "implementation": "ontology/rules/generated/R-AUTO-FAC-SIGNAL-CONTEXT-r2a08.rq",
+      "preconditions": [
+        "映射记录属于FacilitySignalAssetMappingRecord_r2a08。",
+        "映射记录同时存在区域映射和资产映射。",
+        "存在FacilityDigitalTwin实例。"
+      ],
+      "conclusion": "推导一个与设施数字孪生关联的设施运营证据包，作为查询层面的上下文结果，不修改原始数据。",
+      "required_sources": [
+        "https://datamesh.com/zh-CN/resources/guides/semiconductor-facility-operations-ai-agent"
+      ],
+      "tests": [],
+      "confidence": "medium",
+      "provenance": {
+        "source_type": "web",
+        "source_ref": "https://datamesh.com/zh-CN/resources/guides/semiconductor-facility-operations-ai-agent"
+      }
+    },
+    {
+      "rule_id": "R-AUTO-FAB-RCA-EVIDENCE-001",
+      "name": "证据集成工作流诊断异常时生成根因分析支持关系",
+      "purpose": "将已明确集成证据并诊断异常的AI工作流标记为支持该异常的根因分析，便于后续交付影响和成本影响链路查询。",
+      "implementation": "ontology/rules/generated/R-AUTO-FAB-RCA-EVIDENCE-001.rq",
+      "preconditions": [
+        "工作流实例属于AIEnabledRootCauseAnalysisWorkflow。",
+        "工作流通过integratesEvidenceFrom关联至少一个证据实体。",
+        "工作流通过diagnosesAnomaly关联属于Anomaly的异常实例。"
+      ],
+      "conclusion": "为该工作流与异常实例生成enablesRCAFor关系。",
+      "required_sources": [
+        "urn:pxai:semi:AIEnabledRootCauseAnalysisWorkflow",
+        "urn:pxai:semi:Evidence",
+        "urn:pxai:semi:Anomaly",
+        "urn:pxai:semi:integratesEvidenceFrom",
+        "urn:pxai:semi:diagnosesAnomaly",
+        "urn:pxai:semi:enablesRCAFor"
+      ],
+      "tests": [],
+      "confidence": "high",
+      "provenance": {
+        "source_type": "web",
+        "source_ref": "https://freederia.com/automated-anomaly-detection-and-root-cause-analysis-in-semiconductor-fabrication-process-data-using-multi-modal-fusion-and-hyperscore-evaluation/"
+      }
+    }
+  ]
+}

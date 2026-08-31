@@ -1,0 +1,17 @@
+{
+  "id": "urn:pxai:semi:knowledge:eqp:business-variable-unitcode-gate-repair-r2",
+  "title": "设备经营变量单位元数据门禁修复",
+  "domain": "eqp",
+  "summary": "既有晶圆厂经营模型中的光刻产能和可销售产出变量补充单位编码，以满足语义校验的必填约束。",
+  "content": "既有通用晶圆厂经营模型定义了光刻产能与可销售产出等经营变量，并将其作为产能恢复和经营影响方向性分析的输入或输出。为满足语义门禁对BusinessVariable.unitCode的必填约束，本次仅补充wafers_per_month和units_per_month两个单位编码，不改变模型计算、场景干预、现场数据或经营结论。",
+  "source_refs": [
+    "business/models/fab-baseline.yaml",
+    "business/templates/fab.yaml"
+  ],
+  "related_iris": [],
+  "confidence": "medium",
+  "provenance": {
+    "source_type": "web",
+    "source_ref": "business/models/fab-baseline.yaml"
+  }
+}

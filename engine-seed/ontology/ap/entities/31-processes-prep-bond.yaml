@@ -1,0 +1,174 @@
+# ap 层 · 工序（前处理/装片/互连）
+default_provenance:
+  source_type: model_prior
+  ref: null
+  confidence: high
+  created_at: "2026-08-26"
+  reviewed_by: null
+
+entities:
+  - id: ap.process.wafer_receive
+    type: Process
+    name_zh: 收片
+    name_en: Wafer Receiving
+    domain: ap
+    stage: ap.stage.wafer_prep
+    materials: [core.material.wafer, core.material.lot]
+    description: >
+      接收前段晶圆并核对 Wafer Map 与 CP 良率分级。投料量依 CP 良率折算，
+      是后段产能规划的输入起点。
+    metrics: [core.metric.wip]
+    economic_hooks:
+      affects: [capacity_commit, throughput]
+      note: 依 CP 良率反推投料量，估算偏差直接造成后段产能空转或过载
+
+  - id: ap.process.bumping
+    type: Process
+    name_zh: 凸块制作
+    name_en: Bumping
+    domain: ap
+    stage: ap.stage.interconnect
+    equipment: [ap.equip.bumping_line]
+    materials: [core.material.wafer]
+    description: >
+      晶圆级形成锡球或铜柱凸块，供倒装使用。含溅镀 UBM、电镀与回流。
+      凸块高度共面性决定后续倒装接合可靠性。
+    parameters: [ap.param.reflow_peak_temp]
+    metrics: [ap.metric.coplanarity]
+    economic_hooks:
+      affects: [yield, cost_per_unit]
+      note: 晶圆级工序，单片失效损失整片 die
+
+  - id: ap.process.backgrind
+    type: Process
+    name_zh: 背面研磨
+    name_en: Backgrinding
+    domain: ap
+    stage: ap.stage.wafer_prep
+    equipment: [ap.equip.grinder]
+    materials: [core.material.wafer]
+    description: >
+      磨除晶圆背面材料至目标厚度。厚度越薄机械强度越低，进给速率过快或
+      砂轮堵塞会引入微裂纹，成为后续裂片的隐性起点。
+    parameters: [ap.param.grind_feed_rate]
+    metrics: [ap.metric.wafer_thickness_var]
+    economic_hooks:
+      affects: [yield, scrap_rate]
+      note: 微裂纹在此段不可检，暴露于装片或塑封后，属延迟型风险
+
+  - id: ap.process.wafer_mount
+    type: Process
+    name_zh: 贴膜
+    name_en: Wafer Mounting
+    domain: ap
+    stage: ap.stage.wafer_prep
+    equipment: [ap.equip.tape_mounter]
+    materials: [core.material.wafer, ap.material.dicing_tape]
+    description: 将晶圆贴于蓝膜与钢环上固定，供切割与取片。贴膜气泡致切割崩边。
+    economic_hooks: {affects: [yield], note: 贴膜品质影响切割稳定性与取片成功率}
+
+  - id: ap.process.dicing
+    type: Process
+    name_zh: 晶圆切割
+    name_en: Wafer Dicing
+    domain: ap
+    stage: ap.stage.wafer_prep
+    equipment: [ap.equip.dicing_saw]
+    materials: [core.material.wafer]
+    description: >
+      刀轮或激光沿 Scribe Line 切割分离芯粒。刀片磨损、转速与进给速度失配
+      产生崩边(Chipping)，崩边尺寸超规会延伸至有效电路区。
+    parameters: [ap.param.blade_rpm, ap.param.cut_feed_speed]
+    metrics: [ap.metric.chipping_size]
+    economic_hooks:
+      affects: [yield, scrap_rate, cost_per_unit]
+      note: 刀片为高频耗材，寿命管理是崩边率与耗材成本的权衡
+
+  - id: ap.process.die_attach
+    type: Process
+    name_zh: 装片
+    name_en: Die Attach
+    domain: ap
+    stage: ap.stage.die_bond
+    equipment: [ap.equip.die_bonder]
+    materials: [ap.material.mold_compound, ap.material.die_attach_epoxy]
+    description: >
+      取片并以银胶或膜状胶贴装到基板/引线框架。胶量过多溢出污染键合区(Epoxy Bleed)，
+      过少则空洞率上升影响散热与附着力。
+    parameters: [ap.param.epoxy_dispense_volume, ap.param.die_bond_force]
+    metrics: [ap.metric.die_shear_strength, ap.metric.void_ratio]
+    economic_hooks:
+      affects: [yield, throughput]
+      note: 装片机 UPH 是后段产能主约束之一
+
+  - id: ap.process.epoxy_cure
+    type: Process
+    name_zh: 胶体固化
+    name_en: Epoxy Cure
+    domain: ap
+    stage: ap.stage.die_bond
+    equipment: [ap.equip.cure_oven]
+    materials: [ap.material.die_attach_epoxy]
+    description: 烘烤固化装片胶达到目标附着强度。固化不足致后续键合时芯粒位移。
+    parameters: [ap.param.cure_temp]
+    metrics: [ap.metric.die_shear_strength]
+    economic_hooks: {affects: [cycle_time, yield], note: 批式烘箱工序，凑批等待计入 CT}
+
+  - id: ap.process.plasma_clean
+    type: Process
+    name_zh: 等离子清洁
+    name_en: Plasma Clean
+    domain: ap
+    stage: ap.stage.interconnect
+    equipment: [ap.equip.plasma_cleaner]
+    description: >
+      键合前去除焊垫表面有机污染与氧化层，提升可焊性。是抑制
+      金线不粘(NSOP)最有效的前置手段。
+    economic_hooks:
+      affects: [yield, rework_rate]
+      note: 增加此工序抬升单位成本，但显著降低键合不良率
+
+  - id: ap.process.wire_bond
+    type: Process
+    name_zh: 金线键合
+    name_en: Wire Bonding
+    domain: ap
+    stage: ap.stage.interconnect
+    equipment: [ap.equip.wire_bonder]
+    materials: [ap.material.bonding_wire]
+    description: >
+      以热压超声在焊垫与引脚间形成球焊与楔焊连接。键合功率、压力、时间与
+      温度四参数构成工艺窗口，焊垫状态与瓷嘴磨损是稳定性主因。
+      多为后段站点数最多、WIP 最易堆积的工序。
+    parameters: [ap.param.bond_power, ap.param.bond_force, ap.param.bond_time, ap.param.bond_stage_temp]
+    metrics: [ap.metric.wire_pull_strength, ap.metric.ball_shear_strength]
+    economic_hooks:
+      affects: [yield, cost_per_unit, throughput, capacity_commit]
+      note: 金线用量与机台数量共同决定后段成本结构，键合站常为产能瓶颈
+
+  - id: ap.process.flip_chip_bond
+    type: Process
+    name_zh: 倒装接合
+    name_en: Flip Chip Bonding
+    domain: ap
+    stage: ap.stage.interconnect
+    equipment: [ap.equip.fc_bonder]
+    description: >
+      芯粒翻转使凸块直接对位接合基板，经回流形成连接。对位精度与
+      凸块共面性要求高，适用高脚数高频产品。
+    parameters: [ap.param.reflow_peak_temp, ap.param.die_bond_force]
+    metrics: [ap.metric.coplanarity]
+    economic_hooks:
+      affects: [yield, cost_per_unit]
+      note: 相比金线省去逐线键合时间，但设备与基板成本更高
+
+  - id: ap.process.underfill
+    type: Process
+    name_zh: 底部填充
+    name_en: Underfill
+    domain: ap
+    stage: ap.stage.interconnect
+    equipment: [ap.equip.underfill_dispenser]
+    description: 填充芯粒与基板间隙缓解热膨胀失配应力，填充不完全形成空洞。
+    metrics: [ap.metric.void_ratio]
+    economic_hooks: {affects: [yield], note: 空洞成为热循环下裂纹起始点，影响可靠性}

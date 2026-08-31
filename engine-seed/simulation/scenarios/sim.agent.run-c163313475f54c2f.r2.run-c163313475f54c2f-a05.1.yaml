@@ -1,0 +1,23 @@
+schema_version: '2.0'
+scenario:
+  name: 设备停机检测覆盖补齐后的产能恢复What-if
+  model_ref: business/models/fab-baseline.yaml
+  description: 通用 Fab What-if；假设补齐equipment_down检测链后非计划停机下降，光刻产能得到恢复，输入为情景假设，不代表现场承诺，未使用现场实测数值。
+  interventions:
+  - target_ref: fab.equip.scanner
+    variable: lithography_capacity
+    operation: add
+    value: 700
+  - target_ref: fab.action.recipe_adjust
+    variable: intervention_opex
+    operation: set
+    value: 1200000
+  assertions:
+  - type: nondecreasing
+    variable: constrained_input
+  - type: nondecreasing
+    variable: saleable_units
+  investment:
+    one_time: 4000000
+    unit: CNY
+  id: sim.agent.run-c163313475f54c2f.r2.run-c163313475f54c2f-a05.1

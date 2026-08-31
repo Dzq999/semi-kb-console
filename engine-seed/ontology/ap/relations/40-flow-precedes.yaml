@@ -1,0 +1,42 @@
+# ap 层 · 主流程 Flow（precedes 链）
+# 两条路径（QFN 金线 / BGA 倒装）共享前处理与后段测试，在互连与成型段分叉。
+# 合并后为 DAG，非单一链。
+default_provenance:
+  source_type: model_prior
+  ref: null
+  confidence: high
+  created_at: "2026-08-26"
+  reviewed_by: null
+
+relations:
+  # ---- 共享前处理 ----
+  - {from: ap.process.wafer_receive, type: precedes, to: ap.process.backgrind, note: QFN 路径直接减薄}
+  - {from: ap.process.wafer_receive, type: precedes, to: ap.process.bumping, note: BGA 路径先做晶圆级凸块}
+  - {from: ap.process.bumping,       type: precedes, to: ap.process.backgrind}
+  - {from: ap.process.backgrind,     type: precedes, to: ap.process.wafer_mount}
+  - {from: ap.process.wafer_mount,   type: precedes, to: ap.process.dicing}
+
+  # ---- 分叉 A：金线键合路径 ----
+  - {from: ap.process.dicing,       type: precedes, to: ap.process.die_attach}
+  - {from: ap.process.die_attach,   type: precedes, to: ap.process.epoxy_cure}
+  - {from: ap.process.epoxy_cure,   type: precedes, to: ap.process.plasma_clean}
+  - {from: ap.process.plasma_clean, type: precedes, to: ap.process.wire_bond}
+  - {from: ap.process.wire_bond,    type: precedes, to: ap.process.molding}
+
+  # ---- 分叉 B：倒装路径 ----
+  - {from: ap.process.dicing,         type: precedes, to: ap.process.flip_chip_bond}
+  - {from: ap.process.flip_chip_bond, type: precedes, to: ap.process.underfill}
+  - {from: ap.process.underfill,      type: precedes, to: ap.process.molding}
+
+  # ---- 汇合：塑封与成型 ----
+  - {from: ap.process.molding,    type: precedes, to: ap.process.pmc}
+  - {from: ap.process.pmc,        type: precedes, to: ap.process.laser_mark}
+  - {from: ap.process.laser_mark, type: precedes, to: ap.process.singulation, note: QFN 无需植球}
+  - {from: ap.process.laser_mark, type: precedes, to: ap.process.ball_mount, note: BGA 需植球}
+  - {from: ap.process.ball_mount, type: precedes, to: ap.process.singulation}
+
+  # ---- 共享测试与出货 ----
+  - {from: ap.process.singulation, type: precedes, to: ap.process.final_test}
+  - {from: ap.process.final_test,  type: precedes, to: ap.process.burn_in}
+  - {from: ap.process.burn_in,     type: precedes, to: ap.process.aoi}
+  - {from: ap.process.aoi,         type: precedes, to: ap.process.packing}

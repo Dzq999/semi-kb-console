@@ -1,0 +1,12 @@
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+PREFIX semi: <urn:pxai:semi:>
+CONSTRUCT {
+  ?report semi:validationStatus "review_required" .
+}
+WHERE {
+  ?report rdf:type semi:OntologyValidationReport ;
+          semi:ontologyWarningCount ?warningCount .
+  FILTER(xsd:integer(?warningCount) > 0)
+  FILTER NOT EXISTS { ?report semi:validationStatus ?existingStatus . }
+}

@@ -1,0 +1,13 @@
+schema_version: "2.0"
+scenario:
+  id: sim.fab.lithography_capacity_recovery
+  name: 光刻瓶颈产能恢复
+  model_ref: business/models/fab-baseline.yaml
+  description: 通用 Fab What-if；输入为情景假设，不代表现场承诺。
+  interventions:
+    - {target_ref: fab.equip.scanner, variable: lithography_capacity, operation: add, value: 1500}
+    - {target_ref: fab.action.recipe_adjust, variable: intervention_opex, operation: set, value: 3000000}
+  assertions:
+    - {type: nondecreasing, variable: constrained_input}
+    - {type: nondecreasing, variable: saleable_units}
+  investment: {one_time: 10000000, unit: CNY}

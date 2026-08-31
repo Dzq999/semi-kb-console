@@ -1,0 +1,20 @@
+schema_version: "2.0"
+dataset:
+  id: dataset.ap.demo_assumptions
+  description: 演示数据集，全部为假设，替换为现场数据后才能用于决策
+  values:
+    - {id: input_units, value: 100000, unit: package/month, source: assumption}
+    - {id: capacity_limit, value: 100000, unit: package/month, source: assumption}
+    - {id: incoming_quality, value: 0.99, unit: ratio, source: model_prior}
+    - {id: die_attach_yield, value: 0.995, unit: ratio, source: assumption}
+    - {id: bonding_yield, value: 0.995, unit: ratio, source: assumption}
+    - {id: molding_yield, value: 0.998, unit: ratio, source: assumption}
+    - {id: finishing_yield, value: 0.992, unit: ratio, source: assumption}
+    - {id: final_test_yield, value: 0.99, unit: ratio, source: assumption}
+    - {id: rework_rate, value: 0.005, unit: ratio, source: assumption}
+    - {id: scrap_rate, value: 0.003, unit: ratio, source: assumption}
+    - {id: equipment_oee, value: 0.85, unit: ratio, source: model_prior}
+    - {id: selling_price, value: 12, unit: CNY/unit, source: assumption}
+    - {id: variable_unit_cost, value: 7, unit: CNY/unit, source: assumption}
+    - {id: fixed_cost, value: 200000, unit: CNY/month, source: assumption}
+    - {id: intervention_opex, value: 0, unit: CNY/month, source: assumption}

@@ -1,0 +1,20 @@
+{
+  "id": "urn:pxai:semi:knowledge:fac.multisource_equipment_rca_evidence_boundary",
+  "title": "多源设备根因调查的证据边界与时间关联要求",
+  "domain": "fac",
+  "summary": "多源设备调查应关联遥测、告警和维护记录，但关联缺口只能作为待验证原因，不能直接认定为现场根因。",
+  "content": "半导体厂务与设备调查通常需要把设备遥测、告警、资产上下文、维护记录和现场执行证据按时间与对象进行关联。若这些来源的时间戳或事件映射不完整，可将其登记为待验证的调查原因，用于提示补充证据；在完成工程复核、来源核对和现场验证前，不得把该原因解释为已确认的设备故障根因。",
+  "source_refs": [
+    "https://semiconductorx.com/fab-ops-facility-management.html",
+    "https://datamesh.com/zh-CN/resources/guides/semiconductor-facility-operations-ai-agent"
+  ],
+  "related_iris": [
+    "urn:pxai:semi:fac.prior.multisource_equipment_timestamp_alignment_gap_possible_cause",
+    "urn:pxai:semi:hasPossibleCause"
+  ],
+  "confidence": "medium",
+  "provenance": {
+    "source_type": "web",
+    "source_ref": "https://semiconductorx.com/fab-ops-facility-management.html"
+  }
+}

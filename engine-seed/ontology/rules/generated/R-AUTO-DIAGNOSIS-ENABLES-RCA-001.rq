@@ -1,0 +1,11 @@
+PREFIX px: <urn:pxai:semi:>
+CONSTRUCT {
+  ?workflow px:enablesRCAFor ?anomaly .
+}
+WHERE {
+  ?workflow px:diagnosesAnomaly ?anomaly .
+  ?anomaly a px:Anomaly .
+  FILTER NOT EXISTS {
+    ?workflow px:enablesRCAFor ?anomaly .
+  }
+}

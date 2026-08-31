@@ -1,0 +1,206 @@
+# PXAI 半导体知识库 · 元模型 (Meta Schema)
+# 定义"什么是合法的本体条目"。validate.py 以此为唯一裁判。
+# 修改本文件属于 schema 变更，config.yaml 中默认强制人工审核。
+
+meta_version: "1.0"
+updated_at: "2026-08-27"
+
+# ---------------------------------------------------------------
+# ID 规范
+# ---------------------------------------------------------------
+id_rules:
+  pattern: '^(core|fab|ap|ext)\.[a-z_]+\.[a-z0-9_]+$'
+  format: "<domain>.<type_slug>.<name_slug>"
+  note: >
+    domain 取 core|fab|ap；ext 为外部域预留（跨行业类比目标，如其他行业本体节点），
+    ext.* 允许悬空引用，不参与本地解析校验。
+  examples:
+    - fab.process.photo_exposure
+    - ap.anomaly.wire_nsop
+    - core.metric.wip
+
+# ---------------------------------------------------------------
+# 允许的实体类型
+# ---------------------------------------------------------------
+entity_types:
+  Process:    {type_slug: process,   desc: "工序/站点，生产动作的最小可调度单元"}
+  Stage:      {type_slug: stage,     desc: "制程段，一组工序的业务分组"}
+  # slug 用 equip 而非 equipment：与 Parameter->param 的缩写先例一致，
+  # 且实体字段名 equipment 保持不变，两者不冲突。
+  Equipment:  {type_slug: equip,     desc: "机台/设备，产能的实际载体"}
+  Material:   {type_slug: material,  desc: "物料，含晶圆、光阻、塑封料等"}
+  Parameter:  {type_slug: param,     desc: "可调工艺参数，有量纲和工艺窗口"}
+  Metric:     {type_slug: metric,    desc: "量测/统计指标，用于判定与经营换算"}
+  State:      {type_slug: state,     desc: "批次或WIP的状态"}
+  Anomaly:    {type_slug: anomaly,   desc: "异常模式，风险图谱的事件节点"}
+  Cause:      {type_slug: cause,     desc: "根因"}
+  Action:     {type_slug: action,    desc: "处置动作"}
+  Route:      {type_slug: route,     desc: "流程路径，主流程的载体"}
+  RiskNode:   {type_slug: risknode,  desc: "风险节点，主流程上的高风险位置"}
+
+# ---------------------------------------------------------------
+# 允许的关系类型
+# ---------------------------------------------------------------
+relation_types:
+  belongs_to:   {from: [Process, Equipment, Parameter, Metric], to: [Stage, Process], desc: "归属"}
+  precedes:     {from: [Process], to: [Process], desc: "工序先后，构成主流程 Flow"}
+  performed_on: {from: [Process], to: [Material], desc: "工序作用于物料"}
+  controls:     {from: [Parameter], to: [Process], desc: "参数调控工序"}
+  measured_by:  {from: [Process, Anomaly], to: [Metric], desc: "由指标量测/判定"}
+  # Equipment 作为 from 端：机台自身状态（老化、PM 逾期、腔体污染、Tool-to-Tool
+  # 差异）是一类独立的异常来源，不能挤进 Cause 或 Process。原先缺这一端，
+  # "某机台停机会引发哪些异常"在图上无路可走，只能声明为不可答。
+  may_cause:    {from: [Cause, Parameter, Process, Equipment, Anomaly, State], to: [Anomaly], desc: "可能导致异常；Anomaly->Anomaly 表示异常级联；Equipment->Anomaly 表示机台状态引发异常"}
+  detected_at:  {from: [Anomaly], to: [Process], desc: "异常在此工序被检出"}
+  mitigated_by: {from: [Anomaly], to: [Action], desc: "异常由此动作处置"}
+  blocks:       {from: [Anomaly, State], to: [Process, Route], desc: "阻塞后续工序/路径"}
+  refines:      {from: [Process, Parameter, Metric, Anomaly, State, Material, Stage, RiskNode], to: [Process, Parameter, Metric, Anomaly, State, Material, Stage, RiskNode], desc: "子本体细化 core 层概念"}
+  analogous_to: {from: [Process, Parameter, Metric, Anomaly, State, Stage, Material, RiskNode], to: [Process, Parameter, Metric, Anomaly, State, Stage, Material, RiskNode], desc: "跨行业类比映射，知识飞轮载体，通常指向 ext.*"}
+
+# ---------------------------------------------------------------
+# 字段契约
+# ---------------------------------------------------------------
+entity_required_fields: [id, type, name_zh, name_en, domain, description, provenance]
+entity_optional_fields:
+  - parameters       # [Parameter id]
+  - metrics          # [Metric id]
+  - equipment        # [Equipment id]
+  - materials        # [Material id]
+  - stage            # Stage id
+  - unit             # Parameter/Metric 量纲
+  - typical_range    # Parameter/Metric 典型工艺窗口
+  - severity         # Anomaly 严重度 critical|high|medium|low
+  - steps            # Route 有序工序列表
+  - economic_hooks
+  - tags
+  - aliases
+
+relation_required_fields: [from, type, to]
+relation_optional_fields: [note, confidence, likelihood, provenance]
+
+# 边权：likelihood 与 confidence 是两件事，混用会让排序失去意义。
+#   confidence  我对"这条边存在"有多确信 —— 知识质量，全关系类型通用
+#   likelihood  这条因果在现场实际发生的相对频度 —— 领域事实，只对 may_cause 有定义
+# 取值刻意与 kb_schema.possible_causes_item.likelihood 同一套枚举：
+# 第二层实例早就有 likelihood，本体层却没有，导致按概率排根因只能退回 kb 查、
+# 图本身用不上。两层对齐后 may_cause 子图才是可排序的。
+likelihood_schema:
+  allowed: [high, medium, low]
+  applies_to: [may_cause]
+  desc: "根因的经验先验频度。缺省表示未评估，不等于 low"
+
+# 派生关系：由实体字段自动生成，不在 relations/*.yaml 中重复维护。
+# build_index.py 负责展开，避免同一事实两处录入导致漂移。
+derived_relations:
+  - {from_field: stage,      relation: belongs_to,  direction: "entity -> value"}
+  - {from_field: parameters, relation: controls,    direction: "value -> entity"}
+  - {from_field: metrics,    relation: measured_by, direction: "entity -> value"}
+  - {from_field: materials,  relation: performed_on, direction: "entity -> value"}
+  - {from_field: equipment,  relation: belongs_to,  direction: "value -> entity"}
+
+# 预留给第三层经营模型，本周只填不用
+economic_hooks_schema:
+  affects:
+    allowed: [yield, cycle_time, equipment_oee, throughput, cost_per_unit, rework_rate, scrap_rate, capacity_commit]
+    note: "该实体波动会传导到哪些经营变量"
+  note: {type: string, desc: "传导机制的一句话说明"}
+
+# provenance 为强制字段：三类来源可信度差异大，无溯源则自动更新不可审计
+provenance_schema:
+  source_type:
+    allowed: [model_prior, web, analogy, human]
+    desc: "model_prior=模型预训练知识; web=公网资料; analogy=跨行业类比推演; human=人工录入"
+  ref:         {desc: "web 来源必须填 URL；其余可为 null"}
+  confidence:  {allowed: [high, medium, low]}
+  created_at:  {format: "YYYY-MM-DD"}
+  reviewed_by: {desc: "null 表示未经人工审核"}
+
+# ---------------------------------------------------------------
+# 校验规则（validate.py 逐条实现）
+# ---------------------------------------------------------------
+validation_rules:
+  - id: R001
+    desc: "ID 全局唯一"
+    severity: error
+  - id: R002
+    desc: "ID 符合 id_rules.pattern，且 type_slug 与 type 字段一致"
+    severity: error
+  - id: R003
+    desc: "entity_required_fields 齐全，无未知字段"
+    severity: error
+  - id: R004
+    desc: "所有引用（关系两端、parameters/metrics/steps 等）指向已存在实体；ext.* 豁免"
+    severity: error
+  - id: R005
+    desc: "关系类型合法，且两端实体 type 满足 relation_types 的 from/to 约束"
+    severity: error
+  - id: R006
+    desc: "provenance 完整且取值合法；source_type=web 时 ref 非空"
+    severity: error
+  - id: R007
+    desc: "domain 字段与 ID 前缀一致"
+    severity: error
+  - id: R008
+    desc: "无孤立实体（不参与任何关系，也未被任何实体字段引用）"
+    severity: warn
+  - id: R009
+    desc: "precedes 关系不构成环"
+    severity: error
+  - id: R010
+    desc: "Route.steps 中相邻工序应存在 precedes 关系"
+    severity: warn
+  - id: R011
+    desc: "economic_hooks.affects 取值在允许集合内"
+    severity: error
+  - id: R012
+    desc: "confidence=low 的条目数量占比超过 40% 时提示（知识质量预警）"
+    severity: warn
+  - id: R013
+    desc: "知识库实例 ID 唯一、符合 kb_schema、字段齐全、provenance 合法"
+    severity: error
+  - id: R014
+    desc: "知识库实例的所有 *_ref 指向已存在的本体实体，且类型匹配"
+    severity: error
+  - id: R015
+    desc: "知识库实例的 *_ref 域自洽：只能引用自身域或 core.*，禁止 fab↔ap 直接互引"
+    severity: error
+  - id: R017
+    desc: >
+      likelihood 取值在 likelihood_schema.allowed 内，且只出现在
+      likelihood_schema.applies_to 声明的关系类型上。写在别处一律报错——
+      在没有定义的边上放权重，会让下游误以为那条边可排序。
+    severity: error
+  - id: R016
+    desc: >
+      competency-questions.yaml 的 in_scope 条目结构合法，且 requires 声明的实体类型
+      与关系类型均已声明并至少有一个实例；out_of_scope 条目字段齐全。
+      承诺能答的问题一旦失去支撑结构就必须报错——否则"声明与事实分离"不产生任何信号。
+    severity: error
+
+# ---------------------------------------------------------------
+# 知识库实例契约（第二层：本体结构的实例填充）
+# 知识库不得凭空引入概念——任何异常、根因、动作都必须先在本体中存在。
+# 这条约束是"本体为唯一真源"的落地保障。
+# ---------------------------------------------------------------
+kb_schema:
+  id_pattern: '^kb\.(fab|ap)\.[a-z0-9_]+$'
+  required_fields: [id, domain, title, anomaly_ref, symptoms, possible_causes, detection, actions, impact, provenance]
+  optional_fields: [detected_at_ref, severity, tags, notes]
+  possible_causes_item:
+    cause_ref:
+      desc: >
+        指向 Cause / Parameter / Process / Anomaly / State 实体，与 may_cause 关系的
+        from 端保持一致。Anomaly 表示异常级联（上游异常成为本异常的原因），
+        State 表示状态阻塞导致的异常（如 Hold 造成 WIP 堆积）。
+    likelihood:    {allowed: [high, medium, low], desc: "经验先验概率"}
+    discriminator: {desc: "如何与其他根因区分——排查时的判别依据，是知识库最有价值的字段"}
+  detection_item:
+    metric_ref: {desc: "指向 Metric 实体"}
+    signal:     {desc: "该指标上呈现的具体信号形态"}
+  actions_item:
+    action_ref: {desc: "指向 Action 实体"}
+    condition:  {desc: "适用前提，含不适用的情形"}
+    order:      {desc: "处置优先级，数字越小越先执行"}
+  impact_fields:
+    blocked_processes: {desc: "[Process id] 未判定前不得流入的工序"}
+    economic:          {desc: "对经营变量的影响描述，第三层经营模型的输入"}

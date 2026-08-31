@@ -29,7 +29,7 @@ def _files(kind: str) -> list[Path]:
     files: set[Path] = set()
     for key in patterns:
         for pattern in EXPORT_PATTERNS[key]:
-            files.update(path for path in settings.semi_kb_root.glob(pattern) if path.is_file())
+            files.update(path for path in settings.engine_root.glob(pattern) if path.is_file())
     return sorted(files)
 
 
@@ -45,7 +45,7 @@ async def create_export(db: Session, job: ExportJob) -> None:
     target = settings.data_dir / "artifacts" / f"{job.id}-{job.kind}.zip"
     try:
         files = _files(job.kind)
-        entries = [(path, path.relative_to(settings.semi_kb_root).as_posix()) for path in files]
+        entries = [(path, path.relative_to(settings.engine_root).as_posix()) for path in files]
         if job.kind == "complete":
             run_root = settings.data_dir / "runs"
             entries.extend((path, "console-runs/" + path.relative_to(run_root).as_posix()) for path in run_root.rglob("*") if path.is_file())

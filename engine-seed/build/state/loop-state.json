@@ -1,0 +1,65 @@
+{
+  "generated_at": "2026-08-29T14:07:14.189655+00:00",
+  "stages": {
+    "source": {
+      "fingerprint": "e9f9a34f20d6728f0df7c4ebf9428ff999d5949b12d79431afaa41e93c2d7cf0",
+      "status": "pass",
+      "duration_seconds": 0.187
+    },
+    "vfab-source": {
+      "fingerprint": "e1cfedceb84f12a61d77a95b452549f7b7b9e51bbae60da9f4d240d1710f7476",
+      "status": "pass",
+      "duration_seconds": 0.094
+    },
+    "alignment": {
+      "fingerprint": "4cfafd46027aee3dd0abc1f860b5dc049d6cf2b0658eab8856dd404638099ee3",
+      "status": "pass",
+      "duration_seconds": 0.078
+    },
+    "capability": {
+      "fingerprint": "21cb00d8fcd207c809b7bddb9e677ab46bd0e7e2a1dd7e3d86656c32ebc4c298",
+      "status": "pass",
+      "duration_seconds": 0.063
+    },
+    "legacy-validation": {
+      "fingerprint": "e2af2bf6245b5c534ce9433d4a18d17d677766dfa9128f9c48e3b410b7ebe3cb",
+      "status": "pass",
+      "duration_seconds": 0.422
+    },
+    "index": {
+      "fingerprint": "521d17229e4c80f118080f74dc71a29a4bf8a31c77a4f97d15145288d9937ccf",
+      "status": "pass",
+      "duration_seconds": 0.406
+    },
+    "scenario-mining": {
+      "fingerprint": "1680e7cb2d3227363a28a87fc0163bc80a51818441d3a83071ab9c748380b6c7",
+      "status": "pass",
+      "duration_seconds": 0.25
+    },
+    "semantic-migration": {
+      "fingerprint": "fb85959ef021d60709eeca5a2c158bd1ab8ddf67046583edea38f811cd64e657",
+      "status": "pass",
+      "duration_seconds": 0.938
+    },
+    "semantic-validation": {
+      "fingerprint": "a7f3ddbddbab49a0279753e1e857cb49c6468320abd8a6c240896ca0b98b12e0",
+      "status": "pass",
+      "duration_seconds": 9.36
+    },
+    "semantic-tests": {
+      "fingerprint": "3d279486915ca4398cd8291bfbb146afb19add7ebc56810f3fe8d9d98494ea70",
+      "status": "pass",
+      "duration_seconds": 2.265
+    },
+    "business-simulation": {
+      "fingerprint": "19449ba7f197050a2c6fb1f885550093b2dccf23f3c07c21141090d2b1ac5882",
+      "status": "pass",
+      "duration_seconds": 1.141
+    },
+    "golden-query-tests": {
+      "fingerprint": "a2494fba827824853a6f195ae0c55eb5cf01a4e4351d02da31654ddcb6a5e29d",
+      "status": "pass",
+      "duration_seconds": 0.328
+    }
+  }
+}

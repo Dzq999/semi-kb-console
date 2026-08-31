@@ -1,0 +1,23 @@
+{
+  "id": "urn:pxai:semi:knowledge:fac:utility-process-dependency-reference",
+  "title": "厂务公用系统与制造过程依赖关系建模参考",
+  "domain": "fac",
+  "summary": "建议将超纯水、洁净室暖通和配电系统建模为可独立监测且能够支撑制造过程的公用系统，并通过显式依赖实体连接制程约束。",
+  "content": "在半导体制造语境中，厂务公用系统不仅是设施基础设施，也可能成为制程连续性、设备运行和质量调查的重要上下文。建议以公用系统实例承载监测传感器、可用性观测及其支撑的制造过程，并以独立的公用系统制程依赖实体表达关键性和待验证状态，从而避免把模型先验误写成现场实测结论。",
+  "source_refs": [
+    "business/models/fab-baseline.yaml",
+    "business/models/ap-baseline.yaml"
+  ],
+  "related_iris": [
+    "urn:pxai:semi:UtilitySystem",
+    "urn:pxai:semi:UPWSystem",
+    "urn:pxai:semi:HVACSystem",
+    "urn:pxai:semi:PowerDistributionSystem",
+    "urn:pxai:semi:fac:UtilityProcessDependency"
+  ],
+  "confidence": "medium",
+  "provenance": {
+    "source_type": "web",
+    "source_ref": "business/models/fab-baseline.yaml"
+  }
+}

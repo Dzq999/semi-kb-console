@@ -1,0 +1,36 @@
+schema_version: "2.0"
+template:
+  id: template.manufacturing
+  name: 通用制造业经营骨架
+  variables:
+    - {id: input_units, unit: unit/month}
+    - {id: capacity_limit, unit: unit/month}
+    - {id: process_yield, unit: ratio}
+    - {id: selling_price, unit: CNY/unit}
+    - {id: variable_unit_cost, unit: CNY/unit}
+    - {id: fixed_cost, unit: CNY/month}
+    - {id: intervention_opex, unit: CNY/month}
+  calculations:
+    - id: constrained_input
+      algorithm: capacity.bottleneck
+      inputs: [input_units, capacity_limit]
+      unit: unit/month
+    - id: saleable_units
+      algorithm: production.saleable_output
+      inputs: [constrained_input, process_yield]
+      unit: unit/month
+    - id: revenue
+      algorithm: finance.revenue
+      inputs: [saleable_units, selling_price]
+      unit: CNY/month
+    - id: variable_cost
+      algorithm: cost.variable_total
+      inputs: [constrained_input, variable_unit_cost]
+      unit: CNY/month
+    - id: profit
+      formula: revenue - variable_cost - fixed_cost - intervention_opex
+      unit: CNY/month
+    - id: unit_cost
+      algorithm: cost.unit
+      inputs: [variable_cost, saleable_units]
+      unit: CNY/unit

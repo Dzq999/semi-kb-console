@@ -1,0 +1,23 @@
+schema_version: '2.0'
+scenario:
+  name: 光刻瓶颈恢复与异常诊断支持情景
+  model_ref: business/models/fab-baseline.yaml
+  description: 通用Fab What-if情景：以光刻瓶颈和异常诊断支持为背景，模拟增加光刻产能及干预运营费用后的经营输出方向。该情景仅用于业务讨论，不将行业文献中的能力描述解释为现场实际改善。
+  interventions:
+  - target_ref: fab.equip.scanner
+    variable: lithography_capacity
+    operation: add
+    value: 1000
+  - target_ref: fab.action.recipe_adjust
+    variable: intervention_opex
+    operation: set
+    value: 2000000
+  assertions:
+  - type: nondecreasing
+    variable: constrained_input
+  - type: nondecreasing
+    variable: saleable_units
+  investment:
+    one_time: 6000000
+    unit: CNY
+  id: sim.agent.run-798f33525aa44b1d.r1.run-798f33525aa44b1d-a06.2

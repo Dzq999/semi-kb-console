@@ -1,0 +1,24 @@
+{
+  "id": "urn:pxai:semi:knowledge:fab_capacity_delivery_impact_r1",
+  "title": "晶圆厂异常处置与产能交付经营分析边界",
+  "domain": "fab",
+  "summary": "既有模型支持将设备停机或品质异常背景下的产能恢复措施映射到受约束投入量和可销售单元，但结果仅适用于方向性What-if分析。",
+  "content": "在缺少现场实测证据时，可复用既有通用晶圆厂经营模型，将光刻产能增加和干预运营费用作为产能恢复代理假设，观察受约束投入量与可销售单元的方向性变化。该方法不能替代异常根因调查，也不能直接推出实际恢复量、良率改善、收入或客户交付承诺。",
+  "source_refs": [
+    "business/models/fab-baseline.yaml",
+    "simulation/scenarios/fab-capacity-recovery.yaml",
+    "simulation/scenarios/sim.agent.run-798f33525aa44b1d.r1.run-798f33525aa44b1d-a06.1.yaml"
+  ],
+  "related_iris": [
+    "urn:pxai:semi:BusinessModel",
+    "urn:pxai:semi:OperationalImpactChain",
+    "urn:pxai:semi:QualityExcursionAnomaly",
+    "urn:pxai:semi:EquipmentDowntimeAnomaly",
+    "urn:pxai:semi:Capacity"
+  ],
+  "confidence": "medium",
+  "provenance": {
+    "source_type": "web",
+    "source_ref": "business/models/fab-baseline.yaml"
+  }
+}

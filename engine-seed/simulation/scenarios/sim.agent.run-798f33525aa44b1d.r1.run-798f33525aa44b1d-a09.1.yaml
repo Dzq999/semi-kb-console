@@ -1,0 +1,23 @@
+schema_version: '2.0'
+scenario:
+  name: AI设备根因分析支持的停机恢复What-if
+  model_ref: business/models/fab-baseline.yaml
+  description: 通用Fab What-if情景：假设设备故障诊断与维护协同降低非计划停机，并以已有经营模型中的光刻产能增量代理恢复效果。干预值沿用已有示例范围，仅用于模型假设，不代表现场实测数值。
+  interventions:
+  - target_ref: fab.equip.scanner
+    variable: lithography_capacity
+    operation: add
+    value: 800
+  - target_ref: fab.action.recipe_adjust
+    variable: intervention_opex
+    operation: set
+    value: 1500000
+  assertions:
+  - type: nondecreasing
+    variable: constrained_input
+  - type: nondecreasing
+    variable: saleable_units
+  investment:
+    one_time: 5000000
+    unit: CNY
+  id: sim.agent.run-798f33525aa44b1d.r1.run-798f33525aa44b1d-a09.1

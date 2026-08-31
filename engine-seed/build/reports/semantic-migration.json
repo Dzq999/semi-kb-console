@@ -1,0 +1,14 @@
+{
+  "status": "pass",
+  "generated_at": "2026-08-30T18:16:41.964114+00:00",
+  "output": "build/semantic/current.trig",
+  "catalog_concepts": 248,
+  "explicit_relations": 251,
+  "derived_relations": 304,
+  "diagnostic_playbooks": 17,
+  "business_scenarios": 17,
+  "business_models": 3,
+  "simulation_scenarios": 15,
+  "semantic_abox_triples": 2084,
+  "quads": 11245
+}

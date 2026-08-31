@@ -1,0 +1,18 @@
+{
+  "id": "urn:pxai:semi:knowledge:repair:web-multisource-equipment-rca-semantic-completeness",
+  "title": "跨系统设备根因分析的可能原因与语义完整性",
+  "domain": "fab",
+  "summary": "补齐多来源设备根因分析调查实例的结构化可能原因，并保留跨系统事件关联的证据边界。",
+  "content": "网页资料描述晶圆厂运行中MES、BMS、CMMS和FMS等系统分别管理生产、设施环境、维护和公用系统数据，并指出需要对跨系统事件进行关联。基于该描述，可将设备与厂务事件时间戳未对齐登记为设备根因分析调查的可能原因，用于支持后续证据核验；该条目不宣称其为任何现场事件的已确认根因。",
+  "source_refs": [
+    "https://semiconductorx.com/fab-ops-facility-management.html"
+  ],
+  "related_iris": [
+    "urn:pxai:semi:repair:web_multisource_equipment_rca_timestamp_alignment_cause"
+  ],
+  "confidence": "medium",
+  "provenance": {
+    "source_type": "web",
+    "source_ref": "https://semiconductorx.com/fab-ops-facility-management.html"
+  }
+}

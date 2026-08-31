@@ -29,7 +29,7 @@ class SemiKbError(RuntimeError):
 class SemiKbAdapter:
     _candidate_lock = asyncio.Lock()
     def __init__(self, root: Path | None = None):
-        self.root = root or settings.semi_kb_root
+        self.root = root or settings.engine_root
         self._base_metrics_cache: tuple[float, dict] | None = None
 
     def invalidate_cache(self) -> None:

@@ -1,0 +1,13 @@
+schema_version: "2.0"
+scenario:
+  id: sim.ap.bonding_yield_improvement
+  name: 键合良率改善
+  model_ref: business/models/ap-baseline.yaml
+  description: 通用 AP What-if；输入为情景假设，不代表现场承诺。
+  interventions:
+    - {target_ref: ap.action.bond_param_doe, variable: bonding_yield, operation: set, value: 0.997}
+    - {target_ref: ap.action.bond_param_doe, variable: intervention_opex, operation: set, value: 30000}
+  assertions:
+    - {type: nondecreasing, variable: process_yield}
+    - {type: nondecreasing, variable: saleable_units}
+  investment: {one_time: 120000, unit: CNY}

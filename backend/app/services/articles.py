@@ -380,11 +380,11 @@ async def generate_article(db: Session, user_id: int, topic: ArticleTopic, model
     article.generation_stage = "正文已生成，准备配图"
     article.generation_progress = 20
     db.commit(); db.refresh(article)
-    article_dir = settings.semi_kb_root / "knowledge" / "articles" / "generated"
+    article_dir = settings.engine_root / "knowledge" / "articles" / "generated"
     article_dir.mkdir(parents=True, exist_ok=True)
     assets: list[ArticleAsset] = []
     if auto_visuals and image_count > 0:
-        asset_dir = settings.semi_kb_root / "knowledge" / "articles" / "generated"
+        asset_dir = settings.engine_root / "knowledge" / "articles" / "generated"
         asset_dir.mkdir(parents=True, exist_ok=True)
         anchors = _select_image_anchors(content, image_count)
         for index, (_, heading, excerpt) in enumerate(anchors):

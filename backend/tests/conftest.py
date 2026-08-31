@@ -7,7 +7,7 @@ from pathlib import Path
 TEST_DIR = Path(tempfile.mkdtemp(prefix="semi-kb-console-tests-"))
 os.environ["SEMI_KB_CONSOLE_DATA"] = str(TEST_DIR)
 os.environ["DATABASE_URL"] = f"sqlite:///{(TEST_DIR / 'test.db').as_posix()}"
-os.environ["SEMI_KB_ROOT"] = r"D:\AI_Coding\semi-kb"
+os.environ["SEMI_KB_ENGINE_ROOT"] = str(Path(__file__).resolve().parents[2] / "data" / "engine")
 
 import pytest
 from fastapi.testclient import TestClient
@@ -35,4 +35,3 @@ def authenticated(client: TestClient):
     response = client.post("/api/auth/setup", json={"username": "admin", "password": "strong-password"})
     assert response.status_code == 201
     return client
-

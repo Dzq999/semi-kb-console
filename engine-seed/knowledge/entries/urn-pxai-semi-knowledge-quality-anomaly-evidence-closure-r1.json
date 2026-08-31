@@ -1,0 +1,25 @@
+{
+  "id": "urn:pxai:semi:knowledge:quality:anomaly-evidence-closure-r1",
+  "title": "品质异常与设备停机的证据闭环建模",
+  "domain": "fab",
+  "summary": "将品质异常突发和设备停机异常分别连接到检测指标、调查工作流、受影响设备及证据类型，支持后续跨系统根因分析与审计追溯。",
+  "content": "在缺少现场实测数据时，品质知识仍可先建立结构化证据闭环：品质异常应关联检测指标、因果调查工作流和待核查证据；设备停机异常应关联停机检测指标、受影响设备、跨系统故障追溯工作流以及状态事件和维护日志证据。该结构只表达调查路径和证据要求，不等同于确认根因、停机时长、良率损失或经营影响。后续接入真实SPC观测、设备遥测、维护日志和统一时间戳后，才能形成可验证的因果结论。",
+  "source_refs": [
+    "model_prior:gap_analysis.round1",
+    "business/models/fab-baseline.yaml",
+    "simulation/scenarios/fab-capacity-recovery.yaml"
+  ],
+  "related_iris": [
+    "urn:pxai:semi:QualityExcursionAnomaly",
+    "urn:pxai:semi:EquipmentDowntimeAnomaly",
+    "urn:pxai:semi:SPCOutOfControlCausalInvestigationWorkflow",
+    "urn:pxai:semi:CrossSystemEquipmentFailureTracing",
+    "urn:pxai:semi:quality:anomaly:quality_excursion_case_r1",
+    "urn:pxai:semi:quality:anomaly:equipment_down_case_r1"
+  ],
+  "confidence": "medium",
+  "provenance": {
+    "source_type": "web",
+    "source_ref": "model_prior:gap_analysis.round1"
+  }
+}

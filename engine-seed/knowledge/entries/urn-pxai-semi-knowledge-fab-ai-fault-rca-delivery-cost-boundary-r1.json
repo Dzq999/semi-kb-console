@@ -1,0 +1,22 @@
+{
+  "id": "urn:pxai:semi:knowledge:fab-ai-fault-rca-delivery-cost-boundary-r1",
+  "title": "AI故障检测与根因分析对晶圆厂交付成本建模的证据边界",
+  "domain": "fab",
+  "summary": "公开综述支持将AI故障检测、预测维护和根因分析纳入晶圆厂交付与成本分析框架，但不支持直接推断具体现场收益。",
+  "content": "公开综述指出，半导体制造面对高维动态数据，AI可通过图像和传感器分析提升故障检测，通过时间序列预测设备故障，并通过模式识别与因果建模识别底层制程问题。该证据可支持建立设备停机异常、品质异常突发、证据集成和数据质量及可解释性约束之间的语义关联，但不能替代现场履历、维护日志、产能、良率、交付和成本数据，也不能据此宣称具体改善比例或财务收益。经营仿真应明确使用既有模型变量和假设输入。",
+  "source_refs": [
+    "https://link.springer.com/content/pdf/10.1007/s00170-026-18777-0.pdf"
+  ],
+  "related_iris": [
+    "urn:pxai:semi:workflow:ai-fab-fault-rca-review-evidence-2026",
+    "urn:pxai:semi:anomaly:equipment-downtime-evidence-pattern-2026",
+    "urn:pxai:semi:anomaly:quality-excursion-evidence-pattern-2026",
+    "urn:pxai:semi:challenge:fab-ai-data-quality-2026",
+    "urn:pxai:semi:challenge:fab-ai-interpretability-2026"
+  ],
+  "confidence": "high",
+  "provenance": {
+    "source_type": "web",
+    "source_ref": "https://link.springer.com/content/pdf/10.1007/s00170-026-18777-0.pdf"
+  }
+}

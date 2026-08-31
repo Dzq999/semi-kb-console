@@ -1,0 +1,12 @@
+PREFIX semi: <urn:pxai:semi:>
+CONSTRUCT {
+  ?anomaly semi:impactsLot ?lot .
+}
+WHERE {
+  ?anomaly a semi:QualityExcursionAnomaly ;
+           semi:hasEvidence ?observation .
+  ?observation a semi:Observation ;
+               semi:aboutEntity ?lot .
+  ?lot a semi:Lot .
+  FILTER NOT EXISTS { ?anomaly semi:impactsLot ?lot }
+}

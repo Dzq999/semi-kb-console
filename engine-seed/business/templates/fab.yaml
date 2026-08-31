@@ -1,0 +1,20 @@
+schema_version: "2.0"
+template:
+  id: template.fab
+  name: 晶圆厂领域模块
+  extends: [business/templates/semiconductor.yaml]
+  variables:
+    - {id: wafer_starts, unit: wafer/month}
+    - {id: lithography_capacity, unit: wafer/month}
+    - {id: etch_capacity, unit: wafer/month}
+    - {id: cmp_capacity, unit: wafer/month}
+  calculations:
+    - id: input_units
+      formula: wafer_starts
+      unit: wafer/month
+      override: true
+    - id: capacity_limit
+      algorithm: capacity.bottleneck
+      inputs: [lithography_capacity, etch_capacity, cmp_capacity]
+      unit: wafer/month
+      override: true

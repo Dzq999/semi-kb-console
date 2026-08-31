@@ -1,0 +1,16 @@
+schema_version: "2.0"
+dataset:
+  id: dataset.fab.demo_assumptions
+  description: 自动校验用情景数据；替换为现场数据后才能用于决策
+  values:
+    - {id: wafer_starts, value: 30000, unit: wafer/month, source: assumption}
+    - {id: lithography_capacity, value: 29000, unit: wafer/month, source: assumption}
+    - {id: etch_capacity, value: 31000, unit: wafer/month, source: assumption}
+    - {id: cmp_capacity, value: 30500, unit: wafer/month, source: assumption}
+    - {id: incoming_quality, value: 0.995, unit: ratio, source: assumption}
+    - {id: manufacturing_yield, value: 0.93, unit: ratio, source: assumption}
+    - {id: final_test_yield, value: 0.985, unit: ratio, source: assumption}
+    - {id: selling_price, value: 15000, unit: CNY/wafer, source: assumption}
+    - {id: variable_unit_cost, value: 9000, unit: CNY/wafer, source: assumption}
+    - {id: fixed_cost, value: 50000000, unit: CNY/month, source: assumption}
+    - {id: intervention_opex, value: 0, unit: CNY/month, source: assumption}

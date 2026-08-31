@@ -1,0 +1,25 @@
+{
+  "id": "urn:pxai:semi:knowledge:cross-domain-anomaly-business-impact-validation-r1",
+  "title": "品质异常与设备停机的跨域经营影响验证边界",
+  "domain": "fab",
+  "summary": "建立两类核心异常到既有经营变量的可验证语义链，同时明确其仅为模型先验。",
+  "content": "本轮交叉验证将品质异常突发连接至制程良率和可销售单元，将设备停机异常连接至受约束投入量和可销售单元。上述关系用于统一质量、设备与经营模型的语义校验，支持后续证据补齐和方向性情景分析；由于当前没有现场遥测、批次记录、维护日志或外部资料，这些关系不能解释为实际因果、损失金额、产能恢复量或客户交付承诺。",
+  "source_refs": [
+    "business/models/fab-baseline.yaml",
+    "business/models/ap-baseline.yaml",
+    "simulation/scenarios/fab-capacity-recovery.yaml",
+    "simulation/scenarios/sim.agent.run-798f33525aa44b1d.r1.run-798f33525aa44b1d-a06.1.yaml"
+  ],
+  "related_iris": [
+    "urn:pxai:semi:QualityExcursionAnomaly",
+    "urn:pxai:semi:EquipmentDowntimeAnomaly",
+    "urn:pxai:semi:validation:quality-excursion-impact-chain",
+    "urn:pxai:semi:validation:equipment-downtime-impact-chain",
+    "urn:pxai:semi:BusinessVariable"
+  ],
+  "confidence": "medium",
+  "provenance": {
+    "source_type": "web",
+    "source_ref": "business/models/fab-baseline.yaml"
+  }
+}

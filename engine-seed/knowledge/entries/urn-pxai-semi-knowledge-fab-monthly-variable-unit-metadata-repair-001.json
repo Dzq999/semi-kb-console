@@ -1,0 +1,24 @@
+{
+  "id": "urn:pxai:semi:knowledge:fab-monthly-variable-unit-metadata-repair-001",
+  "title": "晶圆厂月度经营变量单位元数据修复",
+  "domain": "fab",
+  "summary": "为光刻产能和可销售单元变量补齐月度通用数量单位代码，解除语义完整性门禁阻断。",
+  "content": "通用晶圆厂经营模型以月为计算周期，光刻产能与可销售单元均参与月度方向性经营比较。为满足BusinessVariable的语义完整性约束，应为两个变量分别提供唯一的unitCode。本次采用unit_per_month作为不绑定具体现场计量对象的通用数量口径，仅用于模型元数据与门禁校验，不代表晶圆、芯片或其他对象的现场实测单位。",
+  "source_refs": [
+    "business/models/fab-baseline.yaml",
+    "simulation/scenarios/sim.agent.run-798f33525aa44b1d.r1.run-798f33525aa44b1d-a06.1.yaml"
+  ],
+  "related_iris": [
+    "urn:pxai:semi:businessVariable:fabLithographyCapacity",
+    "urn:pxai:semi:businessVariable:fabSaleableUnits",
+    "urn:pxai:semi:BusinessVariable",
+    "urn:pxai:semi:unitCode",
+    "urn:pxai:semi:EquipmentDowntimeAnomaly",
+    "urn:pxai:semi:QualityExcursionAnomaly"
+  ],
+  "confidence": "medium",
+  "provenance": {
+    "source_type": "web",
+    "source_ref": "business/models/fab-baseline.yaml"
+  }
+}

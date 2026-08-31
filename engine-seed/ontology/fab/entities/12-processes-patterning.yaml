@@ -1,0 +1,127 @@
+# fab 层 · 工序（光刻/蚀刻）
+default_provenance:
+  source_type: model_prior
+  ref: null
+  confidence: high
+  created_at: "2026-08-26"
+  reviewed_by: null
+
+entities:
+  - id: fab.process.photo_coat
+    type: Process
+    name_zh: 光阻涂布
+    name_en: Photoresist Coating
+    domain: fab
+    stage: fab.stage.photo
+    equipment: [fab.equip.track]
+    materials: [core.material.wafer, fab.material.photoresist]
+    description: >
+      旋涂光阻并软烤。膜厚由转速与光阻黏度决定，均匀性受环境温湿度与
+      涂布杯气流影响。涂布缺陷（彗尾、气泡）会在曝光后放大为图形缺陷。
+    parameters: [fab.param.spin_speed, fab.param.softbake_temp, core.param.cleanroom_temp]
+    metrics: [fab.metric.film_thickness]
+    economic_hooks:
+      affects: [yield, rework_rate]
+      note: 涂布阶段发现的缺陷可洗胶重涂，成本最低的挽回点
+
+  - id: fab.process.photo_exposure
+    type: Process
+    name_zh: 曝光
+    name_en: Exposure
+    domain: fab
+    stage: fab.stage.photo
+    equipment: [fab.equip.scanner]
+    materials: [core.material.wafer, fab.material.reticle]
+    description: >
+      经光罩将图形投影到光阻。曝光剂量与焦距共同决定 CD，
+      对位精度决定 Overlay。扫描机(Scanner)是前段最贵设备与典型瓶颈。
+    parameters: [fab.param.exposure_dose, fab.param.exposure_focus, fab.param.overlay_offset]
+    metrics: [fab.metric.cd_uniformity, fab.metric.overlay_error]
+    economic_hooks:
+      affects: [yield, throughput, capacity_commit, equipment_oee]
+      note: 全厂产能锚点，Scanner 每小时停机等价于确定性产出损失
+
+  - id: fab.process.photo_develop
+    type: Process
+    name_zh: 显影
+    name_en: Development
+    domain: fab
+    stage: fab.stage.photo
+    equipment: [fab.equip.track]
+    materials: [core.material.wafer]
+    description: >
+      显影液溶解曝光区（正胶）形成图形，随后硬烤固化。显影时间与温度
+      偏移直接改变 CD，是 CD 微调的常用旋钮。
+    parameters: [fab.param.develop_time, fab.param.hardbake_temp]
+    metrics: [fab.metric.cd_uniformity]
+    economic_hooks:
+      affects: [yield, rework_rate]
+      note: 显影后 CD 量测是光刻重工的最后决策窗口
+
+  - id: fab.process.dry_etch
+    type: Process
+    name_zh: 干法蚀刻
+    name_en: Dry Etch
+    domain: fab
+    stage: fab.stage.etch
+    equipment: [fab.equip.etcher_plasma]
+    materials: [core.material.wafer]
+    description: >
+      等离子体各向异性蚀刻，转移光阻图形到下层材料。终点检测(EPD)控制
+      蚀刻深度，腔体状态漂移（聚合物累积）影响速率与形貌重复性。
+    parameters: [fab.param.etch_rf_power, fab.param.etch_gas_flow, fab.param.chamber_pressure, fab.param.etch_time]
+    metrics: [fab.metric.cd_uniformity, fab.metric.etch_depth]
+    economic_hooks:
+      affects: [yield, rework_rate, equipment_oee]
+      note: 过蚀不可逆，腔体清洗排程与产能计划需联动
+
+  - id: fab.process.wet_etch
+    type: Process
+    name_zh: 湿法蚀刻
+    name_en: Wet Etch
+    domain: fab
+    stage: fab.stage.etch
+    equipment: [fab.equip.wet_bench]
+    materials: [core.material.wafer]
+    description: >
+      化学溶液各向同性蚀刻，选择比高但侧向侵蚀明显。用于牺牲层去除
+      与特定材料剥离。槽液浓度随使用衰减，需按 batch count 换槽。
+    parameters: [fab.param.etch_time, fab.param.etchant_concentration]
+    metrics: [fab.metric.etch_depth]
+    economic_hooks:
+      affects: [yield, cost_per_unit]
+      note: 槽液寿命管理是成本与均匀性的权衡
+
+  - id: fab.process.pr_strip
+    type: Process
+    name_zh: 去光阻
+    name_en: Photoresist Strip
+    domain: fab
+    stage: fab.stage.etch
+    equipment: [fab.equip.etcher_plasma, fab.equip.wet_bench]
+    materials: [core.material.wafer]
+    description: >
+      灰化或湿法去除残余光阻。去除不净形成的残留会成为后续沉积的
+      缺陷源，也是光刻重工路径的必经工序。
+    parameters: [fab.param.etch_rf_power, fab.param.etch_time]
+    metrics: [fab.metric.defect_density]
+    economic_hooks:
+      affects: [yield, rework_rate]
+      note: 重工路径依赖此工序，其能力上限约束重工次数
+
+  - id: fab.process.wafer_clean
+    type: Process
+    name_zh: 晶圆清洗
+    name_en: Wafer Clean
+    domain: fab
+    stage: fab.stage.etch
+    equipment: [fab.equip.wet_bench]
+    materials: [core.material.wafer]
+    description: >
+      RCA/SPM 等化学清洗去除颗粒、有机物与金属污染。是几乎每个
+      关键工序前的标配预处理，清洗能力直接决定缺陷基线。
+    parameters: [fab.param.etchant_concentration, core.param.cleanroom_particle]
+    metrics: [fab.metric.defect_density]
+    economic_hooks:
+      affects: [yield, scrap_rate]
+      note: 清洗能力下滑表现为全线缺陷密度整体上移，影响面最广

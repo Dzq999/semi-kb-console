@@ -1,0 +1,13 @@
+PREFIX semi: <urn:pxai:semi:>
+CONSTRUCT {
+  ?gate semi:gateDecisionCode "BLOCK" .
+  ?gate semi:releaseBlockingFlag "true" .
+}
+WHERE {
+  ?gate a semi:ReleaseGate ;
+        semi:hasValidationFinding ?finding .
+  ?finding a semi:ValidationFinding ;
+           semi:releaseBlockingFlag ?flag .
+  FILTER(LCASE(STR(?flag)) IN ("true", "1"))
+  FILTER NOT EXISTS { ?gate semi:gateDecisionCode ?existingDecision . }
+}

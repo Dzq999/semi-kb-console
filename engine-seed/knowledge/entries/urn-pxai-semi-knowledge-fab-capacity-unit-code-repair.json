@@ -1,0 +1,18 @@
+{
+  "id": "urn:pxai:semi:knowledge:fab-capacity-unit-code-repair",
+  "title": "晶圆厂经营变量单位代码约束修复",
+  "domain": "fab",
+  "summary": "为光刻产能和可销售单元经营变量补齐月度单位代码，满足语义校验的必填约束。",
+  "content": "既有通用晶圆厂经营模型以月为周期，并输出受约束投入量与可销售产出。本轮依据语义校验报告，为光刻产能变量补充wafers_per_month，为可销售单元变量补充units_per_month。该补充仅表达模型变量的计量语义，用于满足unitCode最小基数和字符串数据类型要求，不构成现场实测数据、产能承诺或财务预测。",
+  "source_refs": [
+    "business/models/fab-baseline.yaml",
+    "business/templates/fab.yaml",
+    "business/datasets/fab-demo-assumptions.yaml"
+  ],
+  "related_iris": [],
+  "confidence": "medium",
+  "provenance": {
+    "source_type": "web",
+    "source_ref": "business/models/fab-baseline.yaml"
+  }
+}

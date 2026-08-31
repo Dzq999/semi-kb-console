@@ -1,0 +1,31 @@
+# 真实工厂问题集 —— 代表集（来源：专有名词介绍/问题集.xlsx）
+#
+# 格式：<expect>\t<question>
+#   refuse     = 不允许判成"可答"。判 2（超范围）或 3（未覆盖）都算通过。
+#   answerable = 必须判成"可答"。
+#
+# 这里每类实例级问法只留一个代表，不求穷举。覆盖的类别：时间限定、
+# 计数/排名、具体实例 ID、复数/具体对象指代、交期预测、Q-Time、Hold、
+# 设备状态、生产记录。本体是类型级的，没有 Lot 实例、时间戳、计数，
+# 这些问法一律要拒。"Hold 意味着什么"答得了，"现在哪些 Lot 被 Hold"答不了。
+# 末尾混一条 answerable，用来确认拦截没宽到把类型级问题一起吞掉。
+refuse	客户A的Lot需要提前到月底出货，当前的WIP是否能满足客户A的出货需求，如果不满足，需要在什么时间点补下多少批Lot?
+refuse	对于A客户来说，未来一个月可以出多少货给客户？
+refuse	客户想Pull in（提前交期）某张订单或产品，请分析是否可达成？以及其对其他订单的影响？
+refuse	近一周哪些Lot是被系统Hold？其中最频繁的前三个系统 Hold的原因是啥？
+refuse	昨天有5个Lot被Hold，被Hold住的根因是什么
+refuse	这些hold Lot 的原因是什么
+refuse	当前因为Q-Time被Hold的Lot有哪些，其中等待PIE签核的有哪些？
+refuse	未来1小时内，哪些LOT，Q-Time即将到期
+refuse	昨天因为EQP01 Down，影响了哪些Lot?影响了多少WIP的产能？
+refuse	XX机台是否down机，什么时候down机
+refuse	目前厂内多少设备在run，多少设备down了
+refuse	最近一个月内,CVD002设备加工了多少Lot?
+refuse	Lot TNC0001 的生产记录
+refuse	过去24小时，XX 机台的历史加工记录
+refuse	这片有defect的Wafer 前15个站别 经过了哪些机台和Chamber
+refuse	当前哪些设备的等待Lot数量超过了30，这些Lot分别是哪些Product？
+refuse	按天/周/月设备利用率top n的设备list
+refuse	昨天跳站频率最高的是哪个Stage？
+refuse	本周的WIP（在制品）水位异常高，请分析是哪个工站造成的瓶颈？
+answerable	分析一下WIP最高的原因是什么

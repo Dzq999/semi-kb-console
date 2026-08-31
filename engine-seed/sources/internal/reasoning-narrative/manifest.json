@@ -1,0 +1,10 @@
+{
+  "source_id": "internal.reasoning_narrative",
+  "display_name": "推演链路叙事",
+  "canonical_file": "sources/internal/reasoning-narrative/raw/Reasoning-Narrative.md",
+  "source_sha256": "b3ba54582b1066c3b1ce26542b16f81825675ae5f55ce4d26926f52cd037af95",
+  "source_size_bytes": 9994,
+  "authority": "internal_business_team",
+  "derived_modules": ["ontology/modules/business-simulation.ttl", "ontology/modules/application-scenario.ttl"],
+  "external_publication": false
+}

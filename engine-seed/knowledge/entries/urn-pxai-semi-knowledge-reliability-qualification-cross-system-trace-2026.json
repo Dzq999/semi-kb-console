@@ -1,0 +1,21 @@
+{
+  "id": "urn:pxai:semi:knowledge:reliability-qualification-cross-system-trace-2026",
+  "title": "可靠性与资格认证失效的跨系统制造履历追溯",
+  "domain": "eqp",
+  "summary": "可靠性或资格认证失效调查应连接制造履历、制程监控和维护日志，并显式记录可检验的可能原因。",
+  "content": "公开资料显示，半导体质量调查需要在制程、设备和材料之间追溯失效，并连接MES、SPC及维护日志等分散系统。该模式支持建立跨系统制造履历追溯工作流，但不能直接证明某一工厂的实际根因；本轮将跨系统关联不足和上游制造过程因素建模为待验证的可能原因。",
+  "source_refs": [
+    "https://www.runlattice.com/industries/semiconductor"
+  ],
+  "related_iris": [
+    "urn:pxai:semi:ReliabilityQualificationManufacturingTraceWorkflow",
+    "urn:pxai:semi:ReliabilityQualificationFailureInvestigation",
+    "urn:pxai:semi:lattice2026.reliabilityQualificationTraceWorkflow",
+    "urn:pxai:semi:modelprior.reliabilityQualificationCrossSystemCause"
+  ],
+  "confidence": "high",
+  "provenance": {
+    "source_type": "web",
+    "source_ref": "https://www.runlattice.com/industries/semiconductor"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "id": "urn:pxai:semi:knowledge:quality-gate-unitcode-repair-001",
+  "title": "经营模型业务变量单位约束修复",
+  "domain": "fab",
+  "summary": "语义门禁要求经营模型业务变量显式提供单位代码，本轮为光刻产能和可销售单元补齐单位标注。",
+  "content": "既有通用晶圆厂经营模型将光刻产能作为按月计量的晶圆处理能力，将可销售单元作为按月计量的产出结果。为满足语义校验中semi:unitCode至少一个字符串值的约束，分别补充wafer/month和unit/month。该修复仅完善模型变量的语义元数据，不表示任何现场实测产能、实际销售数量、良率结果或交付承诺。",
+  "source_refs": [
+    "business/models/fab-baseline.yaml",
+    "business/templates/fab.yaml"
+  ],
+  "related_iris": [],
+  "confidence": "medium",
+  "provenance": {
+    "source_type": "web",
+    "source_ref": "business/models/fab-baseline.yaml"
+  }
+}

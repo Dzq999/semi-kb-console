@@ -1,0 +1,37 @@
+# 类型级黄金问题（本体本来就该答得了的问法）
+#
+# 格式与 questions-real.txt 相同。这份的作用是反向守门：
+# questions-real.txt 防误报（把答不了的说成答得了），这份防误拒
+# （自动扩充改坏了结构，或实例级拦截写得太狠，把真能答的也挡了）。
+#
+# 两份一起跑才有意义。只跑前者的话，把 ask.py 改成"永远返回 3"就能满分。
+answerable	颗粒突增可能是什么原因
+answerable	CD 超规在哪道工序检出
+answerable	套刻偏移怎么处置
+answerable	套刻偏移和曝光失焦怎么区分
+answerable	封装体开裂会阻塞哪些工序
+answerable	CMP 之后是哪道工序
+answerable	黄光区有哪些工序
+answerable	打线机服务哪些工序
+answerable	干蚀刻用哪些机台
+answerable	蚀刻速率的工艺窗口
+answerable	金线键合参数调高会怎样
+answerable	WAT 测什么指标
+answerable	Hold 住的批次什么意思
+answerable	良率掉了对成本有什么影响
+answerable	QFN 和 BGA 流程差在哪
+answerable	前段的量测对应后段的什么
+answerable	分层剥离在别的行业有类似的吗
+answerable	哪些站容易堵
+answerable	哪些机台是典型瓶颈
+answerable	显影后有缺陷该怎么办
+refuse	3 号腔漂移和 1 号腔一样吗
+refuse	这台机的稼动率是多少
+refuse	第 3 层金属的层叠结构
+refuse	这批料哪个供应商来的
+refuse	DFM 该怎么改
+refuse	把 WIP 重排交期能提前几天
+refuse	帮我预测下周的良率
+refuse	这个异常谁负责
+refuse	扩散炉停机会引发什么异常
+refuse	这个异常造成多少损失

@@ -1,0 +1,138 @@
+# fab 层 · 异常模式（风险图谱事件节点）
+default_provenance:
+  source_type: model_prior
+  ref: null
+  confidence: high
+  created_at: "2026-08-26"
+  reviewed_by: null
+
+entities:
+  - id: fab.anomaly.cd_out_of_spec
+    type: Anomaly
+    name_zh: CD 超规
+    name_en: CD Out of Spec
+    domain: fab
+    severity: high
+    description: >
+      关键尺寸偏离目标或均匀性超标。判别要点在分布形态：片内梯度指向热板
+      或涂布均匀性，全片均匀偏移指向剂量或光阻批号，特定曝光场异常指向光罩，
+      批间跳变指向机台切换或配方误用。
+    metrics: [fab.metric.cd_uniformity]
+    economic_hooks:
+      affects: [yield, rework_rate, cycle_time]
+      note: 蚀刻前检出可重工挽回，蚀刻后仅能判废
+
+  - id: fab.anomaly.overlay_shift
+    type: Anomaly
+    name_zh: 套刻偏移
+    name_en: Overlay Shift
+    domain: fab
+    severity: high
+    description: >
+      层间对位超规。按分量拆解定位成因：均匀平移指向对位标记识别或
+      载台校正，旋转/放大分量指向晶圆夹持或热变形，非线性残差指向
+      前层应力或补正模型失配。
+    metrics: [fab.metric.overlay_error]
+    economic_hooks:
+      affects: [yield, rework_rate]
+      note: APC 回馈延迟会导致连续多批同向偏移，扩大受影响范围
+
+  - id: fab.anomaly.particle_excursion
+    type: Anomaly
+    name_zh: 颗粒突增
+    name_en: Particle Excursion
+    domain: fab
+    severity: critical
+    description: >
+      缺陷密度突然跃升。空间分布是关键线索：随机分布指向环境或清洗，
+      同心圆指向旋转类设备，边缘集中指向传片机构或夹持环，
+      规律重复指向光罩或载台污染。
+    metrics: [fab.metric.defect_density]
+    economic_hooks:
+      affects: [yield, scrap_rate, capacity_commit]
+      note: 突增类异常在检出前已连续加工多批，损失随检出延迟线性放大
+
+  - id: fab.anomaly.etch_residue
+    type: Anomaly
+    name_zh: 蚀刻残留
+    name_en: Etch Residue
+    domain: fab
+    severity: high
+    description: >
+      蚀刻后应去除区域残留材料，造成接触未开或图形桥连。多源于终点检测
+      失效、腔体聚合物累积改变选择比、或前层膜厚偏厚导致蚀刻量不足。
+    metrics: [fab.metric.etch_depth, fab.metric.defect_density]
+    economic_hooks:
+      affects: [yield, rework_rate]
+      note: 轻微残留可补蚀刻挽回，桥连型残留通常判废
+
+  - id: fab.anomaly.cmp_scratch
+    type: Anomaly
+    name_zh: CMP 划伤
+    name_en: CMP Scratch
+    domain: fab
+    severity: high
+    description: >
+      研磨造成的线状机械损伤。研磨液粒径团聚、研磨垫寿命末期表面硬化、
+      压力过高、或垫面修整(Conditioning)不足均可致。金属层划伤易引发短路。
+    metrics: [fab.metric.defect_density]
+    economic_hooks:
+      affects: [yield, scrap_rate, cost_per_unit]
+      note: 划伤率随研磨垫使用时长上升，换垫周期是良率与耗材成本的直接权衡
+
+  - id: fab.anomaly.implant_dose_drift
+    type: Anomaly
+    name_zh: 注入剂量漂移
+    name_en: Implant Dose Drift
+    domain: fab
+    severity: high
+    description: >
+      实际注入剂量偏离设定值，通常由束流测量系统污染、法拉第杯读数偏差或
+      离子源老化引起。前段无直接量测，多经方阻或 WAT Vt 间接暴露，
+      检出滞后是其主要风险特征。
+    metrics: [fab.metric.sheet_resistance, fab.metric.wat_vt]
+    economic_hooks:
+      affects: [yield, scrap_rate, capacity_commit]
+      note: 检出滞后数十道工序，暴露时已沉没大量加工成本
+
+  - id: fab.anomaly.scanner_down
+    type: Anomaly
+    name_zh: 光刻机非计划停机
+    name_en: Scanner Unscheduled Down
+    domain: fab
+    severity: critical
+    description: >
+      曝光设备突发故障。因光刻通常为瓶颈，其停机同时造成上游 WIP 堆积
+      与下游断流，且产能损失不可由后续工序补偿。
+    metrics: [core.metric.oee, core.metric.wip, core.metric.throughput]
+    economic_hooks:
+      affects: [throughput, capacity_commit, cycle_time, equipment_oee]
+      note: 瓶颈停机时数近似线性折算为确定性产出损失
+  - id: fab.anomaly.film_thickness_dev
+    type: Anomaly
+    name_zh: 膜厚偏移/均匀性超规
+    name_en: Film Thickness Deviation
+    domain: fab
+    severity: high
+    description: '沉积膜层厚度偏离目标值或片内均匀性超标。判别要点在偏移的时空形态： 片内径向剖面形状（中心厚的钟形 / 边缘厚的鞍形）指向沉积源几何与 靶材侵蚀轮廓，片间单调漂移指向耗材寿命或腔体壁累积，
+      批间跳变且边界清晰指向配方误用，同腔首片偏离而后续回稳指向 腔体状态未预处理。
+
+      '
+    metrics:
+    - fab.metric.film_thickness
+    - fab.metric.sheet_resistance
+    economic_hooks:
+      affects:
+      - yield
+      - rework_rate
+      - scrap_rate
+      - cycle_time
+      note: '介电层膜厚偏移直接改变层间电容与击穿裕度，金属层偏移改变方阻， 两者都要到 WAT/CP 才充分暴露，检出延迟长；且膜厚不足无法回补， 过厚只有少数层可靠 CMP 修正，多数情况下只能判废
+
+        '
+    provenance:
+      source_type: web
+      ref: https://doi.org/10.3390/molecules28227660
+      confidence: medium
+      created_at: '2026-08-28'
+      reviewed_by: null

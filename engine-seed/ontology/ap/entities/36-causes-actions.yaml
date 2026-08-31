@@ -1,0 +1,346 @@
+# ap 层 · 根因与处置动作
+default_provenance:
+  source_type: model_prior
+  ref: null
+  confidence: medium
+  created_at: "2026-08-26"
+  reviewed_by: null
+
+entities:
+  # ---------------- 根因 ----------------
+  - id: ap.cause.pad_contamination
+    type: Cause
+    name_zh: 焊垫污染
+    name_en: Bond Pad Contamination
+    domain: ap
+    description: >
+      焊垫表面有机残留、氧化或溢胶覆盖，阻碍金属间化合物形成。
+      来源可能在前段（钝化层残留）或后段（装片溢胶）。
+    economic_hooks: {affects: [yield, rework_rate], note: 前后段责任划分影响改善责任归属}
+
+  - id: ap.cause.capillary_wear
+    type: Cause
+    name_zh: 瓷嘴磨损
+    name_en: Capillary Wear
+    domain: ap
+    description: >
+      键合瓷嘴端面磨损或积屑，改变超声能量传递效率。特征是不良集中于
+      特定机台特定线位，且随键合次数累积恶化。
+    economic_hooks: {affects: [yield, cost_per_unit], note: 按键合次数定期更换，延用则不良率抬升}
+
+  - id: ap.cause.bond_param_drift
+    type: Cause
+    name_zh: 键合参数漂移
+    name_en: Bond Parameter Drift
+    domain: ap
+    description: 超声换能器效率衰退或加热台温度偏移，致实际键合能量偏离设定。
+    economic_hooks: {affects: [yield], note: 需定期以拉力/剪切数据校核参数有效性}
+
+  - id: ap.cause.emc_moisture
+    type: Cause
+    name_zh: 塑封料吸湿
+    name_en: Mold Compound Moisture
+    domain: ap
+    description: >
+      塑封料开封后吸湿或超期使用，模压时水分汽化形成空洞与分层。
+      是典型的材料状态型根因，与设备无关。
+    economic_hooks: {affects: [yield, scrap_rate, cost_per_unit], note: 返烤可挽回，超期料须报废}
+
+  - id: ap.cause.blade_wear
+    type: Cause
+    name_zh: 刀片磨损/崩齿
+    name_en: Dicing Blade Wear / Chipping
+    domain: ap
+    description: 切割刀磨耗或局部崩齿，切割负荷上升致崩边加剧。
+    economic_hooks: {affects: [yield, cost_per_unit], note: 高频耗材，寿命曲线末段风险陡增}
+
+  - id: ap.cause.grind_wheel_clog
+    type: Cause
+    name_zh: 砂轮堵塞
+    name_en: Grind Wheel Clogging
+    domain: ap
+    description: 砂轮磨屑堵塞降低切削效率，实际压力上升引入亚表面微裂纹。
+    economic_hooks: {affects: [yield, scrap_rate], note: 引入的裂纹当站不可检，属延迟型风险}
+
+  - id: ap.cause.epoxy_bleed
+    type: Cause
+    name_zh: 装片胶溢流
+    name_en: Epoxy Bleed Out
+    domain: ap
+    description: 点胶量过多或胶体黏度偏低致胶体溢出至焊垫区，直接造成键合不粘。
+    economic_hooks: {affects: [yield, rework_rate], note: 跨工序传导型根因，装片致键合不良}
+
+  - id: ap.cause.probe_card_wear
+    type: Cause
+    name_zh: 测试治具磨损
+    name_en: Probe Card / Socket Wear
+    domain: ap
+    description: >
+      探针或测试座接触面磨损氧化致接触电阻上升，产生伪失效。
+      特征为重测通过率高且失效集中于特定 Site。
+    economic_hooks: {affects: [yield, cost_per_unit], note: 伪失效造成良品过杀，损失被误计为品质问题}
+
+  - id: ap.cause.reflow_profile_drift
+    type: Cause
+    name_zh: 回流曲线漂移
+    name_en: Reflow Profile Drift
+    domain: ap
+    description: 回流炉温区衰退或链速偏移致实际受热曲线偏离设定。
+    economic_hooks: {affects: [yield], note: 需定期以炉温曲线仪校核}
+
+  - id: ap.cause.fixture_shortage
+    type: Cause
+    name_zh: 治具/载具短缺
+    name_en: Fixture & Carrier Shortage
+    domain: ap
+    description: >
+      测试治具、烧机板或载具数量不足，机台可用但无法开工。
+      是后段 WIP 堆积中容易被忽略的非设备型成因。
+    economic_hooks: {affects: [throughput, cycle_time, capacity_commit], note: 治具投资不足会隐性锁死产能}
+
+  # ---------------- 处置动作 ----------------
+  - id: ap.action.hold_lot
+    type: Action
+    name_zh: 扣留批次
+    name_en: Hold Lot
+    domain: ap
+    description: 冻结受影响批次并圈定同机台同时段关联批次，防止流入不可逆工序。
+    economic_hooks: {affects: [cycle_time, capacity_commit], note: 塑封为不可逆节点，此前止损价值最高}
+
+  - id: ap.action.plasma_clean_rerun
+    type: Action
+    name_zh: 追加等离子清洁
+    name_en: Additional Plasma Clean
+    domain: ap
+    description: 对疑似焊垫污染批次补做等离子清洁后重新键合验证。
+    economic_hooks: {affects: [yield, cost_per_unit], note: 成本低见效快，是 NSOP 的首选处置}
+
+  - id: ap.action.replace_capillary
+    type: Action
+    name_zh: 更换瓷嘴
+    name_en: Replace Capillary
+    domain: ap
+    description: 更换键合瓷嘴并跑首件拉力确认恢复。
+    economic_hooks: {affects: [yield, cost_per_unit, equipment_oee], note: 换嘴需停机与首件验证}
+
+  - id: ap.action.bond_param_doe
+    type: Action
+    name_zh: 键合参数优化
+    name_en: Bond Parameter DOE
+    domain: ap
+    description: >
+      以功率-压力-时间-温度做实验设计重建工艺窗口，适用于线材批号切换
+      或持续性不粘。须以拉力与剪切数据双指标验证。
+    economic_hooks: {affects: [yield, rework_rate], note: 见效慢但根治，避免反复补偿}
+
+  - id: ap.action.bake_emc
+    type: Action
+    name_zh: 塑封料返烤
+    name_en: Bake Mold Compound
+    domain: ap
+    description: 对吸湿塑封料按规范返烤除湿；超过开封期限者直接报废不返烤。
+    economic_hooks: {affects: [yield, cost_per_unit], note: 返烤成本远低于空洞造成的报废}
+
+  - id: ap.action.replace_blade
+    type: Action
+    name_zh: 更换/修整切割刀
+    name_en: Replace or Dress Dicing Blade
+    domain: ap
+    description: 更换刀片或做修刀恢复切削锋利度，换后首件量测崩边确认。
+    economic_hooks: {affects: [yield, cost_per_unit], note: 提前换刀是崩边率与耗材成本的平衡决策}
+
+  - id: ap.action.adjust_dispense
+    type: Action
+    name_zh: 调整点胶参数
+    name_en: Adjust Dispense Parameters
+    domain: ap
+    description: 修正点胶量、针头高度或胶体温控，抑制溢胶与空洞。
+    economic_hooks: {affects: [yield, cost_per_unit], note: 同时改善键合不粘与装片空洞}
+
+  - id: ap.action.replace_probe_card
+    type: Action
+    name_zh: 更换/清洗测试治具
+    name_en: Replace or Clean Probe Card
+    domain: ap
+    description: >
+      清洗或更换探针卡与测试座，并对疑似伪失效批次重测。
+      重测前须先确认治具已恢复，否则重测数据无效。
+    economic_hooks: {affects: [yield, cost_per_unit], note: 挽回被过杀的良品，直接回收可交付数量}
+
+  - id: ap.action.retest
+    type: Action
+    name_zh: 重测
+    name_en: Retest
+    domain: ap
+    description: >
+      对失效品重新测试以区分伪失效与真实失效。重测次数须受规范限制，
+      无限重测等于放宽标准。
+    economic_hooks: {affects: [yield, throughput], note: 占用测试产能，需权衡挽回量与产能损失}
+
+  - id: ap.action.reallocate_fixture
+    type: Action
+    name_zh: 调配治具/改派机台
+    name_en: Reallocate Fixture or Machine
+    domain: ap
+    description: 跨产品调配测试治具与烧机板，或改派至等价机台缓解堆积。
+    economic_hooks: {affects: [throughput, cycle_time], note: 短期缓解，长期需补充治具投资}
+  - id: ap.cause.efo_electrode_fouling
+    type: Cause
+    name_zh: EFO 电极污染/磨损
+    name_en: EFO Electrode Fouling & Wear
+    domain: ap
+    description: '打火烧球(EFO)电极积附金属氧化物并随放电次数磨损，放电间隙漂移后 无法稳定成球，触发烧球失败报警并停机。特征是报警集中在成球阶段 而非焊接阶段，且随打线点数累积逐渐加重，清洗或更换电极后立即恢复。
+
+      '
+    economic_hooks:
+      affects:
+      - equipment_oee
+      - throughput
+      - rework_rate
+      note: 属可预测型劣化，清洗周期是停机频次与人力成本的权衡点
+    provenance:
+      source_type: model_prior
+      ref: null
+      confidence: medium
+      created_at: '2026-08-28'
+      reviewed_by: null
+  - id: ap.cause.wire_feed_jam
+    type: Cause
+    name_zh: 送线卡线/断线
+    name_en: Wire Feed Jam & Wire Break
+    domain: ap
+    description: '线材在线轴、张力器或夹爪处缠绕、打结或断裂，导致送线中断而停机。 与瓷嘴磨损的区别在于：卡线是突发的送线通路故障，穿线复位后即恢复； 瓷嘴磨损是渐进的键合质量劣化，不必然停机。
+
+      '
+    economic_hooks:
+      affects:
+      - equipment_oee
+      - throughput
+      note: 单次停机短但频次高，累积可用率损失容易被低估
+    provenance:
+      source_type: model_prior
+      ref: null
+      confidence: medium
+      created_at: '2026-08-28'
+      reviewed_by: null
+  - id: ap.cause.bond_head_servo_fault
+    type: Cause
+    name_zh: 键合头伺服/Z 轴异常
+    name_en: Bond Head Servo & Z-axis Fault
+    domain: ap
+    description: '键合头 Z 轴定位或超声换能器驱动异常，触发保护停机。 判别依据是报警指向轴系或换能器自检，而非成球与送线环节； 这类停机通常需原厂介入，不属厂内可自行恢复的耗材类停机。
+
+      '
+    economic_hooks:
+      affects:
+      - equipment_oee
+      - capacity_commit
+      note: 修复依赖外部资源，停机时长的方差远大于耗材类停机
+    provenance:
+      source_type: model_prior
+      ref: null
+      confidence: medium
+      created_at: '2026-08-28'
+      reviewed_by: null
+  - id: ap.action.clean_efo_electrode
+    type: Action
+    name_zh: 清洗/更换 EFO 电极
+    name_en: Clean or Replace EFO Electrode
+    domain: ap
+    description: '按打线点数计数清洗或更换 EFO 电极，恢复放电间隙。 与更换瓷嘴不同：瓷嘴管的是焊接界面质量，电极管的是成球稳定性， 两者寿命周期与判废依据都不同，不能互相替代。
+
+      '
+    economic_hooks:
+      affects:
+      - equipment_oee
+      - rework_rate
+      note: 按计数预防性清洗可把非计划停机换成短时计划停机
+    provenance:
+      source_type: model_prior
+      ref: null
+      confidence: medium
+      created_at: '2026-08-28'
+      reviewed_by: null
+  - id: ap.cause.flux_print_defect
+    type: Cause
+    name_zh: 助焊剂印刷不良
+    name_en: Flux Print Defect
+    domain: ap
+    description: '植球前助焊剂印刷量不足、未填满或渗出。荒川化学的技术资料把黏度列为 影响印刷性的主要物性：黏度过低易渗出并在焊接时桥连，黏度过高则难以 填满印刷区域而出现缺失与未填满。印刷条件（刮刀材质与角度、印压、
+      印速、金属掩膜形状、基板与掩膜间隙及分离速度）需针对基板与助焊剂 成对优化。另一条独立机理是黏性不足致锡球固定不住而移位。 判别要点：缺球与连球同批共存、且分布跟印刷版面走（而非跟炉内温区走） 时指向本成因——这是与回流曲线漂移最快的区分方式。
+
+      '
+    economic_hooks:
+      affects:
+      - yield
+      - rework_rate
+      note: 印刷条件是可调工艺窗口，纠正成本低于换料或改炉温曲线
+    provenance:
+      source_type: web
+      ref: https://pinealpha.jp/fluxroom/en/fluxprintfailure.html
+      confidence: medium
+      created_at: '2026-08-28'
+      reviewed_by: null
+  - id: ap.action.reball_rework
+    type: Action
+    name_zh: 补植/重植锡球
+    name_en: Reball Rework
+    domain: ap
+    description: '对缺球接点补植锡球或整体去球重植，重植后须复量共面性并复检外观。 与更换耗材类动作不同：本动作作用于产品而非设备，因此每次执行都 追加一次热历程，返工次数须受规范限制。连球一般不走本动作——
+      桥连处已形成金属连接，去球重植的把握远低于补植缺失接点。
+
+      '
+    economic_hooks:
+      affects:
+      - rework_rate
+      - yield
+      - cost_per_unit
+      note: 后段少数可挽回的不良，返工成本远低于判废，但热历程累积是隐性代价
+    provenance:
+      source_type: model_prior
+      ref: null
+      confidence: medium
+      created_at: '2026-08-28'
+      reviewed_by: null
+  - id: ap.cause.placement_fixture_clog
+    type: Cause
+    name_zh: 植球治具孔位堵塞
+    name_en: Ball Placement Fixture Aperture Clogging
+    domain: ap
+    description: '植球治具/掩膜孔位被助焊剂残渣、错位或卡滞的锡球、或治具内壁积累物 堵塞，导致锡球无法落位而出现缺球。判别要点：缺球位置与治具孔位呈 固定一一对应（同一孔位反复缺、且批次间位置不漂移），而非跟印刷版面
+      或炉内温区走。堵塞通常随使用次数累积渐进恶化，清洁或更换治具后 立即恢复。与助焊剂印刷不良的关键区分：前者是*涂布环节*涂得对不对， 本成因是*植球环节*孔位通不通——两者都作用于植球前，但失效部位与
+      处置手段不同，不能合并。
+
+      '
+    economic_hooks:
+      affects:
+      - yield
+      - rework_rate
+      note: 治具清洁是计划性维护，纠正成本低于返工，堵塞率与清洁周期的权衡属耗材/维护决策
+    provenance:
+      source_type: model_prior
+      ref: null
+      confidence: medium
+      created_at: '2026-08-28'
+      reviewed_by: null
+  - id: ap.action.clean_placement_fixture
+    type: Action
+    name_zh: 清洁/更换植球治具
+    name_en: Clean or Replace Ball Placement Fixture
+    domain: ap
+    description: '对植球治具/掩膜孔位做清洁除残渣，或用清洁替代件换上、对换下件排程 深度清洁。换后须跑首件确认缺球消失。与 reball_rework 不同：本动作 作用于治具（生产工具），纠正的是缺球的上游成因；reball_rework
+      作用于 已缺球的成品，是产品级返工。两者一因一果，处置对象不同。
+
+      '
+    economic_hooks:
+      affects:
+      - yield
+      - rework_rate
+      - equipment_oee
+      note: 按堵塞累积频率排程清洁，把非计划停机换成可控维护，同时从源头压低缺球率
+    provenance:
+      source_type: model_prior
+      ref: null
+      confidence: medium
+      created_at: '2026-08-28'
+      reviewed_by: null

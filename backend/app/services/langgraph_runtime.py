@@ -72,6 +72,34 @@ class RoundGraphEngine:
             return "repairable"
         return "system"
 
+    @staticmethod
+    def _is_baseline_gate_failure(error: str, outputs: list[dict[str, Any]]) -> bool:
+        """Treat a focus-node SHACL error as baseline-only only when the node
+        cannot be found in the current round's candidate payloads.
+
+        Older logic classified every report containing ``Focus Node`` as a
+        baseline failure.  Candidate-local SHACL violations consequently
+        quarantined otherwise valid business and simulation files.  This check
+        keeps the conservative baseline behavior while preserving independent
+        candidate publication.
+        """
+        text = str(error or "")
+        if "constraint violation" not in text.casefold() or "focus node" not in text.casefold():
+            return False
+        candidate_text_parts: list[str] = []
+        for output in outputs:
+            for path in output.get("semantic_files") or []:
+                try:
+                    candidate_text_parts.append(Path(str(path)).read_text(encoding="utf-8", errors="ignore"))
+                except OSError:
+                    continue
+        candidate_text = "\n".join(candidate_text_parts).casefold()
+        focus_nodes = re.findall(r"Focus Node:\s*(<[^>]+>|[^\s\\r\\n]+)", text, flags=re.IGNORECASE)
+        focus_nodes = [token.strip("<>").casefold() for token in focus_nodes if token.strip("<>")]
+        if focus_nodes:
+            return not any(token in candidate_text for token in focus_nodes)
+        return True
+
     def _stage(self, run_id: str, round_number: int, stage: str, progress: float) -> None:
         with SessionLocal() as db:
             run = db.get(Run, run_id)
@@ -378,7 +406,7 @@ class RoundGraphEngine:
         # failure, not a candidate-local defect.  Do not launch probe commands
         # (or model repairs) for every file in that case; quarantine the new
         # semantic batch and continue with independent artifacts immediately.
-        baseline_gate = "constraint violation" in gate_text.casefold() and "focus node" in gate_text.casefold()
+        baseline_gate = self._is_baseline_gate_failure(gate_text, outputs)
         valid_semantic = [] if baseline_gate else await isolate(semantic)
         if baseline_gate:
             for path in semantic:
@@ -416,7 +444,8 @@ class RoundGraphEngine:
                     try: shutil.move(str(path), str(target)); quarantined.append(str(target))
                     except OSError: pass
                     with SessionLocal() as db:
-                        self.controller.emit(db, state["run_id"], "candidate_quarantined", f"候选已隔离：{path.name}", {"round": state["round_number"], "path": str(target)}, "warning")
+                        reason = rejected_reasons.get(str(path), "候选级门禁未通过")
+                        self.controller.emit(db, state["run_id"], "candidate_quarantined", f"候选已隔离：{path.name}；{reason[-500:]}", {"round": state["round_number"], "path": str(target), "error": reason[-3000:]}, "warning")
         except Exception as exc:
             # If precheck rejected every semantic file, try the application
             # service's own candidate-level validation once. This preserves

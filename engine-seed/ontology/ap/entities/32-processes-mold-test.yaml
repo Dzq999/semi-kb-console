@@ -1,0 +1,132 @@
+# ap 层 · 工序（塑封/成型/测试）
+default_provenance:
+  source_type: model_prior
+  ref: null
+  confidence: high
+  created_at: "2026-08-26"
+  reviewed_by: null
+
+entities:
+  - id: ap.process.molding
+    type: Process
+    name_zh: 压模成型
+    name_en: Molding
+    domain: ap
+    stage: ap.stage.encapsulation
+    equipment: [ap.equip.mold_press]
+    materials: [ap.material.mold_compound]
+    description: >
+      加热熔融塑封料经转注压入模腔包覆结构。模温、压力与转注速度决定
+      流动前沿形态，失衡产生空洞、冲丝或包封不全。塑封后缺陷基本不可返工。
+    parameters: [ap.param.mold_temp, ap.param.mold_pressure, ap.param.transfer_speed]
+    metrics: [ap.metric.void_ratio]
+    economic_hooks:
+      affects: [yield, scrap_rate]
+      note: 不可逆工序，此后发现的缺陷全部转报废
+
+  - id: ap.process.pmc
+    type: Process
+    name_zh: 后固化
+    name_en: PMC (Post Mold Cure)
+    domain: ap
+    stage: ap.stage.encapsulation
+    equipment: [ap.equip.pmc_oven]
+    materials: [ap.material.mold_compound]
+    description: 长时间烘烤使塑封料完全交联达到最终机械与热性能。
+    parameters: [ap.param.cure_temp]
+    economic_hooks: {affects: [cycle_time], note: 数小时批式工序，CT 固定构成项}
+
+  - id: ap.process.laser_mark
+    type: Process
+    name_zh: 激光打标
+    name_en: Laser Marking
+    domain: ap
+    stage: ap.stage.final_form
+    equipment: [ap.equip.laser_marker]
+    description: 在封装表面打印型号、批号与追溯码。打标深度过深损伤塑封体。
+    economic_hooks: {affects: [yield], note: 打标错误导致成品混料，追溯代价高}
+
+  - id: ap.process.ball_mount
+    type: Process
+    name_zh: 植球
+    name_en: Ball Mount
+    domain: ap
+    stage: ap.stage.final_form
+    equipment: [ap.equip.ball_mounter]
+    description: >
+      BGA 类封装植锡球并回流形成外部接点。助焊剂涂布量与回流曲线
+      决定连球、缺球与共面性。
+    parameters: [ap.param.reflow_peak_temp]
+    metrics: [ap.metric.coplanarity]
+    economic_hooks:
+      affects: [yield, rework_rate]
+      note: 缺球可局部补植返工，连球通常判废
+
+  - id: ap.process.singulation
+    type: Process
+    name_zh: 切筋分离
+    name_en: Singulation / Trim & Form
+    domain: ap
+    stage: ap.stage.final_form
+    equipment: [ap.equip.singulation_saw]
+    description: 切除连接筋分离成单颗成品，引脚成型至规格角度与共面度。
+    parameters: [ap.param.cut_feed_speed]
+    metrics: [ap.metric.coplanarity]
+    economic_hooks: {affects: [yield], note: 共面性不良影响客户端 SMT 贴装良率}
+
+  - id: ap.process.final_test
+    type: Process
+    name_zh: 成品终测
+    name_en: Final Test (FT)
+    domain: ap
+    stage: ap.stage.test
+    equipment: [ap.equip.final_tester]
+    materials: [core.material.lot]
+    description: >
+      在测试机与治具上逐颗测功能、时序与直流参数，按 Bin 分级。
+      测试时间与并测数(Parallelism)决定单位测试成本，治具磨损会造成
+      接触不良型伪失效。
+    parameters: [ap.param.test_time]
+    metrics: [ap.metric.ft_yield, core.metric.yield]
+    economic_hooks:
+      affects: [yield, throughput, capacity_commit, cost_per_unit]
+      note: 测试为后段最主要产能与成本项，缩测与提高并测数是核心降本手段
+
+  - id: ap.process.burn_in
+    type: Process
+    name_zh: 烧机
+    name_en: Burn-in
+    domain: ap
+    stage: ap.stage.test
+    equipment: [ap.equip.burn_in_oven]
+    description: >
+      高温加偏压加速筛除早期失效(Infant Mortality)。车规与工规产品必需，
+      历时数小时至数十小时，是后段 CT 的最大单项。
+    parameters: [ap.param.burn_in_temp]
+    metrics: [ap.metric.ft_yield]
+    economic_hooks:
+      affects: [cycle_time, cost_per_unit, capacity_commit]
+      note: 烧机板与烤箱容量决定通过能力，是车规产品的产能硬约束
+
+  - id: ap.process.aoi
+    type: Process
+    name_zh: 自动外观检验
+    name_en: AOI (Automated Optical Inspection)
+    domain: ap
+    stage: ap.stage.test
+    equipment: [ap.equip.aoi]
+    description: 光学检查封装外观、打标与引脚形态，拦截机械类不良出货。
+    metrics: [ap.metric.coplanarity, ap.metric.chipping_size]
+    economic_hooks: {affects: [yield], note: 出货前最后拦截点，误判率影响过杀与漏出平衡}
+
+  - id: ap.process.packing
+    type: Process
+    name_zh: 包装出货
+    name_en: Packing & Shipping
+    domain: ap
+    stage: ap.stage.test
+    equipment: [ap.equip.taping_machine]
+    materials: [core.material.lot]
+    description: 依客户要求以卷带/管装/托盘包装并做防潮处理，完成交付。
+    metrics: [core.metric.cycle_time]
+    economic_hooks: {affects: [capacity_commit], note: 交付完成点，CT 在此结算}

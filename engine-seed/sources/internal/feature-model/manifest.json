@@ -1,0 +1,16 @@
+{
+  "source_id": "internal.feature_model.ai_fab",
+  "display_name": "AI Fab实体特征模型",
+  "classification": "internal_confidential",
+  "format": "xlsx",
+  "canonical_file": "sources/internal/feature-model/raw/AI-Fab-Feature-Model.xlsx",
+  "sha256": "c23a80be00b1a8937a6f3b258a64a0556e1704fe663bf022435dad78d6069ac8",
+  "size_bytes": 140139,
+  "source_modified_at": "2026-08-29T18:02:20+08:00",
+  "ingested_at": "2026-08-29T00:00:00+08:00",
+  "authority": "internal_feature_team",
+  "allowed_uses": ["ontology_alignment", "validation", "internal_scenario_generation"],
+  "external_publication": false,
+  "validation_role": "primary_internal_source",
+  "notes": "原始文件只读；标准化结果由scripts/source_ingest.py生成。"
+}

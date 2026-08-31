@@ -1,0 +1,23 @@
+schema_version: '2.0'
+scenario:
+  name: 厂务电力约束下的光刻产能恢复
+  model_ref: business/models/fab-baseline.yaml
+  description: 通用 Fab What-if；模拟厂务电力/制冷约束缓解后光刻产能恢复的经营影响，输入为情景假设，不代表现场承诺。
+  interventions:
+  - target_ref: fab.equip.scanner
+    variable: lithography_capacity
+    operation: add
+    value: 1000
+  - target_ref: fab.action.recipe_adjust
+    variable: intervention_opex
+    operation: set
+    value: 2000000
+  assertions:
+  - type: nondecreasing
+    variable: constrained_input
+  - type: nondecreasing
+    variable: saleable_units
+  investment:
+    one_time: 6000000
+    unit: CNY
+  id: sim.agent.run-c163313475f54c2f.r1.run-c163313475f54c2f-a02.1

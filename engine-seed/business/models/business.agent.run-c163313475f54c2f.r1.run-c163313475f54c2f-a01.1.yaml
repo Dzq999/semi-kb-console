@@ -1,0 +1,17 @@
+schema_version: '2.0'
+model:
+  id: business.agent.run-c163313475f54c2f.r1.run-c163313475f54c2f-a01.1
+  name: 通用晶圆厂经营模型
+  domain: semiconductor.fab
+  period: month
+  currency: CNY
+  template_ref: business/templates/fab.yaml
+  dataset_ref: business/datasets/fab-demo-assumptions.yaml
+  outputs:
+  - process_yield
+  - constrained_input
+  - saleable_units
+  - revenue
+  - variable_cost
+  - unit_cost
+  - profit

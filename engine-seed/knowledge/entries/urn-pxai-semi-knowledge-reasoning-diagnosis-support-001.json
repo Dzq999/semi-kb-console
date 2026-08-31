@@ -1,0 +1,22 @@
+{
+  "id": "urn:pxai:semi:knowledge:reasoning:diagnosis-support-001",
+  "title": "由异常诊断关系推导根因分析支持关系",
+  "domain": "fab",
+  "summary": "分析工作流对异常的明确诊断可作为其支持该异常根因分析的语义依据。",
+  "content": "在现有半导体知识本体中，分析工作流通过diagnosesAnomaly关系指向具体异常，表示该工作流已对异常开展诊断。对于需要统一检索诊断能力和根因分析能力的场景，可在只读推理层将该关系转换为enablesRCAFor关系，从而支持按异常检索可用的根因分析工作流。该结论是基于本体语义的模型先验，不是现场实测事实，也不等价于根因已经确认。",
+  "source_refs": [
+    "known_ontology:urn:pxai:semi:diagnosesAnomaly",
+    "known_ontology:urn:pxai:semi:enablesRCAFor"
+  ],
+  "related_iris": [
+    "urn:pxai:semi:diagnosesAnomaly",
+    "urn:pxai:semi:enablesRCAFor",
+    "urn:pxai:semi:Anomaly",
+    "urn:pxai:semi:AIEnabledRootCauseAnalysisWorkflow"
+  ],
+  "confidence": "medium",
+  "provenance": {
+    "source_type": "web",
+    "source_ref": "known_ontology:urn:pxai:semi:diagnosesAnomaly"
+  }
+}

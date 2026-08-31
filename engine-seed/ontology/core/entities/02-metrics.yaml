@@ -1,0 +1,117 @@
+# core 层 · 指标
+# 这些指标是第三层经营模型的换算入口，economic_hooks 在此最密集
+default_provenance:
+  source_type: model_prior
+  ref: null
+  confidence: high
+  created_at: "2026-08-26"
+  reviewed_by: null
+
+entities:
+  - id: core.metric.wip
+    type: Metric
+    name_zh: 在制量
+    name_en: WIP (Work In Process)
+    domain: core
+    unit: lot / wafer / kpcs
+    description: >
+      某时刻在线未完工的批次或片数。按站点、制程段、产品分层统计。
+      WIP 分布形态（是否在某站点异常堆积）是产线健康度的第一观测量。
+    economic_hooks:
+      affects: [cycle_time, throughput, capacity_commit]
+      note: Little's Law — Cycle Time = WIP / Throughput，WIP 失控直接拉长交期
+
+  - id: core.metric.cycle_time
+    type: Metric
+    name_zh: 生产周期
+    name_en: Cycle Time
+    domain: core
+    unit: day
+    typical_range: "前段 40~90 天（视层数）；后段 3~10 天"
+    description: >
+      批次从投料到完工的历时。常用 CT/Layer 或 X-Factor（实际 CT ÷ 纯加工时间）
+      做跨产品可比化，X-Factor 通常 2~4，越高说明等待浪费越大。
+    economic_hooks:
+      affects: [cycle_time, capacity_commit, cost_per_unit]
+      note: 交期是接单能力的一部分，CT 缩短等价于释放在制资金占用
+
+  - id: core.metric.yield
+    type: Metric
+    name_zh: 良率
+    name_en: Yield
+    domain: core
+    unit: "%"
+    description: >
+      合格产出占投入的比例。需区分 Line Yield（流程存活率）与
+      Die Yield / Test Yield（功能良率），两者成因体系不同。
+    economic_hooks:
+      affects: [yield, cost_per_unit, capacity_commit]
+      note: 良率是半导体最高杠杆变量，1% 良率提升近似等比放大毛利
+
+  - id: core.metric.oee
+    type: Metric
+    name_zh: 设备综合效率
+    name_en: OEE (Overall Equipment Effectiveness)
+    domain: core
+    unit: "%"
+    typical_range: "60~85%（前段关键机台）"
+    description: >
+      可用率 × 性能率 × 良品率。半导体常配合 E10 状态模型
+      （Productive / Standby / Engineering / Scheduled Down / Unscheduled Down）拆解。
+    economic_hooks:
+      affects: [equipment_oee, throughput, cost_per_unit]
+      note: 前段设备资本密集，OEE 每点提升直接摊薄折旧成本
+
+  - id: core.metric.throughput
+    type: Metric
+    name_zh: 产出率
+    name_en: Throughput
+    domain: core
+    unit: wpm (wafer per month) / kpcs per day
+    description: 单位时间完工产出。与 WIP、Cycle Time 由 Little's Law 三者联动。
+    economic_hooks:
+      affects: [throughput, capacity_commit]
+      note: 产出率对应可交付营收上限
+
+  - id: core.param.cleanroom_particle
+    type: Parameter
+    name_zh: 洁净室悬浮粒子等级
+    name_en: Cleanroom Particle Class
+    domain: core
+    unit: "ISO Class / Class(FS209E)"
+    typical_range: "前段关键区 ISO Class 3~5；后段 ISO Class 6~8"
+    description: >
+      单位体积空气中粒径超标颗粒数。前段光刻与薄膜区要求最严，
+      粒子失控直接转化为缺陷密度上升。
+    economic_hooks:
+      affects: [yield, scrap_rate]
+      note: 粒子超标造成的缺陷通常批量性发生，损失面广
+
+  - id: core.param.cleanroom_temp
+    type: Parameter
+    name_zh: 洁净室温湿度
+    name_en: Cleanroom Temperature & Humidity
+    domain: core
+    unit: "℃ / %RH"
+    typical_range: "22±0.5 ℃, 45±5 %RH"
+    description: >
+      环境温湿度稳定性。影响光阻涂布均匀性、量测机台热漂移、
+      塑封料吸湿状态。属于典型的"环境控制"类节点。
+    economic_hooks:
+      affects: [yield, rework_rate]
+      note: 环境漂移引起的偏移多为渐变型，易被 SPC 趋势规则捕捉
+
+  - id: core.anomaly.wip_bubble
+    type: Anomaly
+    name_zh: WIP 堆积
+    name_en: WIP Bubble
+    domain: core
+    severity: high
+    description: >
+      某站点或制程段 WIP 显著高于正常水位，形成"气泡"并向下游传导断流。
+      成因分四类：设备产能不足(Down/慢机)、上游投料脉冲、
+      配方或治具切换损失、品质异常导致的批量 Hold。
+    metrics: [core.metric.wip, core.metric.cycle_time, core.metric.throughput]
+    economic_hooks:
+      affects: [cycle_time, throughput, capacity_commit, equipment_oee]
+      note: 气泡站点前等待、后饥饿，同时损失交期与稼动

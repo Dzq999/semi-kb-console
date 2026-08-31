@@ -1,0 +1,41 @@
+@prefix semi: <urn:pxai:semi:> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+semi:ChamberShape a sh:NodeShape ;
+  sh:targetClass semi:Chamber ;
+  sh:property [
+    sh:path semi:chamberOf ; sh:minCount 1 ; sh:maxCount 1 ; sh:class semi:Equipment ;
+    sh:message "Chamber必须且只能属于一台Equipment"@zh
+  ] ;
+  sh:property [
+    sh:path semi:chamberCode ; sh:maxCount 1 ; sh:datatype xsd:string
+  ] .
+
+semi:EquipmentShape a sh:NodeShape ;
+  sh:targetClass semi:Equipment ;
+  sh:property [
+    sh:path semi:equipmentCode ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:string
+  ] .
+
+semi:ProcessingEventShape a sh:NodeShape ;
+  sh:targetClass semi:ProcessingEvent ;
+  sh:or (
+    [ sh:property [ sh:path semi:processesLot ; sh:minCount 1 ; sh:class semi:Lot ] ]
+    [ sh:property [ sh:path semi:processesWafer ; sh:minCount 1 ; sh:class semi:Wafer ] ]
+  ) ;
+  sh:property [ sh:path semi:usesEquipment ; sh:minCount 1 ; sh:maxCount 1 ; sh:class semi:Equipment ] ;
+  sh:property [ sh:path semi:executesStep ; sh:minCount 1 ; sh:maxCount 1 ; sh:class semi:Step ] ;
+  sh:property [ sh:path semi:validFrom ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:dateTime ] .
+
+semi:DiagnosticPlaybookShape a sh:NodeShape ;
+  sh:targetClass semi:DiagnosticPlaybook ;
+  sh:property [ sh:path semi:diagnosesAnomaly ; sh:minCount 1 ; sh:maxCount 1 ; sh:class semi:Anomaly ] ;
+  sh:property [ sh:path semi:hasPossibleCause ; sh:minCount 1 ] ;
+  sh:property [ sh:path semi:hasDiagnosticAction ; sh:minCount 1 ; sh:class semi:Action ] .
+
+semi:BusinessVariableShape a sh:NodeShape ;
+  sh:targetClass semi:BusinessVariable ;
+  sh:property [ sh:path semi:identifier ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:string ] ;
+  sh:property [ sh:path semi:unitCode ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:string ] ;
+  sh:property [ sh:path semi:sourceRef ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:string ] .

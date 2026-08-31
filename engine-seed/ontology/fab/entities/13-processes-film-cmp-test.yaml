@@ -1,0 +1,171 @@
+# fab 层 · 工序（薄膜/CMP/量测/电测）
+default_provenance:
+  source_type: model_prior
+  ref: null
+  confidence: high
+  created_at: "2026-08-26"
+  reviewed_by: null
+
+entities:
+  - id: fab.process.pvd_metal
+    type: Process
+    name_zh: PVD 金属沉积
+    name_en: PVD Metal Deposition
+    domain: fab
+    stage: fab.stage.thinfilm
+    equipment: [fab.equip.pvd]
+    materials: [core.material.wafer]
+    description: >
+      物理气相沉积（溅镀）铝/铜/钛等金属层与阻挡层。靶材寿命末期
+      颗粒剥落风险升高，膜厚均匀性随靶材侵蚀轮廓变化。
+    parameters: [fab.param.chamber_pressure, fab.param.pvd_power]
+    metrics: [fab.metric.film_thickness, fab.metric.sheet_resistance, fab.metric.defect_density]
+    economic_hooks:
+      affects: [yield, cost_per_unit, equipment_oee]
+      note: 靶材更换时机是耗材成本与颗粒风险的权衡点
+
+  - id: fab.process.cvd_ild
+    type: Process
+    name_zh: CVD 层间介电沉积
+    name_en: CVD ILD Deposition
+    domain: fab
+    stage: fab.stage.thinfilm
+    equipment: [fab.equip.cvd]
+    materials: [core.material.wafer]
+    description: >
+      沉积层间介电层隔离金属层。填孔能力(Gap Fill)不足会形成空洞，
+      在后续 CMP 或电测阶段暴露为漏电与可靠性问题。
+    parameters: [fab.param.chamber_pressure, fab.param.furnace_temp]
+    metrics: [fab.metric.film_thickness]
+    economic_hooks:
+      affects: [yield]
+      note: 空洞类缺陷多在电测才发现，属延迟暴露型风险
+
+  - id: fab.process.ald_barrier
+    type: Process
+    name_zh: ALD 阻挡层沉积
+    name_en: ALD Barrier Deposition
+    domain: fab
+    stage: fab.stage.thinfilm
+    equipment: [fab.equip.ald]
+    materials: [core.material.wafer]
+    description: >
+      原子层沉积，逐层自限制生长，台阶覆盖性最佳。速率低，
+      单片工序时间长，先进制程中逐渐成为产能约束点。
+    parameters: [fab.param.chamber_pressure, fab.param.furnace_temp]
+    metrics: [fab.metric.film_thickness]
+    economic_hooks:
+      affects: [cycle_time, throughput]
+      note: 沉积速率低导致单位产能成本高
+
+  - id: fab.process.cmp_oxide
+    type: Process
+    name_zh: 氧化层 CMP
+    name_en: Oxide CMP
+    domain: fab
+    stage: fab.stage.cmp
+    equipment: [fab.equip.cmp]
+    materials: [core.material.wafer]
+    description: >
+      研磨介电层实现平坦化，为后续光刻提供焦深余量。研磨垫状态与
+      研磨液粒径分布是划伤与去除率稳定性的主因。
+    parameters: [fab.param.cmp_pressure, fab.param.cmp_platen_speed, fab.param.cmp_slurry_flow]
+    metrics: [fab.metric.film_thickness, fab.metric.defect_density]
+    economic_hooks:
+      affects: [yield, cost_per_unit, rework_rate]
+      note: 研磨垫寿命曲线末段缺陷率抬升，换垫周期直接影响良率与耗材成本
+
+  - id: fab.process.cmp_metal
+    type: Process
+    name_zh: 金属 CMP
+    name_en: Metal CMP
+    domain: fab
+    stage: fab.stage.cmp
+    equipment: [fab.equip.cmp]
+    materials: [core.material.wafer]
+    description: >
+      去除多余金属形成镶嵌结构(Damascene)。过研磨造成碟形凹陷，
+      研磨不足造成金属残留短路，工艺窗口窄。
+    parameters: [fab.param.cmp_pressure, fab.param.cmp_platen_speed, fab.param.cmp_slurry_flow]
+    metrics: [fab.metric.sheet_resistance, fab.metric.defect_density]
+    economic_hooks:
+      affects: [yield, scrap_rate]
+      note: 金属残留导致的短路通常不可挽回
+
+  - id: fab.process.cd_measure
+    type: Process
+    name_zh: CD 量测
+    name_en: CD Measurement
+    domain: fab
+    stage: fab.stage.metrology
+    equipment: [fab.equip.cd_sem]
+    materials: [core.material.wafer]
+    description: >
+      CD-SEM 量测关键尺寸。抽样点位与频率决定异常检出灵敏度，
+      是光刻与蚀刻工艺窗口监控的主要数据源。
+    metrics: [fab.metric.cd_uniformity]
+    economic_hooks:
+      affects: [cycle_time, yield]
+      note: 非增值工序，抽检率是产能与风险暴露窗口的权衡
+
+  - id: fab.process.overlay_measure
+    type: Process
+    name_zh: 套刻精度量测
+    name_en: Overlay Measurement
+    domain: fab
+    stage: fab.stage.metrology
+    equipment: [fab.equip.overlay_metro]
+    materials: [core.material.wafer]
+    description: 量测层间对位偏差，结果回馈 Scanner 做逐批对位补正(APC)。
+    metrics: [fab.metric.overlay_error]
+    economic_hooks:
+      affects: [yield, rework_rate]
+      note: 及时回馈可将偏移在下批修正，避免连续批次失效
+
+  - id: fab.process.defect_scan
+    type: Process
+    name_zh: 缺陷扫描
+    name_en: Defect Inspection
+    domain: fab
+    stage: fab.stage.metrology
+    equipment: [fab.equip.defect_scanner]
+    materials: [core.material.wafer]
+    description: >
+      明场/暗场光学扫描统计缺陷数与分布图。缺陷签名(Signature)的空间
+      分布形态是定位问题机台与工序的关键线索。
+    metrics: [fab.metric.defect_density]
+    economic_hooks:
+      affects: [yield, scrap_rate]
+      note: 缺陷突增的早期检出决定受影响批次数量
+
+  - id: fab.process.wat
+    type: Process
+    name_zh: 晶圆电性测试
+    name_en: WAT (Wafer Acceptance Test)
+    domain: fab
+    stage: fab.stage.wat_cp
+    equipment: [fab.equip.prober]
+    materials: [core.material.wafer]
+    description: >
+      测量 Scribe Line 上工艺控制结构的电学参数（Vt、Rs、Idsat 等），
+      判定工艺是否落在规格内。是前段工艺能力的总结算点。
+    metrics: [fab.metric.wat_vt, fab.metric.sheet_resistance]
+    economic_hooks:
+      affects: [yield, capacity_commit]
+      note: WAT 失效意味着前段全部投入沉没，是损失最重的暴露点
+
+  - id: fab.process.cp_test
+    type: Process
+    name_zh: 晶圆针测
+    name_en: CP (Circuit Probe)
+    domain: fab
+    stage: fab.stage.wat_cp
+    equipment: [fab.equip.prober]
+    materials: [core.material.wafer, core.material.lot]
+    description: >
+      逐 die 探针测试功能与性能，产出 Wafer Map 与良率分级。
+      结果决定后段投料数量与分选策略。
+    metrics: [core.metric.yield]
+    economic_hooks:
+      affects: [yield, capacity_commit, cost_per_unit]
+      note: CP 良率是前后段交接的计价基准，也是后段产能规划输入

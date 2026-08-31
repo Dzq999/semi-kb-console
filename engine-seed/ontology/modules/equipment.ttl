@@ -1,0 +1,43 @@
+@prefix semi: <urn:pxai:semi:> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+<urn:pxai:semi:equipment> a owl:Ontology ;
+  owl:imports <urn:pxai:semi:common>, <urn:pxai:semi:facility> .
+
+semi:Equipment a owl:Class ; rdfs:subClassOf semi:PhysicalEntity .
+semi:EquipmentType a owl:Class ; rdfs:subClassOf semi:CatalogConcept .
+semi:EquipmentGroup a owl:Class ; rdfs:subClassOf semi:InformationEntity .
+semi:Chamber a owl:Class ;
+  rdfs:subClassOf semi:PhysicalEntity,
+    [ a owl:Restriction ; owl:onProperty semi:chamberOf ;
+      owl:qualifiedCardinality "1"^^xsd:nonNegativeInteger ; owl:onClass semi:Equipment ] .
+semi:Subsystem a owl:Class ; rdfs:subClassOf semi:PhysicalEntity .
+semi:Part a owl:Class ; rdfs:subClassOf semi:PhysicalEntity .
+semi:Tooling a owl:Class ; rdfs:subClassOf semi:PhysicalEntity .
+semi:EquipmentCapability a owl:Class ; rdfs:subClassOf semi:InformationEntity .
+
+semi:hasChamber a owl:ObjectProperty ;
+  rdfs:domain semi:Equipment ; rdfs:range semi:Chamber ; owl:inverseOf semi:chamberOf .
+semi:chamberOf a owl:ObjectProperty, owl:FunctionalProperty ;
+  rdfs:domain semi:Chamber ; rdfs:range semi:Equipment .
+# `hasSubsystem` is shared by physical equipment and facility digital twins.
+# Using an OWL union domain prevents RDFS/OWL reasoning from incorrectly
+# inferring that a FacilityDigitalTwin is an Equipment (which would trigger
+# equipmentCode SHACL constraints intended only for physical tools).
+semi:EquipmentOrFacilityDigitalTwin a owl:Class ;
+  owl:unionOf ( semi:Equipment semi:FacilityDigitalTwin ) .
+semi:hasSubsystem a owl:ObjectProperty ;
+  rdfs:domain semi:EquipmentOrFacilityDigitalTwin ;
+  rdfs:range semi:Subsystem .
+semi:hasInstalledPart a owl:ObjectProperty ; rdfs:domain semi:Equipment ; rdfs:range semi:Part .
+semi:hasCapability a owl:ObjectProperty ; rdfs:domain semi:Equipment ; rdfs:range semi:EquipmentCapability .
+semi:memberOfEquipmentGroup a owl:ObjectProperty ;
+  rdfs:domain semi:Equipment ; rdfs:range semi:EquipmentGroup .
+semi:equipmentCode a owl:DatatypeProperty, owl:FunctionalProperty ;
+  rdfs:domain semi:Equipment ; rdfs:range xsd:string .
+semi:chamberCode a owl:DatatypeProperty, owl:FunctionalProperty ;
+  rdfs:domain semi:Chamber ; rdfs:range xsd:string .
+semi:vendorName a owl:DatatypeProperty ; rdfs:domain semi:Equipment ; rdfs:range xsd:string .

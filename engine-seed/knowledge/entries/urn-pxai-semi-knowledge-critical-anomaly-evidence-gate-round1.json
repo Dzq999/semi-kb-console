@@ -1,0 +1,29 @@
+{
+  "id": "urn:pxai:semi:knowledge:critical-anomaly-evidence-gate-round1",
+  "title": "关键异常证据完备性发布门禁",
+  "domain": "fab",
+  "summary": "将未覆盖的品质异常与设备停机异常逐项连接到证据缺口发现和发布阻断状态。",
+  "content": "当品质异常突发或设备停机异常仅出现在模型先验缺口分析中，而没有量测记录、设备状态事件、维护日志或批次履历等可核查证据时，应把异常实体、证据缺口发现项、证据完备性审查和发布门禁显式连接。此时阻断的是“作为已验证事实发布”，不能据此宣称现场已发生异常，也不能生成现场处置结论。",
+  "source_refs": [
+    "model_prior:round1.gap_analysis.uncovered",
+    "model_prior:round1.repair_context.gate_error"
+  ],
+  "related_iris": [
+    "urn:pxai:semi:EquipmentDowntimeAnomaly",
+    "urn:pxai:semi:QualityExcursionAnomaly",
+    "urn:pxai:semi:EvidenceCompletenessReview",
+    "urn:pxai:semi:ValidationFinding",
+    "urn:pxai:semi:ReleaseGate",
+    "urn:pxai:semi:instance:equipment-downtime-anomaly-round1",
+    "urn:pxai:semi:instance:quality-excursion-anomaly-round1",
+    "urn:pxai:semi:validation:finding:equipment-down-evidence-gap-round1",
+    "urn:pxai:semi:validation:finding:quality-excursion-evidence-gap-round1",
+    "urn:pxai:semi:validation:gate:critical-anomaly-release-round1",
+    "urn:pxai:semi:validation:review:quality-gate-round1"
+  ],
+  "confidence": "low",
+  "provenance": {
+    "source_type": "web",
+    "source_ref": "model_prior:round1.gap_analysis.uncovered"
+  }
+}

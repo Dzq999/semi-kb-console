@@ -1,0 +1,23 @@
+{
+  "id": "urn:pxai:semi:knowledge:crossSystemEvidenceIntegratedRCA",
+  "title": "半导体根因调查中的跨系统证据集成",
+  "domain": "fab",
+  "summary": "将MES、SPC和维护日志按时间戳关联，可为批次失效与良率异常调查形成结构化证据链。",
+  "content": "半导体批次终测失败、良率下降和客户退货调查通常需要同时追溯工艺步骤、设备、配方、工装与材料。网页资料指出，MES、SPC和维护日志分散会迫使团队手工抽取并交叉引用时间戳，容易造成调查缓慢和因果链不完整。因此，根因调查知识模型应显式表示证据来源、跨系统集成模式及调查对证据包的引用关系，但不能把供应商能力说明解释为特定工厂已经取得量化成效。",
+  "source_refs": [
+    "https://www.runlattice.com/industries/semiconductor"
+  ],
+  "related_iris": [
+    "urn:pxai:semi:CrossSystemEvidenceIntegratedRCAInvestigation",
+    "urn:pxai:semi:CrossSystemEvidenceIntegrationPattern",
+    "urn:pxai:semi:investigation:crossSystemEvidenceIntegrationIllustration",
+    "urn:pxai:semi:pattern:mesSpcMaintenanceCausalIntegration",
+    "urn:pxai:semi:evidence:mesSpcMaintenanceDataIntegration",
+    "urn:pxai:semi:source:latticeSemiconductorRCAPage"
+  ],
+  "confidence": "medium",
+  "provenance": {
+    "source_type": "web",
+    "source_ref": "https://www.runlattice.com/industries/semiconductor"
+  }
+}

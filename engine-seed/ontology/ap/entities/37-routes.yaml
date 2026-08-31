@@ -1,0 +1,71 @@
+# ap 层 · 流程路径
+default_provenance:
+  source_type: model_prior
+  ref: null
+  confidence: high
+  created_at: "2026-08-26"
+  reviewed_by: null
+
+entities:
+  - id: ap.route.qfn_wirebond_main
+    type: Route
+    name_zh: QFN 金线封装主流程
+    name_en: QFN Wire Bond Main Flow
+    domain: ap
+    description: >
+      引线框架类封装的典型路径，以金线键合互连。steps 顺序与
+      40-flow-precedes.yaml 一致。塑封(molding)为不可逆分界点，
+      其前的不良多可重工挽回，其后基本只能判废。
+    materials: [core.material.wafer, core.material.lot]
+    metrics: [core.metric.cycle_time, ap.metric.ft_yield]
+    steps:
+      - ap.process.wafer_receive
+      - ap.process.backgrind
+      - ap.process.wafer_mount
+      - ap.process.dicing
+      - ap.process.die_attach
+      - ap.process.epoxy_cure
+      - ap.process.plasma_clean
+      - ap.process.wire_bond
+      - ap.process.molding
+      - ap.process.pmc
+      - ap.process.laser_mark
+      - ap.process.singulation
+      - ap.process.final_test
+      - ap.process.burn_in
+      - ap.process.aoi
+      - ap.process.packing
+    economic_hooks:
+      affects: [cycle_time, yield, cost_per_unit, capacity_commit]
+      note: 金线用量与测试时间是该路径的两大成本项
+
+  - id: ap.route.bga_flipchip_main
+    type: Route
+    name_zh: BGA 倒装封装主流程
+    name_en: BGA Flip Chip Main Flow
+    domain: ap
+    description: >
+      基板类封装路径，以晶圆级凸块加倒装互连，适用高脚数高频产品。
+      与 QFN 路径共享前处理与测试段，在互连与成型段分叉。
+    materials: [core.material.wafer, core.material.lot]
+    metrics: [core.metric.cycle_time, ap.metric.ft_yield]
+    steps:
+      - ap.process.wafer_receive
+      - ap.process.bumping
+      - ap.process.backgrind
+      - ap.process.wafer_mount
+      - ap.process.dicing
+      - ap.process.flip_chip_bond
+      - ap.process.underfill
+      - ap.process.molding
+      - ap.process.pmc
+      - ap.process.laser_mark
+      - ap.process.ball_mount
+      - ap.process.singulation
+      - ap.process.final_test
+      - ap.process.burn_in
+      - ap.process.aoi
+      - ap.process.packing
+    economic_hooks:
+      affects: [cycle_time, yield, cost_per_unit]
+      note: 基板与凸块成本高于金线方案，但省去逐线键合时间

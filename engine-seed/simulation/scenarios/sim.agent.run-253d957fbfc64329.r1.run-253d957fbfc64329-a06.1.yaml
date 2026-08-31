@@ -1,0 +1,23 @@
+schema_version: '2.0'
+scenario:
+  name: 品质异常处置背景下的光刻产能恢复方向性What-if
+  model_ref: business/models/fab-baseline.yaml
+  description: 使用既有通用晶圆厂经营模型和既有光刻产能恢复示例，以光刻产能增加作为异常处置后产能恢复的代理假设，并观察受约束投入量与可销售产出的方向性变化。该情景不推断品质异常的实际根因，所有输入均为模型假设，不代表现场实测值、改善承诺或财务预测。
+  interventions:
+  - target_ref: fab.equip.scanner
+    variable: lithography_capacity
+    operation: add
+    value: 1500
+  - target_ref: fab.action.recipe_adjust
+    variable: intervention_opex
+    operation: set
+    value: 3000000
+  assertions:
+  - type: nondecreasing
+    variable: constrained_input
+  - type: nondecreasing
+    variable: saleable_units
+  investment:
+    one_time: 10000000
+    unit: CNY
+  id: sim.agent.run-253d957fbfc64329.r1.run-253d957fbfc64329-a06.1

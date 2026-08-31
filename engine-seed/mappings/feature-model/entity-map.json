@@ -1,0 +1,37 @@
+{
+  "mapping_id": "internal.feature_model.entity_map",
+  "source": "internal.feature_model.ai_fab",
+  "key_policy": "source entity code maps to one canonical OWL class; rows remain source records until instance ingestion",
+  "sheet_aliases": {
+    "eqp detail": "eqp",
+    "wafer detail": "wafer",
+    "wafer_因子聚合": "wafer",
+    "wafer聚合": "wafer"
+  },
+  "mappings": [
+    {"source_code": "eqp", "target_class": "urn:pxai:semi:Equipment"},
+    {"source_code": "defect", "target_class": "urn:pxai:semi:Defect"},
+    {"source_code": "fop", "target_class": "urn:pxai:semi:Flow"},
+    {"source_code": "sof", "target_class": "urn:pxai:semi:Step"},
+    {"source_code": "ioc", "target_class": "urn:pxai:semi:ChamberMetric"},
+    {"source_code": "soc", "target_class": "urn:pxai:semi:ChamberStep"},
+    {"source_code": "wat", "target_class": "urn:pxai:semi:WATMetric"},
+    {"source_code": "metro", "target_class": "urn:pxai:semi:MetrologyMetric"},
+    {"source_code": "cp", "target_class": "urn:pxai:semi:CPMetric"},
+    {"source_code": "wafer", "target_class": "urn:pxai:semi:Wafer"},
+    {"source_code": "mat", "target_class": "urn:pxai:semi:Material"},
+    {"source_code": "lot", "target_class": "urn:pxai:semi:Lot"},
+    {"source_code": "chartlim", "target_class": "urn:pxai:semi:ChartLimit"},
+    {"source_code": "dl", "target_class": "urn:pxai:semi:DefectLibraryEntry"},
+    {"source_code": "dnch", "target_class": "urn:pxai:semi:DefectNoticeCase"},
+    {"source_code": "dboc", "target_class": "urn:pxai:semi:ChamberDefectBin"},
+    {"source_code": "partl", "target_class": "urn:pxai:semi:Part"},
+    {"source_code": "watd", "target_class": "urn:pxai:semi:WATObservation"},
+    {"source_code": "metrod", "target_class": "urn:pxai:semi:MetrologyObservation"},
+    {"source_code": "metrocd", "target_class": "urn:pxai:semi:MetrologyConfiguration"},
+    {"source_code": "cpd", "target_class": "urn:pxai:semi:CPObservation"},
+    {"source_code": "qtimed", "target_class": "urn:pxai:semi:QueueTimeObservation"},
+    {"source_code": "defectd", "target_class": "urn:pxai:semi:DefectObservation"},
+    {"source_code": "pm", "target_class": "urn:pxai:semi:PreventiveMaintenanceEvent"}
+  ]
+}

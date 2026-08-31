@@ -1,0 +1,21 @@
+{
+  "id": "urn:pxai:semi:knowledge:simulation-quality-excursion-capacity-proxy-r1",
+  "title": "品质异常处置中的产能恢复代理仿真边界",
+  "domain": "fab",
+  "summary": "既有晶圆厂经营模型可用于比较品质异常处置背景下的产能恢复方向，但不能替代现场根因、实测参数或财务预测。",
+  "content": "在缺少现场实测证据和明确根因确认时，可使用已批准的通用晶圆厂经营模型，将光刻产能增加作为品质异常处置后产能恢复的代理干预，并观察受约束投入量和可销售单元的方向性变化。该方法只能支持经营影响的假设比较，不能证明品质异常由光刻瓶颈导致，也不能推断实际良率、停机恢复量、交付改善、收入或利润结果。仿真输入应明确标记为model_prior，并与现场遥测、质量检测和维护记录分离。",
+  "source_refs": [
+    "business/models/fab-baseline.yaml",
+    "simulation/scenarios/fab-capacity-recovery.yaml"
+  ],
+  "related_iris": [
+    "urn:pxai:semi:SimulationScenario",
+    "urn:pxai:semi:Intervention",
+    "urn:pxai:semi:QualityExcursionAnomaly"
+  ],
+  "confidence": "medium",
+  "provenance": {
+    "source_type": "web",
+    "source_ref": "business/models/fab-baseline.yaml"
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "id": "urn:pxai:semi:knowledge:eqp:cross-system-investigation-evidence",
+  "title": "半导体设备与品质异常的跨系统证据调查",
+  "domain": "eqp",
+  "summary": "设备和品质异常调查需要关联制造、过程控制、维护及设备遥测证据，并通过时间戳对齐形成可审计的因果链。",
+  "content": "网页资料表明，半导体制造中的终测失败、良率异常、客户退货和设备故障调查，通常需要跨越MES、SPC、维护日志、设备遥测以及材料和工艺记录进行追溯。由于数据分散、时间戳需要人工交叉核对，传统调查容易形成不完整的因果链。图像分析、传感器分析、时间序列预测和因果建模可支持故障检测、预测性维护及底层制程原因识别，但数据质量和模型可解释性仍是规模化采用的重要约束。",
+  "source_refs": [
+    "https://www.runlattice.com/industries/semiconductor",
+    "https://link.springer.com/article/10.1007/s00170-026-18777-0",
+    "https://semiconductorx.com/fab-ops-facility-management.html"
+  ],
+  "related_iris": [
+    "urn:pxai:semi:AIEnabledRootCauseAnalysisWorkflow",
+    "urn:pxai:semi:SECSGEMEquipmentTelemetryEvidence",
+    "urn:pxai:semi:MaintenanceLogCorrelationEvidence",
+    "urn:pxai:semi:FactoryTimestampCrossReferenceEvidence",
+    "urn:pxai:semi:ManufacturingAIDataQualityChallenge",
+    "urn:pxai:semi:ManufacturingAIInterpretabilityChallenge"
+  ],
+  "confidence": "high",
+  "provenance": {
+    "source_type": "web",
+    "source_ref": "https://www.runlattice.com/industries/semiconductor"
+  }
+}

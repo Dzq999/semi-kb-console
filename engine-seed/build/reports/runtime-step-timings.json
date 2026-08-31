@@ -1,0 +1,80 @@
+[
+  {
+    "step": "source_ingest",
+    "code": 0,
+    "seconds": 0.258,
+    "tail": "内部特征模型校验通过：主题域 7 | 实体 24 | 表 26 | 工作表 31 | 特征行 1181"
+  },
+  {
+    "step": "vfab_ingest",
+    "code": 0,
+    "seconds": 0.091,
+    "tail": "vFab：awaiting_source"
+  },
+  {
+    "step": "align_sources",
+    "code": 0,
+    "seconds": 0.079,
+    "tail": "来源对齐通过：内部实体 24 全覆盖 | vFab awaiting_source"
+  },
+  {
+    "step": "capability_validate",
+    "code": 0,
+    "seconds": 0.061,
+    "tail": "能力校验通过：问题域 11 | L1 28 | L2 3 | OWL 依赖可解析"
+  },
+  {
+    "step": "legacy_validate",
+    "code": 0,
+    "seconds": 0.413,
+    "tail": "==================================================================== | -------------------------------------------------------------------- | ERROR 0 | WARN 0 | 校验通过。"
+  },
+  {
+    "step": "build_index",
+    "code": 0,
+    "seconds": 0.402,
+    "tail": "已生成 build/graph.json  (259.8 KB) |   检索记录 265（实体 248 + 知识库实例 17） |   图节点 260 | 边 555（显式 251 + 派生 304） |   主流程 3 条：CMOS 逻辑主流程（单金属层）(25步)，QFN 金线封装主流程(16步)，BGA 倒装封装主流程(16步)"
+  },
+  {
+    "step": "scenario_mine",
+    "code": 0,
+    "seconds": 0.248,
+    "tail": "业务场景沉淀通过：场景 17 | 文章 knowledge/articles/current-scenarios.md"
+  },
+  {
+    "step": "migrate_semantic",
+    "code": 0,
+    "seconds": 0.968,
+    "tail": "语义迁移通过：目录概念 248 | 关系 555 | 诊断知识 17 | 四元组 8875"
+  },
+  {
+    "step": "semantic_validate",
+    "code": 0,
+    "seconds": 9.595,
+    "tail": "语义校验通过：模块 14 | 规则 4 | 推理新增 8504"
+  },
+  {
+    "step": "semantic_test",
+    "code": 0,
+    "seconds": 2.252,
+    "tail": "---------------------------------------------------------------------- | Ran 6 tests in 1.774s | OK | 语义推理行为测试通过。"
+  },
+  {
+    "step": "simulation_check",
+    "code": 0,
+    "seconds": 1.154,
+    "tail": "经营模型/仿真场景校验：通过"
+  },
+  {
+    "step": "simulation_unittest",
+    "code": 0,
+    "seconds": 0.241,
+    "tail": "..... | ---------------------------------------------------------------------- | Ran 5 tests in 0.115s | OK"
+  },
+  {
+    "step": "regress",
+    "code": 0,
+    "seconds": 0.33,
+    "tail": "questions-real.txt  20/20 通过 | questions-type-level.txt  30/30 通过 | -------------------------------------------------------------------- | 回归全过。"
+  }
+]

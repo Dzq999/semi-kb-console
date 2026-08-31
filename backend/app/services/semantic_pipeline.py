@@ -82,15 +82,15 @@ def _normalize_semantic_candidate(candidate: dict[str, Any]) -> tuple[dict[str, 
 
 
 def _semantic_contract() -> dict:
-    path = settings.semi_kb_root / "output-contracts" / "semantic-changeset.schema.json"
+    path = settings.engine_root / "output-contracts" / "semantic-changeset.schema.json"
     return json.loads(path.read_text(encoding="utf-8"))
 
 
 def _inventory() -> dict[str, set[str]]:
     schema, data = Graph(), Graph()
-    for path in sorted((settings.semi_kb_root / "ontology" / "modules").glob("*.ttl")):
+    for path in sorted((settings.engine_root / "ontology" / "modules").glob("*.ttl")):
         schema.parse(path, format="turtle")
-    data_path = settings.semi_kb_root / "knowledge" / "semantic" / "current.ttl"
+    data_path = settings.engine_root / "knowledge" / "semantic" / "current.ttl"
     if data_path.is_file(): data.parse(data_path, format="turtle")
     classes = {str(item) for item in schema.subjects(RDF.type, OWL.Class)}
     object_properties = {str(item) for item in schema.subjects(RDF.type, OWL.ObjectProperty)}
@@ -306,10 +306,10 @@ def validate_and_store_agent_output(
         semantic_files.append(str(path))
         normalized_changesets.append(document)
 
-    allowed_templates = {path.relative_to(settings.semi_kb_root).as_posix() for path in (settings.semi_kb_root / "business" / "templates").glob("*.yaml")}
-    allowed_datasets = {path.relative_to(settings.semi_kb_root).as_posix() for path in (settings.semi_kb_root / "business" / "datasets").glob("*.yaml")}
+    allowed_templates = {path.relative_to(settings.engine_root).as_posix() for path in (settings.engine_root / "business" / "templates").glob("*.yaml")}
+    allowed_datasets = {path.relative_to(settings.engine_root).as_posix() for path in (settings.engine_root / "business" / "datasets").glob("*.yaml")}
     approved_pairs: dict[tuple[str, str], set[str]] = {}
-    for approved_path in (settings.semi_kb_root / "business" / "models").glob("*.yaml"):
+    for approved_path in (settings.engine_root / "business" / "models").glob("*.yaml"):
         approved = (yaml.safe_load(approved_path.read_text(encoding="utf-8")) or {}).get("model") or {}
         if approved.get("template_ref") and approved.get("dataset_ref"):
             approved_pairs[(approved["template_ref"], approved["dataset_ref"])] = {str(item) for item in approved.get("outputs") or []}
@@ -340,9 +340,9 @@ def validate_and_store_agent_output(
         path.write_text(yaml.safe_dump({"schema_version": "2.0", "model": normalized_model}, allow_unicode=True, sort_keys=False), encoding="utf-8")
         business_files.append(str(path))
 
-    allowed_models = {path.relative_to(settings.semi_kb_root).as_posix() for path in (settings.semi_kb_root / "business" / "models").glob("*.yaml")}
+    allowed_models = {path.relative_to(settings.engine_root).as_posix() for path in (settings.engine_root / "business" / "models").glob("*.yaml")}
     scenario_policies: dict[str, dict[str, set[str]]] = {}
-    for approved_path in (settings.semi_kb_root / "simulation" / "scenarios").glob("*.yaml"):
+    for approved_path in (settings.engine_root / "simulation" / "scenarios").glob("*.yaml"):
         approved = (yaml.safe_load(approved_path.read_text(encoding="utf-8")) or {}).get("scenario") or {}
         policy = scenario_policies.setdefault(str(approved.get("model_ref") or ""), {"inputs": set(), "outputs": set(), "targets": set()})
         policy["inputs"].update(str(item.get("variable")) for item in approved.get("interventions") or [] if item.get("variable"))
@@ -433,7 +433,7 @@ def validate_and_store_agent_output(
         valid_tests = []
         for test_ref in _as_list(rule.get("tests")):
             test_path = str(test_ref).split("::", 1)[0]
-            candidate_test = settings.semi_kb_root / test_path
+            candidate_test = settings.engine_root / test_path
             if test_path and ".." not in Path(test_path).parts and candidate_test.is_file():
                 valid_tests.append(str(test_ref))
             elif test_path:

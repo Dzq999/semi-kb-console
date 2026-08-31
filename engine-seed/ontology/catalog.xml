@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<catalog xmlns="urn:oasis:names:tc:entity:xmlns:xml:catalog" prefer="system">
+  <uri name="urn:pxai:semi:common" uri="modules/common.ttl"/>
+  <uri name="urn:pxai:semi:facility" uri="modules/facility.ttl"/>
+  <uri name="urn:pxai:semi:organization" uri="modules/organization.ttl"/>
+  <uri name="urn:pxai:semi:equipment" uri="modules/equipment.ttl"/>
+  <uri name="urn:pxai:semi:maintenance" uri="modules/maintenance.ttl"/>
+  <uri name="urn:pxai:semi:material-product" uri="modules/material-product.ttl"/>
+  <uri name="urn:pxai:semi:process-route" uri="modules/process-route.ttl"/>
+  <uri name="urn:pxai:semi:wip-production" uri="modules/wip-production.ttl"/>
+  <uri name="urn:pxai:semi:quality-metrology" uri="modules/quality-metrology.ttl"/>
+  <uri name="urn:pxai:semi:risk-diagnosis" uri="modules/risk-diagnosis.ttl"/>
+  <uri name="urn:pxai:semi:capacity-performance" uri="modules/capacity-performance.ttl"/>
+  <uri name="urn:pxai:semi:business-simulation" uri="modules/business-simulation.ttl"/>
+  <uri name="urn:pxai:semi:application-scenario" uri="modules/application-scenario.ttl"/>
+  <uri name="urn:pxai:semi:generated-schema" uri="modules/generated.ttl"/>
+</catalog>

@@ -1,0 +1,23 @@
+{
+  "id": "urn:pxai:semi:knowledge:eqp-qualification-stage-gating-r1",
+  "title": "设备IQ/OQ/PQ验收阶段与量产放行门禁",
+  "domain": "eqp",
+  "summary": "设备验收可按IQ、OQ、PQ递进建模，并将PQ结果连接至量产放行门禁。",
+  "content": "公开设备验收资料将设备从安装到量产放行描述为IQ、OQ、PQ再到Production Release的递进流程。IQ关注安装和厂务条件，OQ关注功能、报警及边界行为，PQ关注工艺性能的持续稳定性。该结构可用于设备健康验证的阶段追踪，但网页内容不构成特定工厂的实测验收结论。",
+  "source_refs": [
+    "https://ai-mst.com/insight/semiconductor-equipment-qualification-iq-oq-pq/",
+    "https://mst-sg.com/semiconductor-equipment-qualification-the-complete-iq-oq-pq-guide-for-engineers/"
+  ],
+  "related_iris": [
+    "urn:pxai:semi:EquipmentQualificationStage",
+    "urn:pxai:semi:eqpQualificationStageIQ",
+    "urn:pxai:semi:eqpQualificationStageOQ",
+    "urn:pxai:semi:eqpQualificationStagePQ",
+    "urn:pxai:semi:eqpProductionReleaseGate"
+  ],
+  "confidence": "medium",
+  "provenance": {
+    "source_type": "web",
+    "source_ref": "https://ai-mst.com/insight/semiconductor-equipment-qualification-iq-oq-pq/"
+  }
+}

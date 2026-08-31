@@ -1,0 +1,24 @@
+{
+  "id": "urn:pxai:semi:knowledge:fab-anomaly-workflow-evidence-linkage-r1",
+  "title": "Fab品质异常与设备停机的证据化处置链路",
+  "domain": "fab",
+  "summary": "品质异常突发和设备停机应分别连接检测指标、诊断动作与证据包，以支持可追溯的异常处置。",
+  "content": "在Fab语义建模中，品质异常突发可通过良率观测指标、证据复核动作和批次制程追溯证据包连接到AI辅助根因分析工作流；设备停机则可通过设备状态观测、维护日志关联动作以及遥测维护证据包连接到跨系统设备故障追溯工作流。该结构只表达分析和处置路径，不构成现场根因、停机时长、良率变化或经营结果的事实判断。",
+  "source_refs": [
+    "business/models/fab-baseline.yaml",
+    "business/models/business.agent.run-c163313475f54c2f.r1.run-c163313475f54c2f-a01.1.yaml"
+  ],
+  "related_iris": [
+    "urn:pxai:semi:QualityExcursionAnomaly",
+    "urn:pxai:semi:EquipmentDowntimeAnomaly",
+    "urn:pxai:semi:AIEnabledRootCauseAnalysisWorkflow",
+    "urn:pxai:semi:CrossSystemEquipmentFailureTracing",
+    "urn:pxai:semi:fab.workflow.quality_excursion_containment_review",
+    "urn:pxai:semi:fab.workflow.equipment_down_recovery_review"
+  ],
+  "confidence": "low",
+  "provenance": {
+    "source_type": "web",
+    "source_ref": "business/models/fab-baseline.yaml"
+  }
+}

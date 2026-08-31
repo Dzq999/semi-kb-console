@@ -1,0 +1,22 @@
+@prefix semi: <urn:pxai:semi:> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+<urn:pxai:semi:facility> a owl:Ontology ; owl:imports <urn:pxai:semi:common> .
+
+semi:Facility a owl:Class ; rdfs:subClassOf semi:PhysicalEntity .
+semi:Fab a owl:Class ; rdfs:subClassOf semi:Facility .
+semi:Site a owl:Class ; rdfs:subClassOf semi:Facility .
+semi:Building a owl:Class ; rdfs:subClassOf semi:Facility .
+semi:Floor a owl:Class ; rdfs:subClassOf semi:Facility .
+semi:Area a owl:Class ; rdfs:subClassOf semi:Facility .
+semi:Bay a owl:Class ; rdfs:subClassOf semi:Area .
+semi:Room a owl:Class ; rdfs:subClassOf semi:Area .
+
+semi:belongsToFab a owl:ObjectProperty ;
+  rdfs:domain semi:PhysicalEntity ; rdfs:range semi:Fab ;
+  owl:propertyChainAxiom (semi:locatedIn semi:belongsToFab) .
+semi:facilityCode a owl:DatatypeProperty ; rdfs:domain semi:Facility ; rdfs:range xsd:string .
+semi:siteCode a owl:DatatypeProperty ; rdfs:domain semi:Site ; rdfs:range xsd:string .
+semi:areaCode a owl:DatatypeProperty ; rdfs:domain semi:Area ; rdfs:range xsd:string .

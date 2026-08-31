@@ -1,0 +1,1 @@
+CONSTRUCT { ?twin <urn:pxai:semi:hasSubsystem> ?utility . } WHERE { ?twin a <urn:pxai:semi:FacilityDigitalTwin> . ?twin <urn:pxai:semi:hasPart> ?platform . ?platform a <urn:pxai:semi:UtilityIntegrationPlatform> . ?platform <urn:pxai:semi:aggregatesUtilityData> ?utility . ?utility a <urn:pxai:semi:UtilitySystem> . }

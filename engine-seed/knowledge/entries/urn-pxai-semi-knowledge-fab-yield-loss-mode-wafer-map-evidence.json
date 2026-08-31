@@ -1,0 +1,23 @@
+{
+  "id": "urn:pxai:semi:knowledge:fab-yield-loss-mode-wafer-map-evidence",
+  "title": "晶圆图空间模式与多源证据融合的良率调查方法",
+  "domain": "fab",
+  "summary": "良率调查应先区分随机性与系统性损失，再结合晶圆图、缺陷Bin、WAT/CP参数、电性结果及设备过程轨迹进行候选根因筛选，最终通过实验和现场证据验证。",
+  "content": "已抓取资料指出，半导体良率损失可表现为随机缺陷或系统性缺陷。随机缺陷通常缺乏稳定空间模式，而系统性损失可能呈现中心、边缘、环形、象限或视场等晶圆图特征。实际调查可采用Pareto缺陷Bin筛选、晶圆图模式识别、WAT/CP参数相关性分析以及设备遥测与量测数据融合；这些方法用于形成候选假设，不能替代现场实验、时间戳对齐和工程验证。",
+  "source_refs": [
+    "https://ai-mst.com/insight/yield-analysis-root-cause-methodology/",
+    "https://ai-mst.com/insight/en-semiconductor-yield-improvement-ai/"
+  ],
+  "related_iris": [
+    "urn:pxai:semi:YieldLossMode",
+    "urn:pxai:semi:WaferMapSpatialPatternObservation",
+    "urn:pxai:semi:YieldEvidenceFusionAnalysis",
+    "urn:pxai:semi:LotFinalTestAndYieldExcursionInvestigationWorkflow",
+    "urn:pxai:semi:WATObservation"
+  ],
+  "confidence": "high",
+  "provenance": {
+    "source_type": "web",
+    "source_ref": "https://ai-mst.com/insight/yield-analysis-root-cause-methodology/"
+  }
+}

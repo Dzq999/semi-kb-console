@@ -1,0 +1,19 @@
+{
+  "id": "urn:pxai:semi:knowledge:equipment-rca-cross-system-evidence-20260830",
+  "title": "跨系统设备根因分析中的设备轨迹参数证据",
+  "domain": "eqp",
+  "summary": "公开资料支持将设备过程轨迹与工艺、材料及维护记录联合用于设备根因分析。",
+  "content": "公开资料显示，半导体质量调查需要跨过程、设备和材料追溯，并连接MES、SPC与维护日志等分散系统。设备过程轨迹参数漂移可作为待验证的可能原因，与时间戳、维护记录及质量结果进行关联分析；该结论是证据支持的分析模式，不等同于特定工厂的现场根因或实测结论。",
+  "source_refs": [
+    "https://www.runlattice.com/industries/semiconductor"
+  ],
+  "related_iris": [
+    "urn:pxai:semi:cause:web:equipment-trace-parameter-drift-20260830",
+    "urn:pxai:semi:Equipment"
+  ],
+  "confidence": "high",
+  "provenance": {
+    "source_type": "web",
+    "source_ref": "https://www.runlattice.com/industries/semiconductor"
+  }
+}

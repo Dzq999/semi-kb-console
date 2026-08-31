@@ -1,0 +1,22 @@
+{
+  "id": "urn:pxai:semi:knowledge:fab-cross-system-rca-evidence-repair3",
+  "title": "晶圆厂跨系统根因分析的证据融合范围",
+  "domain": "fab",
+  "summary": "网页证据支持将SPC、MES、缺陷分类、设备遥测、维护记录、配方变更以及过程、设备和材料信息纳入晶圆厂根因调查。",
+  "content": "半导体制造根因分析并非只依赖单一质量指标。网页资料显示，调查人员需要将SPC失控信号、MES中的设备腔体配方与晶圆履历、缺陷分类及空间模式、设备日志和FDC传感器时间序列、预防性维护、配方变更及资格认证等信息进行跨系统关联；客户退货、终测批次失败、良率异常和来料质量问题也需要连接制造历史，以形成可追溯、可审计的因果链。该结论描述证据组织模式，不代表任何特定工厂的实测改善。",
+  "source_refs": [
+    "https://www.runlattice.com/industries/semiconductor",
+    "https://www.sixsense.ai/blog/ai-powered-root-cause-analysis-in-an-advanced-fab/"
+  ],
+  "related_iris": [
+    "urn:pxai:semi:CrossSystemRCAInvestigation",
+    "urn:pxai:semi:RCAEvidenceIntegrationPattern",
+    "urn:pxai:semi:QualityExcursionAnomaly",
+    "urn:pxai:semi:SourceArtifact"
+  ],
+  "confidence": "high",
+  "provenance": {
+    "source_type": "web",
+    "source_ref": "https://www.runlattice.com/industries/semiconductor"
+  }
+}

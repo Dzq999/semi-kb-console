@@ -1,0 +1,10 @@
+schema_version: "2.0"
+model:
+  id: business.ap.general_baseline
+  name: 通用半导体封装测试经营模型
+  domain: semiconductor.ap
+  period: month
+  currency: CNY
+  template_ref: business/templates/ap.yaml
+  dataset_ref: business/datasets/ap-demo-assumptions.yaml
+  outputs: [process_yield, constrained_input, saleable_units, revenue, variable_cost, unit_cost, profit]

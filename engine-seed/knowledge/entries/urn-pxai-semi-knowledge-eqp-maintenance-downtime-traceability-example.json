@@ -1,0 +1,22 @@
+{
+  "id": "urn:pxai:semi:knowledge:eqp:maintenance-downtime-traceability-example",
+  "title": "设备停机异常与维护日志证据链建模示例",
+  "domain": "eqp",
+  "summary": "通过设备停机异常、受影响设备、纠正性维护事件和维护日志关联证据建立可追溯链路，并连接到既有产能恢复经营情景。",
+  "content": "设备停机异常应至少能够关联受影响设备、相关维护事件及维护日志证据，从而支持事件核查、维修活动复盘和根因分析证据集成。本轮实例仅为模型示例，不表示现场发生了具体停机，也未填充停机时长、维修时长、产能损失或恢复效果等实测数据。经营层面可复用既有光刻产能恢复情景进行方向性What-if分析，但不得将模型假设解释为现场承诺。",
+  "source_refs": [
+    "https://www.bing.com/ck/a?!&&p=096acbf2de9c47978192b7d6ed82604b2623e543574e8ec4c2469f6a8fa2bc08JmltdHM9MTc4ODA0ODAwMA&ptn=3&ver=2&hsh=4&fclid=0c8d3747-a12b-60a9-1f7c-2082a02a6166&u=a1aHR0cHM6Ly93d3cuaWJtLmNvbS90aGluay90b3BpY3Mvc2VtaWNvbmR1Y3RvcnM&ntb=1"
+  ],
+  "related_iris": [
+    "urn:pxai:semi:EquipmentDowntimeAnomaly",
+    "urn:pxai:semi:MaintenanceEvent",
+    "urn:pxai:semi:MaintenanceLogCorrelationEvidence",
+    "urn:pxai:semi:eqp:anomaly:scanner_downtime_example",
+    "urn:pxai:semi:eqp:event:corrective_maintenance_example"
+  ],
+  "confidence": "medium",
+  "provenance": {
+    "source_type": "web",
+    "source_ref": "https://www.bing.com/ck/a?!&&p=096acbf2de9c47978192b7d6ed82604b2623e543574e8ec4c2469f6a8fa2bc08JmltdHM9MTc4ODA0ODAwMA&ptn=3&ver=2&hsh=4&fclid=0c8d3747-a12b-60a9-1f7c-2082a02a6166&u=a1aHR0cHM6Ly93d3cuaWJtLmNvbS90aGluay90b3BpY3Mvc2VtaWNvbmR1Y3RvcnM&ntb=1"
+  }
+}
