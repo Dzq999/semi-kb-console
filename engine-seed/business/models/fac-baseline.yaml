@@ -1,0 +1,10 @@
+schema_version: "2.0"
+model:
+  id: business.fac.general_baseline
+  name: 通用厂务域经营模型
+  domain: semiconductor.fac
+  period: month
+  currency: CNY
+  template_ref: business/templates/fac.yaml
+  dataset_ref: business/datasets/fac-demo-assumptions.yaml
+  outputs: [capacity_limit, constrained_input, saleable_units, revenue, variable_cost, unit_cost, profit]

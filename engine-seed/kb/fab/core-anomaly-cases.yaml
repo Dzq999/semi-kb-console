@@ -1,0 +1,154 @@
+# 知识库实例 · core 层跨工序异常的通用处置
+# equipment_down / quality_excursion 是 core.anomaly.*（跨工序、跨机台），
+# 从 fab 域实例化以复用 fab.* 成因与措施引用（同 kb.ap.wire_bond_wip_bubble
+# 指向 core.anomaly.wip_bubble 的既有范式）。沉淀的是通用归因逻辑，
+# 具体缺陷条目（particle_excursion / scanner_down 等）提供各自专属签名。
+default_provenance:
+  source_type: model_prior
+  ref: null
+  confidence: medium
+  created_at: "2026-08-31"
+  reviewed_by: null
+
+cases:
+  - id: kb.fab.equipment_down_triage
+    domain: fab
+    title: 设备非计划停机通用排查与处置
+    anomaly_ref: core.anomaly.equipment_down
+    severity: high
+    symptoms:
+      - 机台状态跳转为非计划停机(Down)，在机批次冻结在当前站点无法继续流动
+      - 该站点 WIP 在数小时内累积，下游逐步出现供料饥饿
+      - OEE 可用率跌落；若停机点为瓶颈站，主流程 CT 同步拉长
+    possible_causes:
+      - cause_ref: fab.cause.pm_overdue
+        likelihood: high
+        discriminator: >
+          先查 PM 计划是否已超期。超期则本次停机应归因于维护/排程依从性，
+          而不是记成随机设备故障——归因错了改善方向也会错。这是"用计划停机
+          换非计划停机"这一结构性旋钮的入口。
+      - cause_ref: fab.cause.reticle_stage_error
+        likelihood: medium
+        discriminator: >
+          代表突发型运动机构/伺服故障：报警发生在动作执行阶段、无任何前兆趋势。
+          "突发无前兆"是它与劣化型的分界，查伺服跟随误差日志即可确认。
+      - cause_ref: fab.cause.light_source_degradation
+        likelihood: medium
+        discriminator: >
+          代表渐变劣化型：停机前已有产出率缓降或处理时间延长的"先慢后停"趋势。
+          有前兆趋势即指向劣化，无前兆则倾向突发机构故障。
+      - cause_ref: fab.cause.env_excursion
+        likelihood: low
+        discriminator: >
+          温湿度/振动/动力介质超限时多台设备同时报警；单台停机基本可排除环境型。
+          "跨设备同步"是环境型的判别签名。
+    detection:
+      - metric_ref: core.metric.oee
+        signal: >
+          可用率跌落，且必须区分计划内 PM 与非计划停机——两者混在同一口径里
+          会让停机改善看起来毫无进展。
+      - metric_ref: core.metric.wip
+        signal: 停机站点队列陡升，是停机向下游传导的最早观测量
+      - metric_ref: core.metric.throughput
+        signal: 处理率缓降可作为劣化型停机的前兆信号，早于硬停机
+    actions:
+      - action_ref: fab.action.dispatch_field_service
+        order: 1
+        condition: >
+          判定为原厂锁定模块时立即报修并按合约等级升级；厂内自行拆装会失去保修，
+          且伺服/光学系统需原厂重新校准。
+      - action_ref: fab.action.skip_ahead
+        order: 2
+        condition: >
+          预估停机超过一个班次时改派同类机台；须确认可越站且后续站点无时效约束。
+          路径强制点（如光刻）多数情况不适用。
+      - action_ref: fab.action.hold_lot
+        order: 3
+        condition: >
+          停机瞬间在机批次可能处于半加工状态，须扣留待工程判定，
+          恢复后先跑首件确认再放行队列。
+    impact:
+      blocked_processes: []
+      economic: >
+        停机损失近似等于停机时长 × 该站产出率；瓶颈站不可通过后续赶工回补，
+        非瓶颈站在有缓冲时可部分吸收。两个可控旋钮：PM 依从性（用计划停机换
+        非计划停机，决定"是否发生"）与关键备件本地备货水位（用资金占用换 MTTR，
+        决定"停多久"）。若修复方案已明确却仍在等，瓶颈在备件调运或工程师到场，
+        不要继续往设备本体查。
+    tags: [设备停机, 非计划停机, OEE, 排程]
+    notes: >
+      core.anomaly.equipment_down 的跨工序泛化处置。与 kb.fab.scanner_down_triage
+      的关系：后者是光刻机专属停机的深化，本条沉淀适用于任意机台的通用归因逻辑
+      （计划/非计划之分、突发/劣化之分、单台/多台之分）。blocked_processes 刻意
+      留空——停机阻断的是"当时在机的工序"，不绑定固定站点。provenance 为
+      model_prior，未做公网核查，工况细节待现场审核。
+
+  - id: kb.fab.quality_excursion_triage
+    domain: fab
+    title: 品质异常突变通用排查与处置
+    anomaly_ref: core.anomaly.quality_excursion
+    severity: critical
+    symptoms:
+      - 品质指标（良率/缺陷/电性）较基线突然跃变，超出管制界限
+      - 偏移的分布形态（按机台/批次/时段/空间位置）是定位责任源的关键
+      - 缺陷分类比例或电性参数往往早于良率暴露，是更早的观测量
+    possible_causes:
+      - cause_ref: fab.cause.recipe_misload
+        likelihood: high
+        discriminator: >
+          偏移在特定批次上突然出现且边界清晰——是则查配方版本与机台配方履历，
+          不要继续往设备本体查。"突变+边界清晰"是配方/派工类的签名。
+      - cause_ref: fab.cause.beam_current_drift
+        likelihood: medium
+        discriminator: >
+          偏移集中在电性参数（Vt/方阻）且按机台分组后特定机台整体偏移，
+          指向该机台工艺子系统。做校验片可直接量化偏差量。
+      - cause_ref: fab.cause.chamber_wall_condition
+        likelihood: medium
+        discriminator: >
+          偏移出现在清洗/长待机之后且随加工片数收敛——"事件后出现、随片数回稳"
+          是腔体状态型；连续生产中随片数发散的是累积型，方向相反。
+      - cause_ref: fab.cause.env_excursion
+        likelihood: low
+        discriminator: >
+          多个不相关工序/机台同时品质下滑且分布随机无规律。"跨工序同步"是
+          环境型的标志——单一设备或配方问题不会波及无关工序。
+    detection:
+      - metric_ref: core.metric.yield
+        signal: >
+          良率是最终后果但滞后。用作确认异常规模，不用作定位——定位要靠缺陷
+          分类与电性参数的分布形态。
+      - metric_ref: fab.metric.defect_density
+        signal: 缺陷计数与分类比例变化，是良率下滑前的早期信号
+      - metric_ref: fab.metric.wat_vt
+        signal: 电性参数按机台分组后差异显著，指向特定机台的工艺偏移
+    actions:
+      - action_ref: fab.action.hold_lot
+        order: 1
+        condition: >
+          立即执行，关键是圈定范围：以异常批次经过的机台与时段反查所有同条件
+          批次，而非只扣留已检出的批次。
+      - action_ref: fab.action.expand_sampling
+        order: 2
+        condition: >
+          成因未定期间必做。突变类异常的损失规模近似等于检出延迟 × 产出速率，
+          加严抽检是压缩这个乘积的唯一手段。
+      - action_ref: fab.action.recipe_adjust
+        order: 3
+        condition: >
+          偏移量稳定、方向一致且在补偿窗口内时按实测反算补偿，须留变更记录与
+          验证数据。剖面形状已改变或成因未定的情况不适用——补偿只移动整体水平。
+    impact:
+      blocked_processes: []
+      economic: >
+        损失主要由发现速度决定而非偏移本身严重度：检出前已连续加工的片数决定
+        波及面，累计加工成本随暴露延迟沉没。真正的旋钮是量测抽样频次（把检出
+        提前）而不是事后处置速度。电性/介电类偏移还有一层延迟——要到 WAT/CP
+        才充分暴露，届时受影响批次已流过多道工序。
+    tags: [品质异常, 良率, 突变, 排查, 抽样]
+    notes: >
+      core.anomaly.quality_excursion 的跨工序泛化处置。与 particle_excursion /
+      implant_dose_drift / film_thickness_dev 等专属条目的关系：那些提供各自
+      缺陷的专属签名，本条沉淀"任意品质突变"的通用分流逻辑（突变/渐变、单源/
+      跨源、可补偿/不可补偿之分）。blocked_processes 留空，不绑定固定站点。
+      provenance 为 model_prior，未做公网核查，工况细节待现场审核。

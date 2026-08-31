@@ -5,6 +5,7 @@ import base64
 import html
 import hashlib
 import json
+import random
 import re
 import ssl
 from datetime import datetime, timezone
@@ -23,6 +24,23 @@ from ..security import decrypt_secret
 
 class ExternalServiceError(RuntimeError):
     pass
+
+
+# 瞬时网络错误：连接被上游代理中途掐断、连接/读超时、连接失败等，均为可重试的抖动
+_TRANSIENT_HTTP_ERRORS = (
+    httpx.RemoteProtocolError,
+    httpx.ReadError,
+    httpx.WriteError,
+    httpx.ConnectError,
+    httpx.ConnectTimeout,
+    httpx.ReadTimeout,
+    httpx.WriteTimeout,
+    httpx.PoolTimeout,
+)
+_RETRYABLE_STATUS = frozenset({429, 500, 502, 503, 504})
+_HTTP_RETRIES = 2  # 初次调用之外的额外重试次数（共 3 次尝试）
+_HTTP_BACKOFF_BASE = 1.0
+_HTTP_BACKOFF_CAP = 8.0
 
 
 def user_api_key(db: Session, user_id: int) -> str | None:
@@ -51,17 +69,38 @@ class LlmService:
     async def complete(self, api_key: str, model: str, system: str, user: str, temperature: float = 0.2, timeout_seconds: int = 120) -> str:
         payload = {"model": model, "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}], "temperature": temperature}
         headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
-        try:
-            async with httpx.AsyncClient(timeout=timeout_seconds, follow_redirects=True) as client:
-                response = await client.post(f"{settings.llm_base_url}/chat/completions", json=payload, headers=headers)
-        except (httpx.HTTPError, OSError) as exc:
-            raise ExternalServiceError(f"模型网络调用失败：{type(exc).__name__}") from exc
+        # 上游是第三方 OpenAI 兼容代理，长响应/并发下常见连接被中途掐断（RemoteProtocolError）
+        # 或瞬时 5xx/429。这些是网络抖动而非“模型输出不合法”，在 HTTP 层就地重试即可消化，
+        # 不应上抛去挤占 agent 仅有的产物校验重试次数、更不该污染下一轮 prompt。
+        url = f"{settings.llm_base_url}/chat/completions"
+        response = None
+        for attempt in range(_HTTP_RETRIES + 1):
+            try:
+                async with httpx.AsyncClient(timeout=timeout_seconds, follow_redirects=True) as client:
+                    response = await client.post(url, json=payload, headers=headers)
+            except (*_TRANSIENT_HTTP_ERRORS, OSError) as exc:
+                if attempt >= _HTTP_RETRIES:
+                    raise ExternalServiceError(f"模型网络调用失败：{type(exc).__name__}") from exc
+                await self._backoff(attempt)
+                continue
+            except httpx.HTTPError as exc:
+                raise ExternalServiceError(f"模型网络调用失败：{type(exc).__name__}") from exc
+            if response.status_code in _RETRYABLE_STATUS and attempt < _HTTP_RETRIES:
+                await self._backoff(attempt)
+                continue
+            break
+        if response is None:
+            raise ExternalServiceError("模型网络调用失败：无响应")
         if response.status_code >= 400:
             raise ExternalServiceError(f"模型调用失败：HTTP {response.status_code}")
         try:
             return response.json()["choices"][0]["message"]["content"]
-        except (KeyError, IndexError, TypeError) as exc:
+        except (KeyError, IndexError, TypeError, json.JSONDecodeError) as exc:
             raise ExternalServiceError("模型响应结构不兼容") from exc
+
+    @staticmethod
+    async def _backoff(attempt: int) -> None:
+        await asyncio.sleep(min(_HTTP_BACKOFF_CAP, _HTTP_BACKOFF_BASE * (2 ** attempt)) + random.uniform(0, 0.4))
 
     async def generate_image(self, api_key: str, model: str, prompt: str, size: str = "1536x1024") -> tuple[bytes, str]:
         """Generate one image and return bytes plus a safe extension.

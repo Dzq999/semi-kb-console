@@ -36,7 +36,10 @@ class RunCreate(BaseModel):
     round_interval_seconds: int = Field(default=5, ge=0, le=86_400)
     max_consecutive_round_failures: int = Field(default=3, ge=1, le=20)
     auto_repair: bool = True
-    max_auto_repair_attempts: int = Field(default=3, ge=0, le=10)
+    # 每次修复都会重跑整条闸门链（align_sources + capability_validate + apply --check
+    # + simulate_check + 逐文件 simulate + 全量 apply），单轮成本以分钟计。默认 1 次：
+    # 一次修复不成就走部分发布，把能发的发出去，而不是把整轮拖死在重试上。
+    max_auto_repair_attempts: int = Field(default=1, ge=0, le=10)
     repair_follow_failure_threshold: bool = True
 
 

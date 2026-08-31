@@ -1,0 +1,10 @@
+schema_version: "2.0"
+model:
+  id: business.eqp.general_baseline
+  name: 通用设备域经营模型
+  domain: semiconductor.eqp
+  period: month
+  currency: CNY
+  template_ref: business/templates/eqp.yaml
+  dataset_ref: business/datasets/eqp-demo-assumptions.yaml
+  outputs: [capacity_limit, constrained_input, saleable_units, revenue, variable_cost, unit_cost, profit]

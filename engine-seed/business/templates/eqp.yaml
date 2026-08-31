@@ -1,0 +1,16 @@
+schema_version: "2.0"
+template:
+  id: template.eqp
+  name: 设备域经营模块
+  extends: [business/templates/manufacturing.yaml]
+  variables:
+    - {id: theoretical_rate, unit: wafer/hour}
+    - {id: available_time, unit: hour/month}
+    - {id: oee_performance, unit: ratio}
+    - {id: oee_quality, unit: ratio}
+  calculations:
+    - id: capacity_limit
+      algorithm: production.oee_capacity
+      inputs: [theoretical_rate, available_time, oee_performance, oee_quality]
+      unit: wafer/month
+      override: true

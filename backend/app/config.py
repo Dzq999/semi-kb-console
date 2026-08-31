@@ -33,14 +33,14 @@ class Settings:
     wechat_api_base_url: str = os.getenv("WECHAT_API_BASE_URL", "https://api.weixin.qq.com").rstrip("/")
     wechat_account_name: str = os.getenv("WECHAT_ACCOUNT_NAME", "墨言yyy")
     max_agent_count: int = min(10, max(1, int(os.getenv("MAX_AGENT_COUNT", "10"))))
-    max_provider_concurrency: int = max(1, int(os.getenv("MAX_PROVIDER_CONCURRENCY", "5")))
+    max_provider_concurrency: int = max(1, int(os.getenv("MAX_PROVIDER_CONCURRENCY", "3")))
     research_result_limit: int = min(12, max(1, int(os.getenv("RESEARCH_RESULT_LIMIT", "6"))))
     evidence_chars_per_page: int = min(20_000, max(1_000, int(os.getenv("EVIDENCE_CHARS_PER_PAGE", "6000"))))
     timezone: str = os.getenv("SEMI_KB_TIMEZONE", "Asia/Shanghai")
     frontend_origin: str = os.getenv("FRONTEND_ORIGIN", "http://127.0.0.1:5173")
     orchestrator_engine: str = os.getenv("ORCHESTRATOR_ENGINE", "langgraph").casefold()
     auto_resume_runs: bool = os.getenv("AUTO_RESUME_RUNS", "true").casefold() in {"1", "true", "yes", "on"}
-    graph_repair_attempts: int = min(10, max(0, int(os.getenv("GRAPH_REPAIR_ATTEMPTS", "3"))))
+    graph_repair_attempts: int = min(10, max(0, int(os.getenv("GRAPH_REPAIR_ATTEMPTS", "1"))))
     article_repair_attempts: int = min(3, max(0, int(os.getenv("ARTICLE_REPAIR_ATTEMPTS", "3"))))
     worker_heartbeat_seconds: int = min(300, max(5, int(os.getenv("WORKER_HEARTBEAT_SECONDS", "15"))))
 

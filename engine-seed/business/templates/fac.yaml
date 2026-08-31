@@ -1,0 +1,14 @@
+schema_version: "2.0"
+template:
+  id: template.fac
+  name: 厂务域经营模块
+  extends: [business/templates/manufacturing.yaml]
+  variables:
+    - {id: facility_capacity, unit: wafer/month}
+    - {id: facility_availability, unit: ratio}
+  calculations:
+    - id: capacity_limit
+      algorithm: production.saleable_output
+      inputs: [facility_capacity, facility_availability]
+      unit: wafer/month
+      override: true

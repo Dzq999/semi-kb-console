@@ -851,8 +851,10 @@ function Orchestrator({
   const [roundInterval, setRoundInterval] = useState(5);
   const [maxConsecutiveFailures, setMaxConsecutiveFailures] = useState(3);
   const [autoRepair, setAutoRepair] = useState(true);
-  const [repairFollowsFailures, setRepairFollowsFailures] = useState(true);
-  const [maxRepairAttempts, setMaxRepairAttempts] = useState(3);
+  // 修复次数与连续失败阈值解耦：每次修复都要重跑整条闸门链，成本以分钟计。
+  // 默认修复 1 次，不成就走部分发布，避免单轮被重试拖死。
+  const [repairFollowsFailures, setRepairFollowsFailures] = useState(false);
+  const [maxRepairAttempts, setMaxRepairAttempts] = useState(1);
   const [autoStart, setAutoStart] = useState(false);
   const [autoStartInterval, setAutoStartInterval] = useState(1440);
   const [agents, setAgents] = useState<AgentConfig[]>(() =>

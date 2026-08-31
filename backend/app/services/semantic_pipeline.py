@@ -77,8 +77,56 @@ def _normalize_semantic_candidate(candidate: dict[str, Any]) -> tuple[dict[str, 
                 if not isinstance(raw_values, list):
                     warnings.append(f"已将实例 {item.get('iri')} 的 {predicate} 值规范化为数组")
             item[field] = repaired
+    warnings.extend(_enforce_playbook_trio(additions))
     normalized["additions"] = additions
     return normalized, warnings
+
+
+_PLAYBOOK_TRIO = {
+    "urn:pxai:semi:diagnosesAnomaly": "urn:pxai:semi:Anomaly",
+    "urn:pxai:semi:hasPossibleCause": None,
+    "urn:pxai:semi:hasDiagnosticAction": "urn:pxai:semi:Action",
+}
+
+
+def _enforce_playbook_trio(additions: dict[str, Any]) -> list[str]:
+    """Strip half-formed diagnostic playbooks before the expensive SHACL gate.
+
+    semi:DiagnosticPlaybookShape requires all three properties together.  A model
+    that asserts only one of them produces a MinCount violation that costs a full
+    inference + validation cycle to discover and that no repair prompt can fix
+    reliably.  Dropping the incomplete trio locally keeps the rest of the
+    candidate publishable instead of failing the whole round.
+    """
+    warnings: list[str] = []
+    individuals = additions.get("individuals") or []
+    local_types = {str(item.get("iri")): {str(value) for value in item.get("types") or []} for item in individuals if item.get("iri")}
+    for item in individuals:
+        objects = item.get("objects") or {}
+        present = [predicate for predicate in _PLAYBOOK_TRIO if objects.get(predicate)]
+        if not present:
+            continue
+        reason = ""
+        if len(present) != len(_PLAYBOOK_TRIO):
+            reason = f"仅给出 {len(present)}/3 个诊断属性"
+        elif len(objects.get("urn:pxai:semi:diagnosesAnomaly") or []) != 1:
+            reason = "diagnosesAnomaly 必须恰好 1 个值"
+        else:
+            for predicate, required_type in _PLAYBOOK_TRIO.items():
+                if not required_type:
+                    continue
+                for target in objects.get(predicate) or []:
+                    types = local_types.get(str(target))
+                    if types is not None and required_type not in types:
+                        reason = f"{predicate} 的目标 {target} 未声明 {required_type}"
+                        break
+                if reason:
+                    break
+        if reason:
+            for predicate in present:
+                objects.pop(predicate, None)
+            warnings.append(f"已移除实例 {item.get('iri')} 的诊断属性（{reason}），避免 DiagnosticPlaybook 闸门失败")
+    return warnings
 
 
 def _semantic_contract() -> dict:
@@ -143,13 +191,30 @@ def _sanitize_additions(additions: dict, allowed: dict[str, set[str]], claimed: 
             iri = item.get("iri")
             if iri in claimed:
                 warnings.append(f"跳过重复或已有属性 {iri}"); continue
+            # schema 要求 domain（对象属性还要求 range）非空且成员均为已声明类。
+            # 空数组虽能过 sanitizer 的成员检查，却会撞上 minItems:1 让整份输出校验失败，
+            # 故在此显式丢弃缺失/空值的属性，只发警告，保住候选其余部分可发布。
+            if not (item.get("domain") or []):
+                warnings.append(f"跳过 domain 缺失或为空的属性 {iri}"); continue
             if any(value not in allowed_classes for value in item.get("domain") or []):
                 warnings.append(f"跳过domain未声明的属性 {iri}"); continue
-            if section == "object_properties" and any(value not in allowed_classes for value in item.get("range") or []):
-                warnings.append(f"跳过range未声明的属性 {iri}"); continue
+            if section == "object_properties":
+                if not (item.get("range") or []):
+                    warnings.append(f"跳过 range 缺失或为空的对象属性 {iri}"); continue
+                if any(value not in allowed_classes for value in item.get("range") or []):
+                    warnings.append(f"跳过range未声明的属性 {iri}"); continue
             result[section].append(item); claimed.add(iri)
     accepted_object_properties = set(allowed["object_properties"] - {str(item.get("iri")) for item in additions.get("object_properties") or []}) | {str(item.get("iri")) for item in result["object_properties"]}
     accepted_datatype_properties = set(allowed["datatype_properties"] - {str(item.get("iri")) for item in additions.get("datatype_properties") or []}) | {str(item.get("iri")) for item in result["datatype_properties"]}
+    # inverse_of 是对象属性上唯一的公理字段，schema 允许但之前 sanitizer 原样透传。
+    # 只放行指向"已存在或本批次新建"的对象属性，避免悬空 owl:inverseOf；此处已算好
+    # accepted_object_properties，故 A inverse_of B 无论出现顺序都能通过。悬空时剥掉该
+    # 字段而不是丢弃整条属性，保住属性本身可发布。
+    for prop in result["object_properties"]:
+        inverse = prop.get("inverse_of")
+        if inverse and inverse not in accepted_object_properties:
+            warnings.append(f"属性 {prop.get('iri')} 跳过悬空 inverse_of {inverse}")
+            prop.pop("inverse_of", None)
     for cls in result["classes"]:
         if "restrictions" in cls:
             cls["restrictions"] = [item for item in cls.get("restrictions") or [] if item.get("on_property") in accepted_object_properties | accepted_datatype_properties]
@@ -185,14 +250,32 @@ def _sanitize_additions(additions: dict, allowed: dict[str, set[str]], claimed: 
 def prompt_contract() -> dict:
     """Compact, machine-oriented contract sent to the model."""
     return {
+        "_hard_rules": [
+            "个体若使用 semi:diagnosesAnomaly / semi:hasPossibleCause / semi:hasDiagnosticAction "
+            "中的任意一个，就必须同时给出这三个属性：diagnosesAnomaly 恰好 1 个 semi:Anomaly 类型个体、"
+            "hasPossibleCause 至少 1 个、hasDiagnosticAction 至少 1 个 semi:Action 类型个体。"
+            "凑不齐就完全不要用这三个属性，改用 semi:mayCause / semi:hasEvidence / semi:relatedTo 表达。",
+            "被 hasDiagnosticAction 指向的个体 types 必须包含 urn:pxai:semi:Action；"
+            "被 diagnosesAnomaly 指向的个体 types 必须包含 urn:pxai:semi:Anomaly。"
+            "这些目标个体要在同一份 additions.individuals 里一并定义，不能只写 IRI。",
+            "新建 object_properties 必须给出非空 domain 与 range；新建 datatype_properties 必须给出非空 domain。"
+            "domain/range 只能引用已存在的类，或本次 additions.classes 里新定义的类 IRI，指向语义上最贴切的类即可"
+            "（可以指向 Equipment、ProcessingEvent、DiagnosticPlaybook 等约束类：校验已按显式声明类型治理，"
+            "domain/range 推理不会再误触发这些类的必填校验）。若找不到合适的类，就不要新建该属性，"
+            "绝不要输出空的 domain 或 range 数组。",
+            "鼓励为新建对象属性补充 OWL 公理以增强推理：若属性有天然的反向关系（如 contains↔containedIn、"
+            "causes↔causedBy），用 inverse_of 指向对应属性；若某个新类与既有类语义等价，用 equivalent_to 声明。"
+            "inverse_of 只能指向已存在或本次一并新建的对象属性 IRI，equivalent_to 只能指向已存在的类 IRI，"
+            "没有合适目标就省略这两个字段，绝不要凭空编造或指向不存在的 IRI。",
+        ],
         "summary": "string",
         "customer_pains": ["string"],
         "evidence_notes": ["string"],
         "semantic_changesets": [{
             "provenance": {"source_type": "web|model_prior", "confidence": "high|medium|low", "source_ref": "URL or model reference"},
             "additions": {
-                "classes": [{"iri": "urn:pxai:semi:...", "label_zh": "...", "subclass_of": ["existing/new class IRI"]}],
-                "object_properties": [{"iri": "urn:pxai:semi:...", "label_zh": "...", "domain": ["class IRI"], "range": ["class IRI"]}],
+                "classes": [{"iri": "urn:pxai:semi:...", "label_zh": "...", "subclass_of": ["existing/new class IRI"], "equivalent_to": ["可选：语义等价的既有类 IRI，没有就省略"]}],
+                "object_properties": [{"iri": "urn:pxai:semi:...", "label_zh": "...", "domain": ["class IRI"], "range": ["class IRI"], "inverse_of": "可选：本属性天然反向的对象属性 IRI（既有或本次新建），没有就省略"}],
                 "datatype_properties": [{"iri": "urn:pxai:semi:...", "label_zh": "...", "domain": ["class IRI"], "datatype": "http://www.w3.org/2001/XMLSchema#string"}],
                 "individuals": [{"iri": "urn:pxai:semi:...", "types": ["class IRI"], "label_zh": "...", "objects": {"object property IRI": ["individual IRI"]}, "data": {"datatype property IRI": ["value"]}}],
                 "object_assertions": [{"subject": "IRI", "predicate": "IRI", "object": "IRI"}],

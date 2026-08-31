@@ -253,8 +253,14 @@ class RunOrchestrator:
                         last_error = exc
                         if attempt >= max_retries:
                             raise
-                        prompt += f"\n\n上一次输出未通过机器校验：{type(exc).__name__}: {exc}。请完整重写合法JSON，不要解释。"
-                        self.emit(db, run_id, "agent_retry", f"{agent.name} 输出校验失败，重试 {attempt + 1}/{max_retries}", {"agent_id": agent.id, "round": round_number, "error": str(exc)}, "warning")
+                        # 网络/供应商类错误（模型压根没产出）与“产物不合法”是两回事：
+                        # 前者不应把纠错提示塞进 prompt（越塞越长越容易再次被掐断），标签也要如实。
+                        is_network = isinstance(exc, (ExternalServiceError, OSError))
+                        if is_network:
+                            self.emit(db, run_id, "agent_retry", f"{agent.name} 模型网络调用失败，重试 {attempt + 1}/{max_retries}", {"agent_id": agent.id, "round": round_number, "error": str(exc), "kind": "network"}, "warning")
+                        else:
+                            prompt += f"\n\n上一次输出未通过机器校验：{type(exc).__name__}: {exc}。请完整重写合法JSON，不要解释。"
+                            self.emit(db, run_id, "agent_retry", f"{agent.name} 输出校验失败，重试 {attempt + 1}/{max_retries}", {"agent_id": agent.id, "round": round_number, "error": str(exc), "kind": "validation"}, "warning")
             except Exception as exc:
                 last_error = exc; iteration.status = "failed"; iteration.error = str(exc); agent.status = "failed"; agent.error = str(exc)
                 self.emit(db, run_id, "agent_failed", f"第 {round_number} 轮 · {agent.name} 失败：{exc}", {"agent_id": agent.id, "round": round_number}, "error")

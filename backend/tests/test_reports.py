@@ -42,3 +42,26 @@ def test_report_blocks_false_vfab_pass():
 def test_report_accepts_complete_content():
     content = fixed_metrics_markdown(snapshot()) + "\n场景正文 客户痛点 交叉验证 经营模型 仿真结果 明日重点"
     assert validate_report(content, snapshot())["passed"]
+
+
+def test_internal_feature_reflects_alignment_not_a_constant():
+    # 通过校验的轮次：内部特征与来源对齐都应显示真实“通过/已接入”，命中数一并展示。
+    passed = snapshot()
+    passed["latest_round"] = {"round_number": 7, "status": "completed", "validation": {"checks": {
+        "source_alignment": {"passed": True},
+        "candidate_source_alignment": {"internal_supported": 12, "terms_checked": 20},
+        "full_publish_gate": {"passed": True},
+        "business_simulation": {"passed": True},
+    }}}
+    content = fixed_metrics_markdown(passed)
+    assert "内部特征：`已接入（本轮命中 12/20）`" in content
+    assert "来源对齐：`通过`" in content
+    assert "暂无通过记录" not in content
+
+
+def test_internal_feature_not_faked_when_no_validated_round():
+    # 复现被修的 bug：没有已完成校验的轮次时，内部特征不能再写死“已接入”。
+    content = fixed_metrics_markdown(snapshot())  # snapshot() 无 latest_round
+    assert "内部特征：`暂无通过记录`" in content
+    assert "来源对齐：`暂无通过记录`" in content
+    assert "已接入" not in content

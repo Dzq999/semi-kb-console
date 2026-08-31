@@ -327,6 +327,17 @@ class SemiKbAdapter:
             pending.mkdir(parents=True, exist_ok=True)
             business_dir.mkdir(parents=True, exist_ok=True)
             simulation_dir.mkdir(parents=True, exist_ok=True)
+            # apply_semantic_changeset.py 用 PENDING.glob("*.json") 处理整个目录，
+            # 因此上一轮/上一次 run 崩溃留下的残留文件会被本轮一起校验，导致本轮
+            # 无缘无故失败。这里持有 _candidate_lock，pending/ 理应为空；不为空即为
+            # 孤儿，移到 orphans/ 保留证据而不是直接删除。
+            orphans = [item for item in pending.glob("*.json")]
+            if orphans:
+                orphan_dir = self.root / "semantic_changesets" / "orphans" / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+                orphan_dir.mkdir(parents=True, exist_ok=True)
+                for item in orphans:
+                    await asyncio.to_thread(shutil.move, str(item), str(orphan_dir / item.name))
+                result.setdefault("orphaned_candidates", []).extend(item.name for item in orphans)
             knowledge_dir = self.root / "knowledge" / "entries"
             knowledge_dir.mkdir(parents=True, exist_ok=True)
             staged_semantic: list[Path] = []
@@ -619,7 +630,10 @@ class SemiKbAdapter:
         if db is not None and user_id is not None:
             zone = ZoneInfo(settings.timezone)
             today_text = datetime.now(zone).date().isoformat()
-            rounds = db.scalars(select(RunRound).join(Run, Run.id == RunRound.run_id).where(Run.user_id == user_id, RunRound.status == "completed")).all()
+            # completed_partial / completed_no_change 也是正常收尾状态（部分发布、无变更），
+            # 它们同样写入了 metrics_before/after，必须计入"今日新增"，否则闸门一旦触发
+            # 部分发布，看板就会显示 +0。
+            rounds = db.scalars(select(RunRound).join(Run, Run.id == RunRound.run_id).where(Run.user_id == user_id, RunRound.status.in_(("completed", "completed_partial", "completed_no_change")))).all()
             for item in rounds:
                 if item.completed_at and item.completed_at.replace(tzinfo=item.completed_at.tzinfo or timezone.utc).astimezone(zone).date().isoformat() == today_text:
                     before = json.loads(item.metrics_before_json or "{}")

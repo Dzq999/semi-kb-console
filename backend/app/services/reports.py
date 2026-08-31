@@ -37,7 +37,17 @@ def fixed_metrics_markdown(snapshot: dict) -> str:
         lines.append(f"| {label} | {int(added.get(key, 0)):,} | {int(totals.get(key, 0)):,} |")
     latest = snapshot.get("latest_round") or {}
     checks = (latest.get("validation") or {}).get("checks") or {}
-    lines.extend(["", "## 质量与验证", f"- 内部特征：已接入；来源对齐：`{'通过' if (checks.get('source_alignment') or {}).get('passed') else '暂无通过记录'}`。", f"- vFab：`{totals.get('vfab_state', 'awaiting_source')}`（未提供时不标记为通过）。", f"- 最近轮次：第 {latest.get('round_number', 0)} 轮，状态 `{latest.get('status', '无')}`；OWL/SHACL/推理：`{'通过' if (checks.get('full_publish_gate') or checks.get('semantic_precheck') or {}).get('passed') else '暂无通过记录'}`；经营仿真：`{'通过' if (checks.get('business_simulation') or {}).get('passed') else '暂无通过记录'}`。", "", "## 明日计划", "- 继续补齐 Fab、FAC、EQP 的高价值缺口，并优先处理未通过校验项。"])
+    # 内部特征状态不再写死。align_sources.py 通过即代表内部特征模型已接入并映射到本体；
+    # candidate_source_alignment（发布轮次才有）能进一步给出命中数，有就一并展示。
+    aligned = bool((checks.get("source_alignment") or {}).get("passed"))
+    candidate_align = checks.get("candidate_source_alignment") or {}
+    if aligned:
+        supported, checked = candidate_align.get("internal_supported"), candidate_align.get("terms_checked")
+        feature_state = f"已接入（本轮命中 {supported}/{checked}）" if isinstance(supported, int) and isinstance(checked, int) and checked else "已接入"
+    else:
+        feature_state = "暂无通过记录"
+    gate_passed = (checks.get("full_publish_gate") or checks.get("semantic_precheck") or {}).get("passed")
+    lines.extend(["", "## 质量与验证", f"- 内部特征：`{feature_state}`；来源对齐：`{'通过' if aligned else '暂无通过记录'}`。", f"- vFab：`{totals.get('vfab_state', 'awaiting_source')}`（未提供时不标记为通过）。", f"- 最近轮次：第 {latest.get('round_number', 0)} 轮，状态 `{latest.get('status', '无')}`；OWL/SHACL/推理：`{'通过' if gate_passed else '暂无通过记录'}`；经营仿真：`{'通过' if (checks.get('business_simulation') or {}).get('passed') else '暂无通过记录'}`。", "", "## 明日计划", "- 继续补齐 Fab、FAC、EQP 的高价值缺口，并优先处理未通过校验项。"])
     return "\n".join(lines)
 
 
@@ -78,7 +88,14 @@ async def generate_report(db: Session, user_id: int, report_date: str, model_id:
     report.approval_required = settings_row.approval_required
     db.commit()
     snapshot = await semi_kb.metrics(db, user_id)
-    latest_round = db.scalar(select(RunRound).join(Run, Run.id == RunRound.run_id).where(Run.user_id == user_id).order_by(RunRound.completed_at.desc()).limit(1))
+    # 只挑真正跑过校验的轮次。running/cancelled/failed 轮次的 validation_json 是空校验，
+    # 若按 completed_at 直接取最新，会被这些空轮次盖掉，导致“来源对齐/OWL/仿真”全部
+    # 误报“暂无通过记录”——与 metrics() 里“今日新增”采用的同一批收尾状态保持一致。
+    latest_round = db.scalar(
+        select(RunRound).join(Run, Run.id == RunRound.run_id)
+        .where(Run.user_id == user_id, RunRound.status.in_(("completed", "completed_partial", "completed_no_change")))
+        .order_by(RunRound.completed_at.desc()).limit(1)
+    )
     if latest_round:
         snapshot["latest_round"] = {"run_id": latest_round.run_id, "round_number": latest_round.round_number, "status": latest_round.status, "validation": json.loads(latest_round.validation_json or "{}")}
     api_key = user_api_key(db, user_id)
@@ -90,6 +107,8 @@ async def generate_report(db: Session, user_id: int, report_date: str, model_id:
     system = (
         "你是给公司领导写日报结论的编辑。只输出不超过180字的中文Markdown项目符号，最多3条，补充今日结果中的关键风险或结论。"
         "不要输出任何章节标题，不要复述指标表，不复述技术过程，不编造数字，不虚构vFab验证。"
+        "公理、经营模型关系等属跳变式指标：仅在新增本体公理或发布新经营基线时才增长，绝大多数轮次零新增属正常，"
+        "禁止把‘零新增’写成风险、问题或需要改进项。覆盖率只在低于100%时才作为缺口提示，达到100%视为达标、不必强调。"
         "全文禁止使用‘场景文章’和‘业务进展摘要’，统一使用‘场景知识产物’。"
     )
     user = json.dumps({"date": report_date, "metrics": snapshot}, ensure_ascii=False)

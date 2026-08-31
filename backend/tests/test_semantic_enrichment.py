@@ -30,6 +30,59 @@ def test_cross_reference_cleanup_keeps_valid_class_and_drops_dangling_property()
     assert any("domain未声明" in warning for warning in result["sanitization_warnings"])
 
 
+def test_empty_domain_property_is_dropped_not_fatal() -> None:
+    # 复现第 2 轮 gate 失败：模型对新建对象属性给出 domain: []（schema minItems:1）。
+    # sanitizer 必须在严格校验前丢弃该属性并保住候选其余部分，而非让整份输出报错。
+    raw = {
+        "summary": "设备与腔室之间的从属关系需要统一建模，便于跨系统定位。",
+        "customer_pains": ["腔室归属在不同系统中口径不一，排查耗时。"],
+        "semantic_changesets": [{
+            "provenance": {"source_type": "model_prior", "confidence": "low", "source_ref": "model:test"},
+            "additions": {
+                "classes": [{"iri": "urn:pxai:semi:ConsoleEmptyDomainProbeClass", "label_zh": "空域探针类", "subclass_of": ["urn:pxai:semi:Equipment"]}],
+                "object_properties": [
+                    {"iri": "urn:pxai:semi:consoleEmptyDomainProp", "label_zh": "空域属性", "domain": [], "range": ["urn:pxai:semi:Equipment"]},
+                    {"iri": "urn:pxai:semi:consoleEmptyRangeProp", "label_zh": "空值域属性", "domain": ["urn:pxai:semi:Equipment"], "range": []},
+                ],
+            },
+        }],
+        "scenario_article_markdown": "场景：腔室归属建模。客户痛点：口径不一。经营与仿真含义：仅用于自动校验，不构成经营承诺。",
+    }
+    result = validate_and_store_agent_output(raw, run_id="run-empty-domain-test", round_number=1, agent_id="agent-1", source_mode="model_prior", model_id="gpt-test", evidence=[])
+    document = json.loads(Path(result["semantic_files"][0]).read_text(encoding="utf-8"))
+    assert len(document["additions"]["classes"]) == 1
+    assert "object_properties" not in document["additions"]
+    assert any("domain 缺失或为空" in warning for warning in result["sanitization_warnings"])
+    assert any("range 缺失或为空" in warning for warning in result["sanitization_warnings"])
+
+
+def test_inverse_of_kept_when_paired_and_dropped_when_dangling() -> None:
+    # 让公理计数能增长：本批次两个对象属性互为反向，inverse_of 应保留（顺序无关）；
+    # 指向不存在属性的 inverse_of 是悬空引用，应被剥掉但不牵连属性本身。
+    raw = {
+        "summary": "腔室与设备的包含关系需要成对建模，便于双向推理。",
+        "customer_pains": ["只记录单向包含关系，反向查询时需要额外拼接。"],
+        "semantic_changesets": [{
+            "provenance": {"source_type": "model_prior", "confidence": "low", "source_ref": "model:test"},
+            "additions": {
+                "object_properties": [
+                    {"iri": "urn:pxai:semi:consoleContainsChamberX", "label_zh": "包含腔室", "domain": ["urn:pxai:semi:Equipment"], "range": ["urn:pxai:semi:Chamber"], "inverse_of": "urn:pxai:semi:consoleChamberOfX"},
+                    {"iri": "urn:pxai:semi:consoleChamberOfX", "label_zh": "腔室归属", "domain": ["urn:pxai:semi:Chamber"], "range": ["urn:pxai:semi:Equipment"]},
+                    {"iri": "urn:pxai:semi:consoleDanglingInverseX", "label_zh": "悬空反向属性", "domain": ["urn:pxai:semi:Equipment"], "range": ["urn:pxai:semi:Chamber"], "inverse_of": "urn:pxai:semi:consoleNeverDeclaredProp"},
+                ],
+            },
+        }],
+        "scenario_article_markdown": "场景：包含关系成对建模。客户痛点：单向记录。经营与仿真含义：仅用于自动校验，不构成经营承诺。",
+    }
+    result = validate_and_store_agent_output(raw, run_id="run-inverse-test", round_number=1, agent_id="agent-1", source_mode="model_prior", model_id="gpt-test", evidence=[])
+    document = json.loads(Path(result["semantic_files"][0]).read_text(encoding="utf-8"))
+    props = {item["iri"]: item for item in document["additions"]["object_properties"]}
+    assert len(props) == 3  # 三条属性都保住，没有因悬空 inverse 被丢弃
+    assert props["urn:pxai:semi:consoleContainsChamberX"]["inverse_of"] == "urn:pxai:semi:consoleChamberOfX"
+    assert "inverse_of" not in props["urn:pxai:semi:consoleDanglingInverseX"]  # 悬空引用被剥掉
+    assert any("悬空 inverse_of" in warning for warning in result["sanitization_warnings"])
+
+
 def test_knowledge_and_rule_candidates_are_normalized() -> None:
     raw = {
         "summary": "设备停机事件与维护响应之间存在可验证的时间约束。",
