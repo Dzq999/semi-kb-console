@@ -123,6 +123,8 @@ class RoundGraphEngine:
     async def gap_analysis(self, state: RoundGraphState) -> dict:
         await self._control(state, "gap_analysis", 0)
         gap = await semi_kb.status()
+        from .reports import augment_gap
+        augment_gap(gap, state["run_id"])
         round_directory(state["run_id"], state["round_number"]).joinpath("gap-analysis.json").write_text(json.dumps(gap, ensure_ascii=False, indent=2), encoding="utf-8")
         return {"gap": gap, "artifacts": dict(state.get("artifacts") or {})}
 
@@ -430,7 +432,7 @@ class RoundGraphEngine:
         filtered["knowledge"] = []; filtered["rules"] = []; filtered["articles"] = []
         result: dict[str, Any] = auxiliary
         try:
-            if not any(filtered[key] for key in ("semantic", "business", "simulation")) and not rejected_semantic:
+            if not any(filtered[key] for key in ("semantic", "business", "simulation", "mappings")) and not rejected_semantic:
                 return {"validation": {**auxiliary, "partial": True, "published": bool(published), "repair_attempts": int(state.get("repair_attempt", 0))}, "quarantined_files": list(dict.fromkeys(quarantined)), "gate_error": None, "success": published > 0}
             if not filtered["semantic"] and rejected_semantic:
                 raise RuntimeError("语义候选预检全部失败，进入候选级兜底")
@@ -575,6 +577,9 @@ class RoundGraphEngine:
             artifacts["partial"] = partial
             row.artifacts_json = json.dumps(artifacts, ensure_ascii=False)
             row.quarantined_files_json = json.dumps(state.get("quarantined_files") or [], ensure_ascii=False)
+            # 本轮成功 → 产出下一轮结构化优化方向，下一轮 gap_analysis 的 augment_gap 读回注入。
+            from .reports import compute_round_direction
+            row.next_direction_json = json.dumps(compute_round_direction(semi_kb.feature_gap(), validation, delta), ensure_ascii=False)
             run.metrics_after_json = row.metrics_after_json; run.progress = 100; run.heartbeat_at = datetime.now(timezone.utc)
             db.commit()
             self.controller.emit(db, state["run_id"], "round_completed", f"第 {state['round_number']} 轮{'部分完成' if partial else '完成'}，准备下一轮", {"round": state["round_number"], "duration_seconds": row.duration_seconds, "delta": delta, "published": (state.get("validation") or {}).get("published", False), "partial": partial, "repair_attempts": int(state.get("repair_attempt", 0)), "repair_successes": int(state.get("repair_successes", 0)), "engine": "langgraph"})

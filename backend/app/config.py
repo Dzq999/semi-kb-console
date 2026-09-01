@@ -27,13 +27,18 @@ class Settings:
     # intentionally ignored at runtime; use scripts\migrate-engine.ps1 for a
     # one-time import from an older checkout.
     engine_root: Path = Path(os.getenv("SEMI_KB_ENGINE_ROOT", PROJECT_ROOT / "data" / "engine"))
-    llm_base_url: str = os.getenv("LLM_BASE_URL", "https://4sapi.com/v1").rstrip("/")
+    llm_base_url: str = os.getenv("LLM_BASE_URL", "https://4sapi.org/v1").rstrip("/")
     model_catalog_url: str = os.getenv("MODEL_CATALOG_URL", "https://4sapi.org/v1/models")
     llm_api_key_env: str = os.getenv("LLM_API_KEY_ENV", "4SAPI_API_KEY")
+    # 文本补全走哪套契约：anthropic=原生 /v1/messages（Claude 模型走此路更稳，system 顶层、max_tokens 必填）；
+    # openai=兼容 /v1/chat/completions（旧行为）。中转站两套都暴露 Claude 模型，切 openai 即可即时回退。
+    llm_api_style: str = os.getenv("LLM_API_STYLE", "anthropic").casefold()
+    # 原生 /v1/messages 的 max_tokens 必填；旧兼容路径不传时由中转取模型上限。给足以免长产物被截断。
+    llm_max_tokens: int = min(64_000, max(256, int(os.getenv("LLM_MAX_TOKENS", "16384"))))
     wechat_api_base_url: str = os.getenv("WECHAT_API_BASE_URL", "https://api.weixin.qq.com").rstrip("/")
     wechat_account_name: str = os.getenv("WECHAT_ACCOUNT_NAME", "墨言yyy")
     max_agent_count: int = min(10, max(1, int(os.getenv("MAX_AGENT_COUNT", "10"))))
-    max_provider_concurrency: int = max(1, int(os.getenv("MAX_PROVIDER_CONCURRENCY", "3")))
+    max_provider_concurrency: int = max(1, int(os.getenv("MAX_PROVIDER_CONCURRENCY", "5")))
     research_result_limit: int = min(12, max(1, int(os.getenv("RESEARCH_RESULT_LIMIT", "6"))))
     evidence_chars_per_page: int = min(20_000, max(1_000, int(os.getenv("EVIDENCE_CHARS_PER_PAGE", "6000"))))
     timezone: str = os.getenv("SEMI_KB_TIMEZONE", "Asia/Shanghai")

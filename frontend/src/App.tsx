@@ -1528,7 +1528,436 @@ function Business() {
       exportKind="business"
       metricKeys={["business_relations"]}
       query={query}
-    />
+    >
+      <BusinessAssistant />
+    </CatalogPage>
+  );
+}
+
+type DraftValidation = {
+  passed: boolean;
+  errors: string[];
+  outputs: Record<string, { value: number; unit: string }>;
+};
+
+type DraftSummary = {
+  draft_id: string;
+  status: string;
+  intent: string;
+  domain: string;
+  summary: string;
+  llm_model_id: string;
+  validation: DraftValidation;
+  promoted_paths: Record<string, string>;
+  created_at: string;
+  approved_at?: string | null;
+  rejected_at?: string | null;
+};
+
+const DRAFT_STATUS_LABEL: Record<string, string> = {
+  drafted: "草拟中",
+  validated: "校验通过",
+  invalid: "校验未过",
+  approved: "已采纳",
+  rejected: "已丢弃",
+};
+
+type BaselineSchedule = {
+  enabled: boolean;
+  generate_time: string;
+  timezone: string;
+  daily_count: number;
+  llm_model_id: string | null;
+  domain_strategy: string;
+  last_generated_date: string | null;
+};
+
+function BaselineScheduleSettings({ models }: { models: Array<{ id: string }> }) {
+  const queryClient = useQueryClient();
+  const setNotice = useAppStore((state) => state.setNotice);
+  const schedule = useQuery<BaselineSchedule>({
+    queryKey: ["baseline-schedule"],
+    queryFn: () => api("/api/business-models/schedule"),
+  });
+  const [state, setState] = useState<BaselineSchedule | null>(null);
+  useEffect(() => {
+    if (schedule.data && !state) setState(schedule.data);
+  }, [schedule.data, state]);
+  const save = useMutation({
+    mutationFn: () =>
+      api("/api/business-models/schedule", {
+        method: "PUT",
+        body: JSON.stringify({
+          enabled: state?.enabled ?? false,
+          generate_time: state?.generate_time ?? "03:00",
+          daily_count: state?.daily_count ?? 3,
+          llm_model_id: state?.llm_model_id || null,
+          domain_strategy: state?.domain_strategy || "gap_hotspot",
+        }),
+      }),
+    onSuccess: () => {
+      setNotice("定时起草设置已保存");
+      queryClient.invalidateQueries({ queryKey: ["baseline-schedule"] });
+    },
+  });
+  if (!state) return <Loading />;
+  return (
+    <Panel
+      title="定时自动起草"
+      meta="每日按缺口热点自动起草 + 校验，仍由人批量采纳落盘"
+    >
+      <div className="settings-form">
+        <label className="switch-line">
+          <span>启用每日自动起草</span>
+          <input
+            type="checkbox"
+            checked={state.enabled}
+            onChange={(e) => setState({ ...state, enabled: e.target.checked })}
+          />
+        </label>
+        <label>
+          起草时间
+          <input
+            type="time"
+            value={state.generate_time}
+            onChange={(e) => setState({ ...state, generate_time: e.target.value })}
+          />
+        </label>
+        <label>
+          每日份数
+          <input
+            type="number"
+            min={1}
+            max={10}
+            value={state.daily_count}
+            onChange={(e) =>
+              setState({ ...state, daily_count: Number(e.target.value) })
+            }
+          />
+        </label>
+        <label>
+          模型
+          <select
+            value={state.llm_model_id || ""}
+            onChange={(e) =>
+              setState({ ...state, llm_model_id: e.target.value || null })
+            }
+          >
+            <option value="">默认模型</option>
+            {models.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.id}
+              </option>
+            ))}
+          </select>
+        </label>
+        <small>
+          意图来自反向特征缺口热点，仅自动起草 + 引擎校验；数值假设由你在采纳前判断，落盘仍需人工批量采纳。
+        </small>
+        <div className="actions">
+          <Button primary onClick={() => save.mutate()} disabled={save.isPending}>
+            <Save size={15} />
+            {save.isPending ? "保存中…" : "保存设置"}
+          </Button>
+        </div>
+        {save.error && <ErrorBox error={save.error} />}
+      </div>
+    </Panel>
+  );
+}
+
+function BusinessAssistant() {
+  const queryClient = useQueryClient();
+  const setNotice = useAppStore((state) => state.setNotice);
+  const models = useQuery<{ items: Array<{ id: string }>; default_model_id?: string }>({
+    queryKey: ["models"],
+    queryFn: () => api("/api/models?refresh=true"),
+    retry: false,
+  });
+  const drafts = useQuery<{ items: DraftSummary[] }>({
+    queryKey: ["business-drafts"],
+    queryFn: () => api("/api/business-models/drafts"),
+  });
+  const [intent, setIntent] = useState("");
+  const [domain, setDomain] = useState("manufacturing");
+  const [model, setModel] = useState("");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    if (!model && models.data?.default_model_id)
+      setModel(models.data.default_model_id);
+  }, [models.data?.default_model_id, model]);
+  const generate = useMutation({
+    mutationFn: () =>
+      api<DraftSummary>("/api/business-models/draft", {
+        method: "POST",
+        body: JSON.stringify({
+          intent,
+          domain,
+          model_id: model || models.data?.default_model_id || "",
+        }),
+      }),
+    onSuccess: (data) => {
+      setNotice(
+        data.validation?.passed
+          ? "草案已生成并通过引擎校验"
+          : "草案已生成，但未通过引擎校验，请查看错误",
+      );
+      setIntent("");
+      queryClient.invalidateQueries({ queryKey: ["business-drafts"] });
+    },
+  });
+  const approveBatch = useMutation({
+    mutationFn: () =>
+      api<{ approved: number; results: Array<{ draft_id: string; ok: boolean; error?: string }> }>(
+        "/api/business-models/drafts/approve-batch",
+        {
+          method: "POST",
+          body: JSON.stringify({ draft_ids: Array.from(selected) }),
+        },
+      ),
+    onSuccess: (data) => {
+      const failed = data.results.filter((item) => !item.ok).length;
+      setNotice(
+        failed === 0
+          ? `已批量采纳 ${data.approved} 份基线`
+          : `采纳 ${data.approved} 份，${failed} 份失败`,
+      );
+      setSelected(new Set());
+      queryClient.invalidateQueries({ queryKey: ["business-drafts"] });
+      queryClient.invalidateQueries({ queryKey: ["business"] });
+    },
+  });
+  const canGenerate = intent.trim().length >= 4 && !generate.isPending;
+  const items = drafts.data?.items || [];
+  const selectableIds = items
+    .filter((draft) => draft.status === "validated" && draft.validation?.passed)
+    .map((draft) => draft.draft_id);
+  const toggleSelect = (draftId: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.has(draftId) ? next.delete(draftId) : next.add(draftId);
+      return next;
+    });
+  const allSelected =
+    selectableIds.length > 0 && selectableIds.every((id) => selected.has(id));
+  const toggleAll = () =>
+    setSelected(allSelected ? new Set() : new Set(selectableIds));
+  return (
+    <Panel
+      title="经营基线协作 Agent"
+      meta="人触发起草 · 引擎门禁校验 · 人审批晋升"
+      className="business-assistant"
+    >
+      <p>
+        描述经营场景，LLM 起草完整三件套基线（模板 + 数据集 + 模型），经引擎真实门禁校验后，由你点『采纳为基线』落盘为线上可复用基线。
+      </p>
+      <textarea
+        value={intent}
+        onChange={(event) => setIntent(event.target.value)}
+        placeholder="例如：某晶圆厂产线，评估良率提升 2% 与固定成本变化对单月利润的影响"
+        rows={3}
+      />
+      <div className="actions">
+        <input
+          value={domain}
+          onChange={(event) => setDomain(event.target.value)}
+          placeholder="域，如 manufacturing / semiconductor.fab"
+        />
+        <select value={model} onChange={(event) => setModel(event.target.value)}>
+          {(models.data?.items || []).map((item) => (
+            <option key={item.id} value={item.id}>
+              {item.id}
+            </option>
+          ))}
+        </select>
+        <Button primary onClick={() => generate.mutate()} disabled={!canGenerate}>
+          <Sparkles size={15} />
+          {generate.isPending ? "起草中…" : "生成草案"}
+        </Button>
+      </div>
+      {generate.error && <ErrorBox error={generate.error} />}
+      <BaselineScheduleSettings models={models.data?.items || []} />
+      {drafts.isLoading ? (
+        <Loading />
+      ) : drafts.error ? (
+        <ErrorBox error={drafts.error} />
+      ) : items.length === 0 ? (
+        <small>暂无草案。</small>
+      ) : (
+        <>
+          {selectableIds.length > 0 && (
+            <div className="actions">
+              <label className="switch-line">
+                <input
+                  type="checkbox"
+                  checked={allSelected}
+                  onChange={toggleAll}
+                />
+                <span>全选校验通过的草案（{selectableIds.length}）</span>
+              </label>
+              <Button
+                primary
+                onClick={() => approveBatch.mutate()}
+                disabled={selected.size === 0 || approveBatch.isPending}
+              >
+                <ShieldCheck size={15} />
+                {approveBatch.isPending
+                  ? "批量采纳中…"
+                  : `批量采纳（${selected.size}）`}
+              </Button>
+            </div>
+          )}
+          {approveBatch.error && <ErrorBox error={approveBatch.error} />}
+          <div className="catalog-grid">
+            {items.map((draft) => (
+              <BusinessDraftCard
+                key={draft.draft_id}
+                draft={draft}
+                selectable={
+                  draft.status === "validated" && !!draft.validation?.passed
+                }
+                selected={selected.has(draft.draft_id)}
+                onToggleSelect={() => toggleSelect(draft.draft_id)}
+              />
+            ))}
+          </div>
+        </>
+      )}
+    </Panel>
+  );
+}
+
+function BusinessDraftCard({
+  draft,
+  selectable = false,
+  selected = false,
+  onToggleSelect,
+}: {
+  draft: DraftSummary;
+  selectable?: boolean;
+  selected?: boolean;
+  onToggleSelect?: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const setNotice = useAppStore((state) => state.setNotice);
+  const [open, setOpen] = useState(false);
+  const detail = useQuery<{
+    documents: { template: unknown; dataset: unknown; model: unknown } | null;
+  }>({
+    queryKey: ["business-draft", draft.draft_id],
+    queryFn: () =>
+      api(`/api/business-models/drafts/${draft.draft_id}`),
+    enabled: open,
+  });
+  const approve = useMutation({
+    mutationFn: () =>
+      api(`/api/business-models/drafts/${draft.draft_id}/approve`, {
+        method: "POST",
+      }),
+    onSuccess: () => {
+      setNotice("已采纳为线上经营基线");
+      queryClient.invalidateQueries({ queryKey: ["business-drafts"] });
+      queryClient.invalidateQueries({ queryKey: ["business"] });
+    },
+  });
+  const reject = useMutation({
+    mutationFn: () =>
+      api(`/api/business-models/drafts/${draft.draft_id}/reject`, {
+        method: "POST",
+      }),
+    onSuccess: () => {
+      setNotice("草案已丢弃");
+      queryClient.invalidateQueries({ queryKey: ["business-drafts"] });
+    },
+  });
+  const validation = draft.validation || { passed: false, errors: [], outputs: {} };
+  const outputs = Object.entries(validation.outputs || {});
+  const actionable = draft.status === "validated" || draft.status === "invalid";
+  return (
+    <article className="catalog-card">
+      <div>
+        <strong>
+          {selectable && (
+            <input
+              type="checkbox"
+              checked={selected}
+              onChange={onToggleSelect}
+              aria-label="选择此草案批量采纳"
+            />
+          )}{" "}
+          {draft.summary || draft.intent}
+        </strong>
+        <small>
+          {draft.domain} · {DRAFT_STATUS_LABEL[draft.status] || draft.status} ·{" "}
+          {validation.passed ? "门禁通过" : "门禁未过"}
+        </small>
+      </div>
+      {!validation.passed && (validation.errors || []).length > 0 && (
+        <ul>
+          {validation.errors.slice(0, 5).map((error, index) => (
+            <li key={index}>{error}</li>
+          ))}
+        </ul>
+      )}
+      {validation.passed && outputs.length > 0 && (
+        <pre>
+          {outputs
+            .map(([key, output]) => `${key}: ${output.value} ${output.unit}`)
+            .join("\n")}
+        </pre>
+      )}
+      {draft.status === "approved" &&
+        Object.values(draft.promoted_paths || {}).length > 0 && (
+          <small>已落盘：{Object.values(draft.promoted_paths).join("、")}</small>
+        )}
+      <div className="card-actions">
+        <Button onClick={() => setOpen(!open)}>
+          {open ? "收起三件套" : "查看三件套"}
+        </Button>
+        {actionable && (
+          <>
+            <Button
+              primary
+              onClick={() => approve.mutate()}
+              disabled={!validation.passed || approve.isPending}
+            >
+              <ShieldCheck size={15} />
+              {approve.isPending ? "采纳中…" : "采纳为基线"}
+            </Button>
+            <Button
+              danger
+              onClick={() => reject.mutate()}
+              disabled={reject.isPending}
+            >
+              {reject.isPending ? "丢弃中…" : "丢弃"}
+            </Button>
+          </>
+        )}
+      </div>
+      {(approve.error || reject.error) && (
+        <ErrorBox error={approve.error || reject.error} />
+      )}
+      {open &&
+        (detail.isLoading ? (
+          <Loading />
+        ) : detail.error ? (
+          <ErrorBox error={detail.error} />
+        ) : detail.data?.documents ? (
+          <pre className="full-document">
+            {["template", "dataset", "model"]
+              .map((key) =>
+                JSON.stringify(
+                  (detail.data!.documents as Record<string, unknown>)[key],
+                  null,
+                  2,
+                ),
+              )
+              .join("\n\n")}
+          </pre>
+        ) : (
+          <small>草案文件已不在磁盘（已晋升或已丢弃）。</small>
+        ))}
+    </article>
   );
 }
 
@@ -1555,6 +1984,7 @@ function CatalogPage({
   exportKind,
   metricKeys,
   query,
+  children,
 }: {
   title: string;
   subtitle: string;
@@ -1566,6 +1996,7 @@ function CatalogPage({
     error: unknown;
     data?: { items: Array<{ path: string; name: string; document: unknown }> };
   };
+  children?: React.ReactNode;
 }) {
   const metrics = useQuery<DashboardData["metrics"]>({
     queryKey: ["ontology-metrics"],
@@ -1589,6 +2020,7 @@ function CatalogPage({
         />
       )}
       {metrics.error && <ErrorBox error={metrics.error} />}
+      {children}
       {query.isLoading ? (
         <Loading />
       ) : query.error ? (

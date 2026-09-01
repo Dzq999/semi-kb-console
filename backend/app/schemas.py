@@ -129,3 +129,32 @@ class LoopUpdate(BaseModel):
     enabled: bool
     interval_minutes: int = Field(default=1440, ge=5, le=43_200)
     run_config: RunCreate | None = None
+
+
+class BusinessDraftRequest(BaseModel):
+    intent: str = Field(min_length=4, max_length=2000)
+    domain: str = Field(default="manufacturing", max_length=80)
+    model_id: str = Field(min_length=1, max_length=160)
+
+
+class BaselineScheduleUpdate(BaseModel):
+    enabled: bool = False
+    generate_time: str = "03:00"
+    daily_count: int = Field(default=3, ge=1, le=10)
+    llm_model_id: str | None = Field(default=None, max_length=160)
+    domain_strategy: Literal["gap_hotspot"] = "gap_hotspot"
+
+    @field_validator("generate_time")
+    @classmethod
+    def validate_baseline_time(cls, value: str) -> str:
+        parts = value.split(":")
+        if len(parts) != 2 or not all(part.isdigit() for part in parts):
+            raise ValueError("generate_time 必须为 HH:MM")
+        hour, minute = map(int, parts)
+        if hour > 23 or minute > 59:
+            raise ValueError("generate_time 超出范围")
+        return f"{hour:02d}:{minute:02d}"
+
+
+class BatchApproveRequest(BaseModel):
+    draft_ids: list[str] = Field(min_length=1, max_length=50)

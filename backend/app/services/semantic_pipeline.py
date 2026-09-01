@@ -267,6 +267,11 @@ def prompt_contract() -> dict:
             "causes↔causedBy），用 inverse_of 指向对应属性；若某个新类与既有类语义等价，用 equivalent_to 声明。"
             "inverse_of 只能指向已存在或本次一并新建的对象属性 IRI，equivalent_to 只能指向已存在的类 IRI，"
             "没有合适目标就省略这两个字段，绝不要凭空编造或指向不存在的 IRI。",
+            "针对 gap_analysis.feature_gap（源特征目录里尚未映射到本体的 feature_code）产出 feature_mapping_candidates："
+            "feature_codes 必须逐字取自 feature_gap 的未映射清单（top_suspected / by_theme.samples 优先），"
+            "target_property 只能指向 known_ontology 里【已存在】的数据/对象属性 IRI；若当前没有语义贴切的属性，"
+            "就在本轮 datatype_properties/object_properties 里新建它（发布后下一轮即可作为映射目标），本轮不要指向未声明目标。"
+            "纯技术字段（*_id、代理键、时间戳等）无业务含义，不要映射。",
         ],
         "summary": "string",
         "customer_pains": ["string"],
@@ -314,6 +319,14 @@ def prompt_contract() -> dict:
             }
         }],
         "scenario_article_markdown": "Markdown正文，包含场景、客户痛点、影响、证据边界和仿真含义",
+        "feature_mapping_candidates": [{
+            "mapping": {
+                "feature_codes": ["源特征 code，必须来自 gap_analysis.feature_gap 的未映射清单"],
+                "target_property": "urn:pxai:semi:<known_ontology 里已声明的数据/对象属性 IRI>",
+                "mapping_kind": "identifier|ordinal|attribute|status_literal|event_time|measurement_value|control_limit|classification",
+                "note": "映射依据（该源特征为何对应此本体属性）",
+            }
+        }],
     }
 
 
@@ -532,6 +545,59 @@ def validate_and_store_agent_output(
         path.write_text(json.dumps(normalized_rule, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         rule_files.append(str(path))
 
+    # Feature→property mapping candidates drive the reverse gap (feature_gap) down.
+    # Only accept targets that are ALREADY-declared ontology properties and source
+    # feature codes that are real and not yet mapped, so the merged property-map.json
+    # is guaranteed to pass align_sources --check. New properties a model creates this
+    # round become valid targets only after they publish — mapped next round (closed loop).
+    mapping_files: list[str] = []
+    declared_properties = (
+        inventory["object_properties"] | inventory["datatype_properties"]
+        | proposed["object_properties"] | proposed["datatype_properties"]
+    )
+    real_feature_codes: set[str] = set()
+    catalog_path = settings.engine_root / "build" / "source" / "feature-model-catalog.json"
+    if catalog_path.is_file():
+        try:
+            catalog_doc = json.loads(catalog_path.read_text(encoding="utf-8"))
+            for sheet in catalog_doc.get("sheets") or []:
+                for feature in sheet.get("features") or []:
+                    code = str(feature.get("feature_code") or "").strip().lower()
+                    if code:
+                        real_feature_codes.add(code)
+        except (OSError, json.JSONDecodeError):
+            pass
+    already_mapped_codes: set[str] = set()
+    property_map_path = settings.engine_root / "mappings" / "feature-model" / "property-map.json"
+    if property_map_path.is_file():
+        try:
+            property_map_doc = json.loads(property_map_path.read_text(encoding="utf-8"))
+            already_mapped_codes = {str(code).strip().lower() for entry in property_map_doc.get("mappings") or [] for code in entry.get("feature_codes") or []}
+        except (OSError, json.JSONDecodeError):
+            pass
+    claimed_feature_codes: set[str] = set()
+    for index, wrapper in enumerate(_as_list(raw.get("feature_mapping_candidates")), 1):
+        mapping = dict((wrapper or {}).get("mapping") or {}) if isinstance(wrapper, dict) else {}
+        target = str(mapping.get("target_property") or "")
+        if target not in declared_properties:
+            sanitization_warnings.append(f"跳过映射候选：目标属性未声明 {target}"); continue
+        codes: list[str] = []
+        for code in _as_list(mapping.get("feature_codes")):
+            code = str(code).strip().lower()
+            if code and code in real_feature_codes and code not in already_mapped_codes and code not in claimed_feature_codes:
+                codes.append(code); claimed_feature_codes.add(code)
+        if not codes:
+            sanitization_warnings.append("跳过映射候选：无真实且未映射的特征码"); continue
+        normalized_mapping = {
+            "feature_codes": codes, "target_property": target,
+            "mapping_kind": str(mapping.get("mapping_kind") or "attribute"),
+            "note": str(mapping.get("note") or "")[:500],
+            "provenance": {"source_type": "model_prior", "source_ref": f"model:{model_id}"},
+        }
+        path = output_dir / f"mapping-{index:02d}.json"
+        path.write_text(json.dumps(normalized_mapping, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        mapping_files.append(str(path))
+
     if not knowledge_files and str(raw.get("summary") or raw.get("customer_pains") or "").strip() and (source_mode != "web" or urls):
         # Keep a concise evidence-backed knowledge record even when a model omits
         # the optional structured section.  This is a normalization fallback, not
@@ -570,6 +636,7 @@ def validate_and_store_agent_output(
         "simulation_files": simulation_files,
         "knowledge_files": knowledge_files,
         "rule_files": rule_files,
+        "mapping_files": mapping_files,
         "article_file": str(article_path),
         "evidence_count": len([item for item in evidence if item.get("fetch_status") == "ok"]),
         "sanitization_warnings": sanitization_warnings,
@@ -586,5 +653,6 @@ def round_candidate_files(outputs: list[dict]) -> dict[str, list[Path]]:
         "simulation": [Path(path) for output in outputs for path in output.get("simulation_files") or []],
         "knowledge": [Path(path) for output in outputs for path in output.get("knowledge_files") or []],
         "rules": [Path(path) for output in outputs for path in output.get("rule_files") or []],
+        "mappings": [Path(path) for output in outputs for path in output.get("mapping_files") or []],
         "articles": [Path(output["article_file"]) for output in outputs if output.get("article_file")],
     }

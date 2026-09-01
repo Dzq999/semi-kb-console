@@ -164,3 +164,45 @@ async def test_langgraph_runs_ten_agent_subgraphs_concurrently(authenticated, mo
     assert await orchestrator.execute_round(run_id, 1, config, "unused")
     assert calls == 10
     assert maximum > 1
+
+
+@pytest.mark.asyncio
+async def test_langgraph_round_success_writes_direction_and_next_round_reads_it(authenticated, monkeypatch):
+    """闭环显式化：一轮成功 → RunRound.next_direction_json 有值；下一轮 augment_gap 读回注入 gap。"""
+    from app.services.reports import augment_gap
+
+    authenticated.put("/api/credentials", json={"kind": "llm_api_key", "value": "test-key"})
+    with SessionLocal() as db:
+        user = db.scalar(select(User)); run = create_run(db, user.id, _payload(1)); run_id = run.id
+        config = json.loads(run.config_json)
+
+    fake_gap = {"unmapped_total": 700, "business_relevant": 120,
+                "by_theme": [{"theme": "运维域", "count": 30, "samples": ["巡检项"]}]}
+    async def fake_status(): return {"ready": True}
+    async def fake_metrics(_db=None, _user_id=None): return {"totals": {"classes": 1}, "today_added": {}}
+    async def fake_process(_candidates, publish=False):
+        return {"published": publish, "checks": {"semantic_precheck": {"passed": True}, "business_simulation": {"passed": True}}}
+    async def fake_agent(_run_id, agent_id, round_number, _key, _gap, _config):
+        article = round_directory(_run_id, round_number) / "direction-article.md"
+        article.write_text("场景 客户痛点 经营 仿真", encoding="utf-8")
+        return {"semantic_files": [], "business_files": [], "simulation_files": [], "article_file": str(article), "evidence_count": 0}
+
+    monkeypatch.setattr("app.services.langgraph_runtime.semi_kb.status", fake_status)
+    monkeypatch.setattr("app.services.langgraph_runtime.semi_kb.metrics", fake_metrics)
+    monkeypatch.setattr("app.services.langgraph_runtime.semi_kb.process_candidates", fake_process)
+    monkeypatch.setattr("app.services.langgraph_runtime.semi_kb.feature_gap", lambda: fake_gap)
+    monkeypatch.setattr(orchestrator, "execute_agent", fake_agent)
+
+    assert await orchestrator.execute_round(run_id, 1, config, "unused")
+
+    with SessionLocal() as db:
+        row = db.scalar(select(RunRound).where(RunRound.run_id == run_id, RunRound.round_number == 1))
+        direction = json.loads(row.next_direction_json)
+        assert direction["unmapped_total"] == 700
+        assert "运维域" in direction["focus_themes"]
+
+    # 下一轮 gap_analysis 的 augment_gap 应把上一轮方向读回。feature_gap 已被 monkeypatch。
+    monkeypatch.setattr("app.services.reports.semi_kb.feature_gap", lambda: fake_gap)
+    gap = augment_gap({}, run_id)
+    assert gap["prior_round_direction"]["unmapped_total"] == 700
+    assert "运维域" in gap["prior_round_direction"]["focus_themes"]

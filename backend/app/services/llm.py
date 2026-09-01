@@ -51,11 +51,27 @@ def user_api_key(db: Session, user_id: int) -> str | None:
 class LlmService:
     async def list_models(self, api_key: str, search: str = "") -> list[dict]:
         headers = {"Authorization": f"Bearer {api_key}"}
-        try:
-            async with httpx.AsyncClient(timeout=20, follow_redirects=True) as client:
-                response = await client.get(settings.model_catalog_url, headers=headers)
-        except (httpx.HTTPError, OSError) as exc:
-            raise ExternalServiceError(f"模型目录网络失败：{type(exc).__name__}") from exc
+        # 目录取自与 complete 同源的第三方代理，同样会遇到瞬时抖动（ConnectTimeout / 连接被中途掐断
+        # / 瞬时 5xx）。原先单次即抛，任务编排里就会频繁弹“模型目录网络失败”；这里与 complete 一致
+        # 就地重试再上抛，消化网络抖动而非把每次抖动都暴露给编排层。
+        response = None
+        for attempt in range(_HTTP_RETRIES + 1):
+            try:
+                async with httpx.AsyncClient(timeout=20, follow_redirects=True) as client:
+                    response = await client.get(settings.model_catalog_url, headers=headers)
+            except (*_TRANSIENT_HTTP_ERRORS, OSError) as exc:
+                if attempt >= _HTTP_RETRIES:
+                    raise ExternalServiceError(f"模型目录网络失败：{type(exc).__name__}") from exc
+                await self._backoff(attempt)
+                continue
+            except httpx.HTTPError as exc:
+                raise ExternalServiceError(f"模型目录网络失败：{type(exc).__name__}") from exc
+            if response.status_code in _RETRYABLE_STATUS and attempt < _HTTP_RETRIES:
+                await self._backoff(attempt)
+                continue
+            break
+        if response is None:
+            raise ExternalServiceError("模型目录网络失败：无响应")
         if response.status_code >= 400:
             raise ExternalServiceError(f"模型目录请求失败：HTTP {response.status_code}")
         payload = response.json()
@@ -66,13 +82,20 @@ class LlmService:
             models = [item for item in models if needle in item["id"].casefold()]
         return sorted(models, key=lambda item: item["id"])
 
-    async def complete(self, api_key: str, model: str, system: str, user: str, temperature: float = 0.2, timeout_seconds: int = 120) -> str:
-        payload = {"model": model, "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}], "temperature": temperature}
+    async def complete(self, api_key: str, model: str, system: str, user: str, temperature: float = 0.2, timeout_seconds: int = 120, max_tokens: int | None = None) -> str:
+        # Claude 模型经中转的 OpenAI 兼容层（/chat/completions）做协议转译，长响应/并发下更易被中途
+        # 掐断（RemoteProtocolError）；原生 /v1/messages 少一层转译、更稳，是本系统默认走的路。system 在
+        # 原生契约里是顶层字段而非消息，且 max_tokens 必填。两套响应结构都在 _extract_text 里兼容解析。
+        max_tokens = max_tokens or settings.llm_max_tokens
+        if settings.llm_api_style == "anthropic":
+            url = f"{settings.llm_base_url}/messages"
+            payload = {"model": model, "max_tokens": max_tokens, "system": system, "messages": [{"role": "user", "content": user}], "temperature": temperature}
+        else:
+            url = f"{settings.llm_base_url}/chat/completions"
+            payload = {"model": model, "max_tokens": max_tokens, "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}], "temperature": temperature}
         headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
-        # 上游是第三方 OpenAI 兼容代理，长响应/并发下常见连接被中途掐断（RemoteProtocolError）
-        # 或瞬时 5xx/429。这些是网络抖动而非“模型输出不合法”，在 HTTP 层就地重试即可消化，
+        # 瞬时 5xx/429 与连接抖动是网络问题而非“模型输出不合法”，在 HTTP 层就地重试即可消化，
         # 不应上抛去挤占 agent 仅有的产物校验重试次数、更不该污染下一轮 prompt。
-        url = f"{settings.llm_base_url}/chat/completions"
         response = None
         for attempt in range(_HTTP_RETRIES + 1):
             try:
@@ -94,9 +117,31 @@ class LlmService:
         if response.status_code >= 400:
             raise ExternalServiceError(f"模型调用失败：HTTP {response.status_code}")
         try:
-            return response.json()["choices"][0]["message"]["content"]
-        except (KeyError, IndexError, TypeError, json.JSONDecodeError) as exc:
+            return self._extract_text(response.json())
+        except json.JSONDecodeError as exc:
             raise ExternalServiceError("模型响应结构不兼容") from exc
+
+    @staticmethod
+    def _extract_text(data: dict) -> str:
+        """兼容两套响应结构：原生 Anthropic 的 content[].text 与 OpenAI/中转归一化后的 choices[].message.content。
+
+        apifox 文档里原生端点的响应示例是 OpenAI 结构（疑为复制粘贴），无法据以确定中转究竟回哪套，
+        故两套都试：优先原生 text 块，缺失再退回 choices。任一取到非空文本即返回，都取不到才判不兼容。
+        """
+        try:
+            content = data.get("content")
+            if isinstance(content, list):
+                text = "".join(block.get("text", "") for block in content if isinstance(block, dict) and block.get("type") == "text")
+                if text.strip():
+                    return text
+            choices = data.get("choices")
+            if isinstance(choices, list) and choices:
+                text = ((choices[0] or {}).get("message") or {}).get("content")
+                if isinstance(text, str):
+                    return text
+        except (AttributeError, KeyError, IndexError, TypeError):
+            pass
+        raise ExternalServiceError("模型响应结构不兼容")
 
     @staticmethod
     async def _backoff(attempt: int) -> None:

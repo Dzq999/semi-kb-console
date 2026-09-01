@@ -208,7 +208,9 @@ class RunOrchestrator:
                     "请同时输出至少1条结构化knowledge_entries（若有摘要或痛点，系统会保存为知识条目），并在资料支持新推理模式时输出rule_candidates；自动规则必须是可解释、可执行的只读SPARQL CONSTRUCT，不得输出更新型SPARQL。"
                     "knowledge_entries必须包含可核查source_refs和不少于40字content；rule_candidates不得把普通描述冒充规则。"
                     "所有复数结构以及实例objects/data映射中的每个值都必须使用JSON数组，即使只有一个值。"
-                    "仿真只能引用已有经营模型和示例中的合法变量；不得编造现场实测数值。" + source_rules
+                    "仿真只能引用已有经营模型和示例中的合法变量；不得编造现场实测数值。"
+                    "若 gap_analysis.feature_gap 给出未映射的源特征，请输出 feature_mapping_candidates 把它们对齐到已声明的本体属性；"
+                    "缺少贴切属性时先在本轮新建该属性（发布后下一轮即可映射），逐轮收敛反向缺口。" + source_rules
                 )
                 repair_context = agent_config.get("repair_context") or {}
                 if repair_context:
@@ -246,7 +248,7 @@ class RunOrchestrator:
                         )
                         iteration.output_json = json.dumps(output, ensure_ascii=False)
                         iteration.evidence_json = json.dumps(evidence, ensure_ascii=False)
-                        iteration.candidate_files_json = json.dumps(output.get("semantic_files", []) + output.get("business_files", []) + output.get("simulation_files", []) + output.get("knowledge_files", []) + output.get("rule_files", []), ensure_ascii=False)
+                        iteration.candidate_files_json = json.dumps(output.get("semantic_files", []) + output.get("business_files", []) + output.get("simulation_files", []) + output.get("knowledge_files", []) + output.get("rule_files", []) + output.get("mapping_files", []), ensure_ascii=False)
                         iteration.status = "completed"; agent.output_json = iteration.output_json; agent.status = "completed"
                         return output
                     except (ExternalServiceError, json.JSONDecodeError, ValueError, OSError, jsonschema.ValidationError) as exc:
@@ -305,6 +307,8 @@ class RunOrchestrator:
                     self.emit(db, run_id, "stage_started", f"第 {round_number} 轮 · {stage}", {"stage": stage, "round": round_number, "progress": run.progress})
                 if stage == "gap_analysis":
                     gap = await semi_kb.status()
+                    from .reports import augment_gap
+                    augment_gap(gap, run_id)
                     round_directory(run_id, round_number).joinpath("gap-analysis.json").write_text(json.dumps(gap, ensure_ascii=False, indent=2), encoding="utf-8")
                 elif stage == "parallel_research":
                     with SessionLocal() as db:
@@ -347,8 +351,11 @@ class RunOrchestrator:
                 after = (await semi_kb.metrics(db, run.user_id))["totals"]
                 row.status = "completed"; row.current_stage = "completed"; row.completed_at = datetime.now(timezone.utc); row.duration_seconds = round(time.monotonic() - started, 3)
                 row.metrics_after_json = json.dumps(after, ensure_ascii=False); row.validation_json = json.dumps(validation, ensure_ascii=False); row.artifacts_json = json.dumps(artifacts, ensure_ascii=False)
-                run.metrics_after_json = row.metrics_after_json; run.progress = 100; db.commit()
                 delta = {key: int(after.get(key, 0)) - int(before.get(key, 0)) for key in set(before) | set(after) if isinstance(before.get(key, 0), (int, float)) and isinstance(after.get(key, 0), (int, float))}
+                # 本轮成功 → 产出下一轮结构化优化方向，下一轮 augment_gap 读回注入 gap，形成显式闭环。
+                from .reports import compute_round_direction
+                row.next_direction_json = json.dumps(compute_round_direction(semi_kb.feature_gap(), validation, delta), ensure_ascii=False)
+                run.metrics_after_json = row.metrics_after_json; run.progress = 100; db.commit()
                 self.emit(db, run_id, "round_completed", f"第 {round_number} 轮完成，准备下一轮", {"round": round_number, "duration_seconds": row.duration_seconds, "delta": delta, "published": validation.get("published", False)})
             return True
         except asyncio.CancelledError: raise

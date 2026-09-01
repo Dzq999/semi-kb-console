@@ -26,8 +26,8 @@ from sqlalchemy.orm import Session
 from .config import settings
 from .db import Base, SessionLocal, engine, get_db
 from .migrations import upgrade_database
-from .models import AgentIteration, AgentRun, Article, ArticleAsset, ArticleRevision, ArticleSetting, ArticleTopic, DailyReport, DailyReportRevision, EncryptedCredential, ExportJob, LoopSetting, NotificationRecord, ReportSetting, Run, RunEvent, RunRound, User, UserPreference
-from .schemas import ArticleGenerateRequest, ArticleSettingsUpdate, ArticleUpdate, CredentialUpdate, DefaultModelUpdate, ExportCreate, LoginRequest, LoopUpdate, ReportContentUpdate, ReportSettingsUpdate, RunCreate, RunResumeRequest, SetupRequest
+from .models import AgentIteration, AgentRun, Article, ArticleAsset, ArticleRevision, ArticleSetting, ArticleTopic, BusinessBaselineSchedule, BusinessDraft, DailyReport, DailyReportRevision, EncryptedCredential, ExportJob, LoopSetting, NotificationRecord, ReportSetting, Run, RunEvent, RunRound, User, UserPreference
+from .schemas import ArticleGenerateRequest, ArticleSettingsUpdate, ArticleUpdate, BaselineScheduleUpdate, BatchApproveRequest, BusinessDraftRequest, CredentialUpdate, DefaultModelUpdate, ExportCreate, LoginRequest, LoopUpdate, ReportContentUpdate, ReportSettingsUpdate, RunCreate, RunResumeRequest, SetupRequest
 from .security import decrypt_secret, encrypt_secret, hash_password, new_session_token, verify_password
 from .services.exports import create_export, recover_export_jobs
 from .services.llm import ExternalServiceError, llm_service, user_api_key
@@ -37,6 +37,7 @@ from .services.orchestrator import orchestrator
 from .services.checkpoints import checkpoint_runtime
 from .services.reports import generate_report, send_report, validate_report
 from .services.articles import _markdown_to_wechat_html, discover_topics, generate_article, generate_daily_batch, validate_article
+from .services.business_assistant import discard_draft_files, draft_business_baseline, draft_dir_path, generate_baseline_batch, load_draft_documents
 from .services.semi_kb import SemiKbError, semi_kb
 
 
@@ -289,6 +290,23 @@ async def generate_article_batch_job(user_id: int, model_id: str, approval_requi
             db.rollback()
 
 
+async def baseline_batch_job(user_id: int, count: int, model_id: str, generation_date: str) -> None:
+    """定时批量起草经营基线草案。单份由 generate_baseline_batch 内部隔离；此守卫保 scheduler 存活。"""
+    with SessionLocal() as db:
+        setting = db.get(BusinessBaselineSchedule, user_id)
+        try:
+            results = await generate_baseline_batch(db, user_id, count, model_id)
+            if setting and not any(item.get("status") in {"validated", "invalid"} for item in results):
+                # 一份都没落成草案（全批异常）→ 允许下一次 tick 重试，不锁死当日。
+                setting.last_generated_date = None
+                db.commit()
+        except Exception:
+            db.rollback()
+            if setting:
+                setting.last_generated_date = None
+                db.commit()
+
+
 async def scheduler_tick() -> None:
     zone = ZoneInfo(settings.timezone)
     now = datetime.now(zone)
@@ -351,6 +369,22 @@ async def scheduler_tick() -> None:
             setting.last_generated_date = local_now.date().isoformat()
             db.commit()
             asyncio.create_task(generate_article_batch_job(setting.user_id, setting.article_model_id or preference.default_model_id, setting.approval_required, setting.auto_visuals, setting.image_model_id, setting.image_count, setting.daily_article_count, local_now.date().isoformat()))
+        for setting in db.scalars(select(BusinessBaselineSchedule).where(BusinessBaselineSchedule.enabled.is_(True))).all():
+            try:
+                zone = ZoneInfo(setting.timezone or settings.timezone)
+            except Exception:
+                zone = ZoneInfo(settings.timezone)
+            local_now = datetime.now(zone)
+            if setting.generate_time != local_now.strftime("%H:%M") or setting.last_generated_date == local_now.date().isoformat():
+                continue
+            preference = db.get(UserPreference, setting.user_id)
+            model_id = setting.llm_model_id or (preference.default_model_id if preference else None)
+            if not model_id:
+                continue
+            # 先占位当日去重，再异步起草：定时只起草+校验，落盘仍由人批量采纳（治理边界不破）。
+            setting.last_generated_date = local_now.date().isoformat()
+            db.commit()
+            asyncio.create_task(baseline_batch_job(setting.user_id, setting.daily_count, model_id, local_now.date().isoformat()))
 
 
 @app.get("/api/health")
@@ -752,6 +786,134 @@ def knowledge_facts(user: User = Depends(current_user)) -> dict:
 @app.get("/api/business-models")
 def business_models(user: User = Depends(current_user)) -> dict:
     return {"items": yaml_catalog("business/models/*.yaml")}
+
+
+def _draft_summary(row: BusinessDraft) -> dict:
+    validation = json_load(row.validation_json, {})
+    return {
+        "draft_id": row.id, "status": row.status, "intent": row.intent, "domain": row.domain,
+        "summary": row.summary, "llm_model_id": row.llm_model_id,
+        "validation": validation, "promoted_paths": json_load(row.promoted_paths_json, {}),
+        "created_at": row.created_at, "approved_at": row.approved_at, "rejected_at": row.rejected_at,
+    }
+
+
+@app.post("/api/business-models/draft")
+async def draft_business_model(payload: BusinessDraftRequest, user: User = Depends(current_user), db: Session = Depends(get_db)) -> dict:
+    """独立经营协作 Agent：人触发 LLM 起草完整三件套基线并做引擎门禁校验（不落线上）。"""
+    try:
+        return await draft_business_baseline(db, user, payload.intent, payload.domain, payload.model_id)
+    except ExternalServiceError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    except (ValueError, SemiKbError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.get("/api/business-models/drafts")
+def list_business_drafts(user: User = Depends(current_user), db: Session = Depends(get_db)) -> dict:
+    rows = db.scalars(select(BusinessDraft).where(BusinessDraft.user_id == user.id).order_by(BusinessDraft.created_at.desc())).all()
+    return {"items": [_draft_summary(row) for row in rows]}
+
+
+@app.get("/api/business-models/drafts/{draft_id}")
+def get_business_draft(draft_id: str, user: User = Depends(current_user), db: Session = Depends(get_db)) -> dict:
+    row = db.get(BusinessDraft, draft_id)
+    if not row or row.user_id != user.id:
+        raise HTTPException(status_code=404, detail="草案不存在")
+    detail = _draft_summary(row)
+    try:
+        detail["documents"] = load_draft_documents(draft_id)
+    except SemiKbError:
+        detail["documents"] = None  # 已丢弃/晋升后磁盘目录可能已不在
+    return detail
+
+
+@app.post("/api/business-models/drafts/{draft_id}/approve")
+async def approve_business_draft(draft_id: str, user: User = Depends(current_user), db: Session = Depends(get_db)) -> dict:
+    """人点『采纳为基线』：复检门禁通过后晋升三件套到线上 business/{templates,datasets,models}/。"""
+    row = db.get(BusinessDraft, draft_id)
+    if not row or row.user_id != user.id:
+        raise HTTPException(status_code=404, detail="草案不存在")
+    if row.status == "approved":
+        return _draft_summary(row)
+    validation = json_load(row.validation_json, {})
+    if not validation.get("passed"):
+        raise HTTPException(status_code=422, detail=validation.get("errors", ["草案未通过引擎校验，无法采纳为基线"]))
+    try:
+        promoted = await semi_kb.promote_business_draft(draft_dir_path(draft_id))
+    except SemiKbError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    row.status = "approved"
+    row.approved_at = datetime.now(timezone.utc)
+    row.promoted_paths_json = json.dumps(promoted, ensure_ascii=False)
+    db.commit()
+    discard_draft_files(draft_id)
+    return _draft_summary(row)
+
+
+@app.post("/api/business-models/drafts/{draft_id}/reject")
+def reject_business_draft(draft_id: str, user: User = Depends(current_user), db: Session = Depends(get_db)) -> dict:
+    row = db.get(BusinessDraft, draft_id)
+    if not row or row.user_id != user.id:
+        raise HTTPException(status_code=404, detail="草案不存在")
+    if row.status != "approved":
+        row.status = "rejected"
+        row.rejected_at = datetime.now(timezone.utc)
+        db.commit()
+    discard_draft_files(draft_id)
+    return _draft_summary(row)
+
+
+@app.post("/api/business-models/drafts/approve-batch")
+async def approve_business_drafts_batch(payload: BatchApproveRequest, user: User = Depends(current_user), db: Session = Depends(get_db)) -> dict:
+    """批量采纳：对每个草案复检归属+门禁通过后串行晋升。串行是必须的——promote 内部持
+    _candidate_lock，且每次晋升都会改动全库门禁看到的 business/models/。逐个隔离，部分成功不影响其余。"""
+    results: list[dict] = []
+    for draft_id in payload.draft_ids:
+        row = db.get(BusinessDraft, draft_id)
+        if not row or row.user_id != user.id:
+            results.append({"draft_id": draft_id, "ok": False, "error": "草案不存在"})
+            continue
+        if row.status == "approved":
+            results.append({"draft_id": draft_id, "ok": True, "status": "approved", "skipped": True})
+            continue
+        validation = json_load(row.validation_json, {})
+        if not validation.get("passed"):
+            results.append({"draft_id": draft_id, "ok": False, "error": "未通过引擎校验，无法采纳"})
+            continue
+        try:
+            promoted = await semi_kb.promote_business_draft(draft_dir_path(draft_id))
+        except (SemiKbError, ValueError) as exc:
+            db.rollback()
+            results.append({"draft_id": draft_id, "ok": False, "error": str(exc)})
+            continue
+        row.status = "approved"
+        row.approved_at = datetime.now(timezone.utc)
+        row.promoted_paths_json = json.dumps(promoted, ensure_ascii=False)
+        db.commit()
+        discard_draft_files(draft_id)
+        results.append({"draft_id": draft_id, "ok": True, "status": "approved"})
+    return {"results": results, "approved": sum(1 for item in results if item.get("ok"))}
+
+
+@app.get("/api/business-models/schedule")
+def get_baseline_schedule(user: User = Depends(current_user), db: Session = Depends(get_db)) -> dict:
+    row = db.get(BusinessBaselineSchedule, user.id) or BusinessBaselineSchedule(user_id=user.id)
+    if db.get(BusinessBaselineSchedule, user.id) is None:
+        db.add(row); db.commit()
+    return {"enabled": row.enabled, "generate_time": row.generate_time, "timezone": row.timezone, "daily_count": row.daily_count, "llm_model_id": row.llm_model_id, "domain_strategy": row.domain_strategy, "last_generated_date": row.last_generated_date}
+
+
+@app.put("/api/business-models/schedule")
+def update_baseline_schedule(payload: BaselineScheduleUpdate, user: User = Depends(current_user), db: Session = Depends(get_db)) -> dict:
+    row = db.get(BusinessBaselineSchedule, user.id) or BusinessBaselineSchedule(user_id=user.id)
+    row.enabled = payload.enabled
+    row.generate_time = payload.generate_time
+    row.daily_count = payload.daily_count
+    row.llm_model_id = payload.llm_model_id
+    row.domain_strategy = payload.domain_strategy
+    db.add(row); db.commit()
+    return {"enabled": row.enabled, "generate_time": row.generate_time, "timezone": row.timezone, "daily_count": row.daily_count, "llm_model_id": row.llm_model_id, "domain_strategy": row.domain_strategy, "last_generated_date": row.last_generated_date}
 
 
 @app.get("/api/simulations")

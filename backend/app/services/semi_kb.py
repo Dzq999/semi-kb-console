@@ -22,6 +22,16 @@ from ..config import settings
 from ..models import Run, RunRound
 
 
+# 反向缺口排序时用来识别"技术噪声"特征码（代理键 / 时间戳 / 纯 id 列）。
+# 仅用于把业务相关缺口排到前面供 Agent 优先反思，不是硬门禁。
+_NOISE_FEATURE_CODES = {"<missing_feature_code>", "_biz_ts_", "_code_"}
+_NOISE_FEATURE_RE = re.compile(
+    r"(?:^|_)(?:id|ids|ts|dt|seq|idx|no|num|rowkey|guid|uuid|key)$"
+    r"|record_id|unique_record|_biz_ts|_time$|_ts$|^_|_$",
+    re.I,
+)
+
+
 class SemiKbError(RuntimeError):
     pass
 
@@ -184,6 +194,106 @@ class SemiKbAdapter:
     def _safe_stem(value: str) -> str:
         return re.sub(r"[^a-zA-Z0-9._-]+", "-", value).strip("-.")[:120] or "candidate"
 
+    @staticmethod
+    def _json_from_output(output: str) -> dict:
+        """从子进程输出（command() 已合并 stdout+stderr）里取出脚本打印的 JSON 对象。
+
+        优先整体解析；失败则从后往前找第一段完整的 {...} 行，兼容脚本前有零星 stderr 噪声。
+        """
+        text = (output or "").strip()
+        try:
+            parsed = json.loads(text)
+            if isinstance(parsed, dict):
+                return parsed
+        except json.JSONDecodeError:
+            pass
+        for line in reversed(text.splitlines()):
+            line = line.strip()
+            if line.startswith("{") and line.endswith("}"):
+                try:
+                    parsed = json.loads(line)
+                    if isinstance(parsed, dict):
+                        return parsed
+                except json.JSONDecodeError:
+                    continue
+        raise SemiKbError("草案校验脚本未返回合法 JSON：" + text[-500:])
+
+    async def validate_business_draft(self, model_path: Path) -> dict:
+        """对单份草案 model 运行 validate_business_draft.py，返回 {passed, errors, outputs}。
+
+        model_path 可为绝对（须在引擎根内）或相对引擎根的路径；ref 相对引擎根解析，
+        故 business/drafts/<id>/model.yaml 的自指 template_ref/dataset_ref 可就地校验。
+        """
+        self._ensure_root()
+        rel = model_path.relative_to(self.root) if model_path.is_absolute() else Path(model_path)
+        result = await self.command("validate_business_draft.py", rel.as_posix(), timeout=300)
+        payload = self._json_from_output(result["output"])
+        return {
+            "passed": bool(payload.get("passed")),
+            "errors": [str(item) for item in (payload.get("errors") or [])],
+            "outputs": payload.get("outputs") or {},
+            "duration_seconds": result["duration_seconds"],
+        }
+
+    async def promote_business_draft(self, draft_dir: Path) -> dict:
+        """把一份已校验的草案三件套晋升为线上经营基线（人点『采纳为基线』后调用）。
+
+        持 _candidate_lock 与 process_candidates 串行，避免两个写者同时改动全库门禁看到的
+        business/models/。改写 model 的 template_ref/dataset_ref 指向线上文件（template.extends
+        已指向线上基座、保持不变）；写入后跑 simulate_check.py 全库门禁，任何失败都只回滚
+        本次写入的三个文件，绝不留下半成品。成功即失效缓存，新 pair 随即进入闭环 approved_pairs。
+        """
+        self._ensure_root()
+        draft_dir = draft_dir if draft_dir.is_absolute() else (self.root / draft_dir)
+        template_doc = yaml.safe_load((draft_dir / "template.yaml").read_text(encoding="utf-8")) or {}
+        dataset_doc = yaml.safe_load((draft_dir / "dataset.yaml").read_text(encoding="utf-8")) or {}
+        model_doc = yaml.safe_load((draft_dir / "model.yaml").read_text(encoding="utf-8")) or {}
+        template = template_doc.get("template") or {}
+        dataset = dataset_doc.get("dataset") or {}
+        model = model_doc.get("model") or {}
+        template_id = str(template.get("id") or "")
+        dataset_id = str(dataset.get("id") or "")
+        model_id = str(model.get("id") or "")
+        if not (template_id and dataset_id and model_id):
+            raise SemiKbError("草案缺少 template/dataset/model 的 id，无法晋升")
+        async with self._candidate_lock:
+            templates_dir = self.root / "business" / "templates"
+            datasets_dir = self.root / "business" / "datasets"
+            models_dir = self.root / "business" / "models"
+            for directory in (templates_dir, datasets_dir, models_dir):
+                directory.mkdir(parents=True, exist_ok=True)
+            template_path = templates_dir / f"{self._safe_stem(template_id)}.yaml"
+            dataset_path = datasets_dir / f"{self._safe_stem(dataset_id)}.yaml"
+            model_path = models_dir / f"{self._safe_stem(model_id)}.yaml"
+            for target in (template_path, dataset_path, model_path):
+                if target.exists():
+                    raise SemiKbError(f"线上已存在同名基线文件：{target.relative_to(self.root).as_posix()}")
+            # 草案里 model 的 ref 指向 drafts/ 自身；晋升时改写为线上文件（extends 不动）。
+            model["template_ref"] = template_path.relative_to(self.root).as_posix()
+            model["dataset_ref"] = dataset_path.relative_to(self.root).as_posix()
+            written: list[Path] = []
+            try:
+                template_path.write_text(yaml.safe_dump(template_doc, allow_unicode=True, sort_keys=False), encoding="utf-8")
+                written.append(template_path)
+                dataset_path.write_text(yaml.safe_dump(dataset_doc, allow_unicode=True, sort_keys=False), encoding="utf-8")
+                written.append(dataset_path)
+                model_path.write_text(yaml.safe_dump(model_doc, allow_unicode=True, sort_keys=False), encoding="utf-8")
+                written.append(model_path)
+                gate = await self.command("simulate_check.py", timeout=600)
+                if gate["exit_code"]:
+                    raise SemiKbError("晋升后全库经营模型门禁失败：" + gate["output"][-3000:])
+            except BaseException:
+                for path in written:
+                    path.unlink(missing_ok=True)
+                raise
+            self.invalidate_cache()
+            return {
+                "template_path": template_path.relative_to(self.root).as_posix(),
+                "dataset_path": dataset_path.relative_to(self.root).as_posix(),
+                "model_path": model_path.relative_to(self.root).as_posix(),
+                "gate_output": gate["output"][-2000:],
+            }
+
     async def semantic_precheck_sources(self, sources: list[Path]) -> dict:
         """Run one isolated semantic changeset precheck for a source group.
 
@@ -297,9 +407,10 @@ class SemiKbAdapter:
         knowledge_sources = [path for path in candidates.get("knowledge", []) if path.is_file()]
         rule_sources = [path for path in candidates.get("rules", []) if path.is_file()]
         article_sources = [path for path in candidates.get("articles", []) if path.is_file()]
-        result: dict = {"published": False, "semantic_candidates": len(semantic_sources), "business_candidates": len(business_sources), "simulation_candidates": len(simulation_sources), "knowledge_candidates": len(knowledge_sources), "rule_candidates": len(rule_sources), "quarantined_candidates": [], "checks": {}}
-        if not semantic_sources and not business_sources and not simulation_sources and not knowledge_sources and not rule_sources:
-            result["accepted_candidates"] = {"semantic": 0, "business": 0, "simulation": 0, "knowledge": 0, "rules": 0}
+        mapping_sources = [path for path in candidates.get("mappings", []) if path.is_file()]
+        result: dict = {"published": False, "semantic_candidates": len(semantic_sources), "business_candidates": len(business_sources), "simulation_candidates": len(simulation_sources), "knowledge_candidates": len(knowledge_sources), "rule_candidates": len(rule_sources), "mapping_candidates": len(mapping_sources), "quarantined_candidates": [], "checks": {}}
+        if not semantic_sources and not business_sources and not simulation_sources and not knowledge_sources and not rule_sources and not mapping_sources:
+            result["accepted_candidates"] = {"semantic": 0, "business": 0, "simulation": 0, "knowledge": 0, "rules": 0, "mappings": 0}
             result["rejected_candidates"] = 0
             result["checks"] = await self.cross_validate()
             result["checks"]["candidate_precheck"] = {"passed": True, "output": "本轮没有非空语义或仿真候选"}
@@ -350,6 +461,9 @@ class SemiKbAdapter:
             rules_backup: bytes | None = None
             rules_registry_modified = False
             rules_path = self.root / "ontology" / "rules" / "registry.json"
+            property_map_path = self.root / "mappings" / "feature-model" / "property-map.json"
+            property_map_backup: bytes | None = None
+            property_map_modified = False
             try:
                 # Stage the complete semantic batch and run the expensive
                 # changeset precheck once.  The previous implementation invoked
@@ -448,6 +562,21 @@ class SemiKbAdapter:
                 }
                 result["rejected_candidates"] = len(result["quarantined_candidates"])
 
+                # 映射候选:在既有 cross_validate（align_sources --check）门禁之前合并进
+                # property-map.json。预 sanitize 已保证目标已声明、码真实且未占用，故门禁必过；
+                # 发布轮保留、非发布轮在 finally 还原、任何异常在 except 还原。
+                accepted_mappings = 0
+                if mapping_sources:
+                    property_map_backup = property_map_path.read_bytes() if property_map_path.is_file() else None
+                    merged, accepted_mappings, mapping_quarantine = self._merge_property_mappings(mapping_sources)
+                    result["quarantined_candidates"].extend(mapping_quarantine)
+                    if accepted_mappings:
+                        property_map_path.parent.mkdir(parents=True, exist_ok=True)
+                        property_map_path.write_text(json.dumps(merged, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+                        property_map_modified = True
+                result["accepted_candidates"]["mappings"] = accepted_mappings
+                result["rejected_candidates"] = len(result["quarantined_candidates"])
+
                 cross = await self.cross_validate()
                 result["checks"].update(cross)
                 if not cross["passed"]:
@@ -518,6 +647,7 @@ class SemiKbAdapter:
                         await asyncio.to_thread(shutil.copy2, source, target)
                     result["published_knowledge"] = [target.relative_to(self.root).as_posix() for _, target in staged_knowledge]
                     result["published_rules"] = [str(rule.get("rule_id")) for rule in staged_rules]
+                    result["published_mappings"] = accepted_mappings
                     self.invalidate_cache()
                 else:
                     result["checks"]["publish_policy"] = {"passed": True, "output": "用户未开启自动发布；候选仅保存在控制台产物目录"}
@@ -536,6 +666,11 @@ class SemiKbAdapter:
                         rules_path.unlink(missing_ok=True)
                     else:
                         rules_path.write_bytes(rules_backup)
+                if property_map_modified:
+                    if property_map_backup is None:
+                        property_map_path.unlink(missing_ok=True)
+                    else:
+                        property_map_path.write_bytes(property_map_backup)
                 raise
             finally:
                 if not publish or not semantic_applied:
@@ -548,6 +683,11 @@ class SemiKbAdapter:
                         path.unlink(missing_ok=True)
                     for _, target in staged_knowledge:
                         target.unlink(missing_ok=True)
+                    if property_map_modified:
+                        if property_map_backup is None:
+                            property_map_path.unlink(missing_ok=True)
+                        else:
+                            property_map_path.write_bytes(property_map_backup)
 
     def semantic_counts(self) -> dict[str, int]:
         self._ensure_root()
@@ -616,6 +756,164 @@ class SemiKbAdapter:
                 continue
         return {"business_models": len(business_models), "business_relations": business_relations, "simulation_scenarios": simulations, "scenario_articles": scenario_count + agent_articles, "knowledge_entries": knowledge_entries, "vfab_state": vfab_state}
 
+    @staticmethod
+    def _is_noise_feature(code: str) -> bool:
+        code = (code or "").strip()
+        if not code or code in _NOISE_FEATURE_CODES:
+            return True
+        if not re.search(r"[a-z]", code, re.I):  # 纯数字/中文/符号列，难以稳定映射到本体属性
+            return True
+        return bool(_NOISE_FEATURE_RE.search(code))
+
+    def feature_gap(self) -> dict:
+        """反向缺口：源特征目录里存在、但 property-map.json 还没映射到本体的 feature_code。
+
+        供子 Agent 反思与日报趋势使用。回连 feature-model-catalog 恢复 feature_name、
+        按 sheet→entity→theme 归类；技术噪声只用于排序聚焦，不作硬门禁。读文件失败时
+        返回零值结构，绝不影响主流程（指标看板、日报都会调用它）。
+        """
+        empty = {"unmapped_total": 0, "business_relevant": 0, "unmapped_rows": 0, "coverage_percent": None, "by_theme": [], "top_suspected": []}
+        report_path = self.root / "build" / "reports" / "source-alignment.json"
+        catalog_path = self.root / "build" / "source" / "feature-model-catalog.json"
+        if not report_path.is_file() or not catalog_path.is_file():
+            return empty
+        try:
+            report = json.loads(report_path.read_text(encoding="utf-8"))
+            catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return empty
+        issues = report.get("issues") or {}
+        unmapped = {str(item.get("feature_code") or "").strip().lower(): int(item.get("rows") or 0)
+                    for item in issues.get("unmapped_source_features") or [] if item.get("feature_code")}
+        if not unmapped:
+            return empty
+        report_metrics = report.get("internal_feature_model") or report.get("metrics") or {}
+        theme_name = {str(t.get("code") or "").lower(): str(t.get("name") or t.get("code") or "") for t in catalog.get("themes") or []}
+        # 实体 code/name → theme code（sheet 名多与实体 code/name 一致）
+        entity_theme: dict[str, str] = {}
+        for entity in catalog.get("entities") or []:
+            theme = str(entity.get("theme") or "").lower()
+            for raw in (entity.get("code"), entity.get("name")):
+                key = " ".join(str(raw or "").strip().lower().split())
+                if key and theme:
+                    entity_theme[key] = theme
+        sheet_alias_to_code: dict[str, str] = {}
+        entity_map_path = self.root / "mappings" / "feature-model" / "entity-map.json"
+        if entity_map_path.is_file():
+            try:
+                for raw, code in ((json.loads(entity_map_path.read_text(encoding="utf-8")) or {}).get("sheet_aliases") or {}).items():
+                    sheet_alias_to_code[" ".join(str(raw).strip().lower().split())] = str(code or "").lower()
+            except (OSError, json.JSONDecodeError):
+                pass
+
+        def theme_of(sheet_name: str | None) -> str:
+            key = " ".join(str(sheet_name or "").strip().lower().split())
+            code = entity_theme.get(key) or entity_theme.get(sheet_alias_to_code.get(key, ""), "")
+            return theme_name.get(code, "其他")
+
+        seen: dict[str, dict] = {}
+        for sheet in catalog.get("sheets") or []:
+            theme = theme_of(sheet.get("name"))
+            for feature in sheet.get("features") or []:
+                code = str(feature.get("feature_code") or "").strip().lower()
+                if code and code in unmapped and code not in seen:
+                    seen[code] = {"feature_code": code, "feature_name": str(feature.get("feature_name") or code), "theme": theme, "rows": unmapped[code]}
+        business = sorted((record for record in seen.values() if not self._is_noise_feature(record["feature_code"])), key=lambda record: record["rows"], reverse=True)
+        by_theme: dict[str, list] = {}
+        for record in business:
+            by_theme.setdefault(record["theme"], []).append(record)
+        by_theme_out = sorted(
+            ({"theme": theme, "count": len(items), "samples": [item["feature_name"] for item in items[:5]]} for theme, items in by_theme.items()),
+            key=lambda entry: entry["count"], reverse=True,
+        )[:8]
+        coverage = report_metrics.get("property_mapping_coverage")
+        return {
+            "unmapped_total": len(unmapped),
+            "business_relevant": len(business),
+            "unmapped_rows": int(report_metrics.get("property_unmapped_feature_rows") or 0),
+            "coverage_percent": round(float(coverage) * 100, 1) if isinstance(coverage, (int, float)) else None,
+            "by_theme": by_theme_out,
+            "top_suspected": [{"feature_name": record["feature_name"], "feature_code": record["feature_code"], "theme": record["theme"], "rows": record["rows"]} for record in business[:15]],
+        }
+
+    def _declared_properties(self) -> set[str]:
+        """已声明的对象/数据属性 IRI 集合，作为映射候选的合法 target。
+
+        与 align_sources.declared_terms() 解析同一批 ontology/modules/*.ttl，
+        故通过本集合校验的 target 必然也能通过 align_sources --check 门禁。
+        """
+        schema = Graph()
+        for path in sorted((self.root / "ontology" / "modules").glob("*.ttl")):
+            try:
+                schema.parse(path, format="turtle")
+            except Exception:
+                continue
+        return {str(item) for item in schema.subjects(RDF.type, OWL.ObjectProperty)} | {str(item) for item in schema.subjects(RDF.type, OWL.DatatypeProperty)}
+
+    def _internal_feature_codes(self) -> set[str]:
+        catalog_path = self.root / "build" / "source" / "feature-model-catalog.json"
+        if not catalog_path.is_file():
+            return set()
+        try:
+            catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return set()
+        codes: set[str] = set()
+        for sheet in catalog.get("sheets") or []:
+            for feature in sheet.get("features") or []:
+                code = str(feature.get("feature_code") or "").strip().lower()
+                if code:
+                    codes.add(code)
+        return codes
+
+    def _merge_property_mappings(self, sources: list[Path]) -> tuple[dict, int, list[dict]]:
+        """把 Agent 产出的映射候选合并进 property-map.json（不落盘，返回合并后的文档）。
+
+        只接受:target 是已声明本体属性 ✅、feature_code 真实存在于特征目录 ✅、当前尚未
+        被任何映射占用 ✅。首个写入者胜、跳过已占用码，保证合并结果不会产生
+        duplicate_property_codes——即 align_sources --check 必然通过。
+        """
+        property_map_path = self.root / "mappings" / "feature-model" / "property-map.json"
+        document: dict = {"mapping_id": "internal.feature_model.property_map", "mappings": []}
+        if property_map_path.is_file():
+            try:
+                loaded = json.loads(property_map_path.read_text(encoding="utf-8"))
+                if isinstance(loaded, dict):
+                    document = loaded
+            except (OSError, json.JSONDecodeError):
+                pass
+        mappings = document.setdefault("mappings", [])
+        declared = self._declared_properties()
+        real_codes = self._internal_feature_codes()
+        mapped_codes = {str(code).strip().lower() for entry in mappings for code in entry.get("feature_codes") or []}
+        by_target = {str(entry.get("target_property")): entry for entry in mappings if entry.get("target_property")}
+        accepted = 0
+        quarantine: list[dict] = []
+        for source in sources:
+            try:
+                candidate = json.loads(source.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError) as exc:
+                quarantine.append({"path": str(source), "category": "mapping", "reason": str(exc)}); continue
+            target = str(candidate.get("target_property") or "")
+            if target not in declared:
+                quarantine.append({"path": str(source), "category": "mapping", "reason": f"目标属性未声明：{target}"}); continue
+            codes: list[str] = []
+            for code in candidate.get("feature_codes") or []:
+                code = str(code).strip().lower()
+                if code and code in real_codes and code not in mapped_codes:
+                    codes.append(code); mapped_codes.add(code)
+            if not codes:
+                quarantine.append({"path": str(source), "category": "mapping", "reason": "无可映射的未占用真实特征码"}); continue
+            kind = str(candidate.get("mapping_kind") or "attribute")
+            if target in by_target:
+                existing = by_target[target].setdefault("feature_codes", [])
+                existing.extend(code for code in codes if code not in existing)
+            else:
+                entry = {"feature_codes": codes, "target_property": target, "mapping_kind": kind, "provenance": "model_prior"}
+                mappings.append(entry); by_target[target] = entry
+            accepted += 1
+        return document, accepted, quarantine
+
     async def metrics(self, db: Session | None = None, user_id: int | None = None) -> dict:
         if self._base_metrics_cache and time.monotonic() - self._base_metrics_cache[0] < 5:
             cached = self._base_metrics_cache[1]
@@ -640,7 +938,7 @@ class SemiKbAdapter:
                     after = json.loads(item.metrics_after_json or "{}")
                     for key in today:
                         today[key] += max(0, int(after.get(key, 0)) - int(before.get(key, 0)))
-        return {"totals": totals, "today_added": today, "source_distribution": legacy.get("source_type", {}), "confidence_distribution": legacy.get("confidence", {}), "uncovered": legacy.get("uncovered", [])}
+        return {"totals": totals, "today_added": today, "source_distribution": legacy.get("source_type", {}), "confidence_distribution": legacy.get("confidence", {}), "uncovered": legacy.get("uncovered", []), "feature_gap": self.feature_gap()}
 
     def article_text(self) -> str:
         path = self.root / "knowledge" / "articles" / "current-scenarios.md"

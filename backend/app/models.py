@@ -107,6 +107,9 @@ class RunRound(Base):
     resumed_count: Mapped[int] = mapped_column(Integer, default=0)
     node_attempts_json: Mapped[str] = mapped_column(Text, default="{}")
     quarantined_files_json: Mapped[str] = mapped_column(Text, default="[]")
+    # 本轮成功收尾时产出的、面向下一轮的结构化优化方向（确定性启发式，非 LLM 反思）。
+    # 下一轮 gap_analysis 的 augment_gap 会读回并注入 gap，使“轮成功→方向→下一轮”成为显式闭环。
+    next_direction_json: Mapped[str] = mapped_column(Text, default="{}")
     run: Mapped[Run] = relationship(back_populates="rounds")
 
 
@@ -180,6 +183,46 @@ class DailyReport(Base):
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     send_response_json: Mapped[str] = mapped_column(Text, default="{}")
+
+
+class BusinessDraft(Base):
+    """独立经营协作 Agent 起草的一份经营基线草案（template+dataset+model 三件套）。
+
+    引擎真源是磁盘上的 business/drafts/<id>/ 目录；本行仅供 UI 列表/状态/用户隔离，
+    人点『采纳为基线』后才由 promote_business_draft 落到线上 business/{templates,datasets,models}/。
+    """
+
+    __tablename__ = "business_drafts"
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    status: Mapped[str] = mapped_column(String(24), default="drafted", index=True)
+    intent: Mapped[str] = mapped_column(Text, default="")
+    domain: Mapped[str] = mapped_column(String(80), default="manufacturing")
+    llm_model_id: Mapped[str] = mapped_column(String(160), default="")
+    summary: Mapped[str] = mapped_column(Text, default="")
+    validation_json: Mapped[str] = mapped_column(Text, default="{}")
+    promoted_paths_json: Mapped[str] = mapped_column(Text, default="{}")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    rejected_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class BusinessBaselineSchedule(Base):
+    """每日定时·自动起草经营基线的调度设置（仿 ArticleSetting 的定时+数量样式）。
+
+    治理边界：定时只做『起草+引擎门禁校验』，产物是 BusinessDraft 行（validated/invalid），
+    落盘仍由人在待采纳列表里批量采纳（promote_business_draft）——数值假设由人判断，不自动晋升。
+    """
+
+    __tablename__ = "business_baseline_schedules"
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), primary_key=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    generate_time: Mapped[str] = mapped_column(String(5), default="03:00")
+    timezone: Mapped[str] = mapped_column(String(80), default="Asia/Shanghai")
+    daily_count: Mapped[int] = mapped_column(Integer, default=3)
+    llm_model_id: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    domain_strategy: Mapped[str] = mapped_column(String(40), default="gap_hotspot")
+    last_generated_date: Mapped[str | None] = mapped_column(String(10), nullable=True)
 
 
 class DailyReportRevision(Base):
