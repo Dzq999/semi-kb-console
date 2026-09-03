@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type React from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -14,6 +14,8 @@ import {
   Archive,
   Bot,
   CheckCircle2,
+  ChevronDown,
+  ChevronRight,
   CircleStop,
   Cpu,
   Database,
@@ -849,6 +851,7 @@ function Orchestrator({
   const [publishChanges, setPublishChanges] = useState(true);
   const [continuous, setContinuous] = useState(true);
   const [roundInterval, setRoundInterval] = useState(5);
+  const [maxRounds, setMaxRounds] = useState(0);
   const [maxConsecutiveFailures, setMaxConsecutiveFailures] = useState(3);
   const [autoRepair, setAutoRepair] = useState(true);
   // 修复次数与连续失败阈值解耦：每次修复都要重跑整条闸门链，成本以分钟计。
@@ -877,7 +880,7 @@ function Orchestrator({
   const loop = useQuery<{
     enabled: boolean;
     interval_minutes: number;
-    run_config?: { max_consecutive_round_failures?: number; max_auto_repair_attempts?: number; auto_repair?: boolean; repair_follow_failure_threshold?: boolean };
+    run_config?: { max_consecutive_round_failures?: number; max_auto_repair_attempts?: number; auto_repair?: boolean; repair_follow_failure_threshold?: boolean; max_rounds?: number | null };
   }>({
     queryKey: ["loop"],
     queryFn: () => api("/api/loop"),
@@ -897,6 +900,8 @@ function Orchestrator({
       if (configuredRepairs !== undefined) setMaxRepairAttempts(configuredRepairs);
       if (loop.data.run_config?.auto_repair !== undefined) setAutoRepair(loop.data.run_config.auto_repair);
       if (loop.data.run_config?.repair_follow_failure_threshold !== undefined) setRepairFollowsFailures(loop.data.run_config.repair_follow_failure_threshold);
+      const configuredRounds = loop.data.run_config?.max_rounds;
+      setMaxRounds(configuredRounds ?? 0);
     }
   }, [loop.data]);
   const filtered = useMemo(
@@ -912,6 +917,7 @@ function Orchestrator({
     publish_changes: publishChanges,
     continuous,
     round_interval_seconds: roundInterval,
+    max_rounds: maxRounds > 0 ? maxRounds : null,
     max_consecutive_round_failures: maxConsecutiveFailures,
     auto_repair: autoRepair,
     max_auto_repair_attempts: repairFollowsFailures ? maxConsecutiveFailures : maxRepairAttempts,
@@ -1106,6 +1112,21 @@ function Orchestrator({
               value={roundInterval}
               onChange={(e) => setRoundInterval(Number(e.target.value))}
             />
+          </label>
+          <label>
+            最大轮次（0=无限循环）
+            <input
+              type="number"
+              min="0"
+              max="1000"
+              value={maxRounds}
+              onChange={(e) =>
+                setMaxRounds(Math.min(1000, Math.max(0, Number(e.target.value))))
+              }
+            />
+            <small className="field-hint">
+              执行到该轮次后自动停止；设为 0 则持续循环直到人工停止。
+            </small>
           </label>
           <label>
             连续失败停止阈值（轮）
@@ -1416,6 +1437,205 @@ function ExportCenter() {
   );
 }
 
+type OntoNode = {
+  iri: string;
+  label: string;
+  parents: string[];
+  module: string;
+};
+
+function OntologyTree() {
+  const tree = useQuery<{ nodes: OntoNode[]; total: number }>({
+    queryKey: ["ontology-tree"],
+    queryFn: () => api("/api/ontology/tree"),
+  });
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [treeSearch, setTreeSearch] = useState("");
+
+  const model = useMemo(() => {
+    const nodes = tree.data?.nodes ?? [];
+    const byIri = new Map(nodes.map((n) => [n.iri, n]));
+    const children = new Map<string, OntoNode[]>();
+    const roots: OntoNode[] = [];
+    for (const n of nodes) {
+      const real = n.parents.filter((p) => byIri.has(p) && p !== n.iri);
+      if (real.length === 0) roots.push(n);
+      for (const p of real) {
+        const arr = children.get(p) ?? [];
+        arr.push(n);
+        children.set(p, arr);
+      }
+    }
+    const descCount = new Map<string, number>();
+    const active = new Set<string>();
+    const count = (iri: string): number => {
+      const cached = descCount.get(iri);
+      if (cached !== undefined) return cached;
+      if (active.has(iri)) return 0; // 防御环
+      active.add(iri);
+      const kids = children.get(iri) ?? [];
+      let total = kids.length;
+      for (const k of kids) total += count(k.iri);
+      active.delete(iri);
+      descCount.set(iri, total);
+      return total;
+    };
+    for (const n of nodes) count(n.iri);
+    const sortFn = (a: OntoNode, b: OntoNode) =>
+      (descCount.get(b.iri)! - descCount.get(a.iri)!) ||
+      a.label.localeCompare(b.label, "zh");
+    roots.sort(sortFn);
+    for (const arr of children.values()) arr.sort(sortFn);
+    return { byIri, children, roots, descCount };
+  }, [tree.data]);
+
+  // 首次载入时展开一层，让 Entity 下的主分类立即可见（用户后续折叠不再覆盖）
+  const seeded = useRef(false);
+  useEffect(() => {
+    if (!seeded.current && model.roots.length > 0) {
+      seeded.current = true;
+      setExpanded(new Set(model.roots.map((r) => r.iri)));
+    }
+  }, [model.roots]);
+
+  const searching = treeSearch.trim().length > 0;
+  const matchInfo = useMemo(() => {
+    if (!searching) return null;
+    const q = treeSearch.trim().toLowerCase();
+    const subtreeHit = new Set<string>();
+    const selfHit = new Set<string>();
+    const seen = new Set<string>();
+    const visit = (iri: string): boolean => {
+      if (seen.has(iri)) return subtreeHit.has(iri);
+      seen.add(iri);
+      const node = model.byIri.get(iri);
+      const self =
+        !!node &&
+        (node.label.toLowerCase().includes(q) ||
+          node.iri.toLowerCase().includes(q));
+      let hit = self;
+      for (const k of model.children.get(iri) ?? []) {
+        if (visit(k.iri)) hit = true;
+      }
+      if (self) selfHit.add(iri);
+      if (hit) subtreeHit.add(iri);
+      return hit;
+    };
+    for (const r of model.roots) visit(r.iri);
+    return { subtreeHit, selfHit };
+  }, [searching, treeSearch, model]);
+
+  const toggle = (iri: string) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(iri)) next.delete(iri);
+      else next.add(iri);
+      return next;
+    });
+
+  const renderRow = (node: OntoNode, depth: number): React.ReactNode => {
+    const kids = model.children.get(node.iri) ?? [];
+    const hasKids = kids.length > 0;
+    const isExpanded = searching
+      ? !!matchInfo && kids.some((k) => matchInfo.subtreeHit.has(k.iri))
+      : expanded.has(node.iri);
+    const visibleKids =
+      searching && matchInfo
+        ? kids.filter((k) => matchInfo.subtreeHit.has(k.iri))
+        : kids;
+    const dcount = model.descCount.get(node.iri) ?? 0;
+    const isHit = searching && !!matchInfo?.selfHit.has(node.iri);
+    return (
+      <div key={node.iri} className="onto-branch">
+        <div
+          className="onto-row"
+          style={{ paddingLeft: depth * 15 + 8 }}
+        >
+          {hasKids ? (
+            <button
+              type="button"
+              className="onto-toggle"
+              onClick={() => toggle(node.iri)}
+              disabled={searching}
+              aria-label={isExpanded ? "收起" : "展开"}
+            >
+              {isExpanded ? (
+                <ChevronDown size={13} />
+              ) : (
+                <ChevronRight size={13} />
+              )}
+            </button>
+          ) : (
+            <span className="onto-leaf" />
+          )}
+          <span className={`onto-label ${isHit ? "is-hit" : ""}`}>
+            {node.label}
+          </span>
+          {dcount > 0 && <span className="onto-count">{dcount}</span>}
+          <span className="onto-mod">{node.module}</span>
+        </div>
+        {isExpanded &&
+          visibleKids.map((k) => renderRow(k, depth + 1))}
+      </div>
+    );
+  };
+
+  const visibleRoots = model.roots.filter(
+    (r) => !searching || !!matchInfo?.subtreeHit.has(r.iri),
+  );
+
+  return (
+    <Panel
+      title="类层级"
+      meta={
+        <span>
+          {model.roots.length} 个根 · {tree.data?.total ?? 0} 个类
+        </span>
+      }
+    >
+      <div className="filter-bar onto-toolbar">
+        <div className="search-input">
+          <Search size={15} />
+          <input
+            value={treeSearch}
+            onChange={(e) => setTreeSearch(e.target.value)}
+            placeholder="搜索类名或IRI，自动展开命中路径"
+          />
+        </div>
+        <div className="onto-toolbar-actions">
+          <button
+            type="button"
+            className="button"
+            disabled={searching}
+            onClick={() => setExpanded(new Set(model.byIri.keys()))}
+          >
+            展开全部
+          </button>
+          <button
+            type="button"
+            className="button"
+            disabled={searching}
+            onClick={() => setExpanded(new Set())}
+          >
+            收起全部
+          </button>
+        </div>
+      </div>
+      {tree.isLoading ? (
+        <Loading />
+      ) : tree.error ? (
+        <ErrorBox error={tree.error} />
+      ) : visibleRoots.length === 0 ? (
+        <div className="empty">未找到匹配的类。</div>
+      ) : (
+        <div className="onto-tree">
+          {visibleRoots.map((r) => renderRow(r, 0))}
+        </div>
+      )}
+    </Panel>
+  );
+}
+
 function Ontology() {
   const metrics = useQuery<DashboardData["metrics"]>({
     queryKey: ["ontology-metrics"],
@@ -1454,6 +1674,7 @@ function Ontology() {
         <ExportButton kind="ontology" />
       </div>
       <MetricsOverview metrics={metrics.data!} />
+      <OntologyTree />
       <Panel title="本体实体" meta={`${entities.data?.total || 0} 项`}>
         <div className="filter-bar">
           <div className="search-input">
@@ -1875,6 +2096,7 @@ function BusinessDraftCard({
   const actionable = draft.status === "validated" || draft.status === "invalid";
   return (
     <article className="catalog-card">
+      <span><Gauge size={17} /></span>
       <div>
         <strong>
           {selectable && (
@@ -1943,17 +2165,20 @@ function BusinessDraftCard({
         ) : detail.error ? (
           <ErrorBox error={detail.error} />
         ) : detail.data?.documents ? (
-          <pre className="full-document">
-            {["template", "dataset", "model"]
-              .map((key) =>
-                JSON.stringify(
-                  (detail.data!.documents as Record<string, unknown>)[key],
-                  null,
-                  2,
-                ),
-              )
-              .join("\n\n")}
-          </pre>
+          <div className="draft-documents">
+            {["template", "dataset", "model"].map((key) => (
+              <details key={key} open>
+                <summary>{key === "template" ? "模板 Template" : key === "dataset" ? "数据集 Dataset" : "模型 Model"}</summary>
+                <pre className="document-content">
+                  {JSON.stringify(
+                    (detail.data!.documents as Record<string, unknown>)[key],
+                    null,
+                    2,
+                  )}
+                </pre>
+              </details>
+            ))}
+          </div>
         ) : (
           <small>草案文件已不在磁盘（已晋升或已丢弃）。</small>
         ))}

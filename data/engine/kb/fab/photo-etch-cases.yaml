@@ -1,0 +1,225 @@
+# 知识库实例 · 前段光刻与蚀刻类异常处置
+# discriminator 字段是本层最有价值的内容：它记录"如何在多个候选根因间做判别"，
+# 这是老师傅经验中最难从文档复制的部分。
+default_provenance:
+  source_type: model_prior
+  ref: null
+  confidence: medium
+  created_at: "2026-08-26"
+  reviewed_by: null
+
+cases:
+  - id: kb.fab.cd_out_of_spec_triage
+    domain: fab
+    title: CD 超规排查与处置
+    anomaly_ref: fab.anomaly.cd_out_of_spec
+    detected_at_ref: fab.process.cd_measure
+    severity: high
+    symptoms:
+      - CD-SEM 量测值偏离目标超出管制界限
+      - 片内 3σ 恶化但均值仍在中心（均匀性型）
+      - 或均值整体偏移而分布宽度正常（偏移型）
+    possible_causes:
+      - cause_ref: fab.param.exposure_dose
+        likelihood: high
+        discriminator: >
+          全片均匀偏移且方向与剂量变化一致。查 Scanner 光源能量趋势与照度校正记录；
+          若同机台所有产品同向偏移，基本可确认。
+      - cause_ref: fab.cause.hotplate_nonuniform
+        likelihood: high
+        discriminator: >
+          片内呈稳定空间梯度（常见单边高/低），且梯度方向与热板温区分布吻合。
+          调阅热板温度映射图比对；换机台后梯度消失则确认。
+      - cause_ref: fab.cause.resist_lot_change
+        likelihood: medium
+        discriminator: >
+          偏移起始时点与光阻换批时点重合，且跨多台机台同步出现。
+          这是与设备型成因最关键的区分点——设备型不会跨机台同步。
+      - cause_ref: fab.cause.recipe_misload
+        likelihood: medium
+        discriminator: 批间跳变且边界清晰，仅特定批次异常。核对配方版本与派工记录即可确认。
+      - cause_ref: fab.param.exposure_focus
+        likelihood: medium
+        discriminator: >
+          CD 偏移伴随侧壁形貌恶化，且呈同心圆或局部区块分布。
+          单纯剂量问题不会改变侧壁角度，这是两者的判别关键。
+      - cause_ref: fab.cause.lens_contamination
+        likelihood: low
+        discriminator: 固定曝光场固定位置重复偏移，换光罩不改善。需停机检查光路。
+    detection:
+      - metric_ref: fab.metric.cd_uniformity
+        signal: 均值偏移量、片内 3σ、以及偏差的空间分布形态（三者需一起看）
+    actions:
+      - action_ref: fab.action.hold_lot
+        order: 1
+        condition: 超规幅度达判废线，或成因未明时先止损；同时圈定同机台同时段批次
+      - action_ref: fab.action.photo_rework
+        order: 2
+        condition: >
+          仅限尚未进入 dry_etch 的批次，且重工次数未达产品规范上限。
+          已蚀刻批次不可重工，只能评估电性影响后判定放行或报废。
+      - action_ref: fab.action.recipe_adjust
+        order: 3
+        condition: >
+          确认为剂量或显影时间型偏移后做补偿。注意：补偿只治表，
+          若根因是光源衰退或热板故障，须同步开设备工单，否则偏移会持续扩大。
+      - action_ref: fab.action.expand_sampling
+        order: 4
+        condition: 成因未定期间加严抽检，收窄检出窗口以限制受影响批次数
+    impact:
+      blocked_processes: [fab.process.dry_etch]
+      economic: >
+        蚀刻前检出可重工挽回，损失约等于一次光刻的产能占用（含瓶颈机台工时）；
+        蚀刻后检出则整批面临判废，前段累计投入沉没。检出时点决定损失量级。
+    tags: [光刻, CD, 排查]
+
+  - id: kb.fab.etch_residue_triage
+    domain: fab
+    title: 蚀刻残留排查与处置
+    anomaly_ref: fab.anomaly.etch_residue
+    detected_at_ref: fab.process.defect_scan
+    severity: high
+    symptoms:
+      - 缺陷扫描出现应去除区域的材料残留
+      - 接触孔未开通或相邻图形桥连
+      - 蚀刻深度量测值低于目标
+    possible_causes:
+      - cause_ref: fab.cause.chamber_polymer_buildup
+        likelihood: high
+        discriminator: >
+          残留率随该腔体 RF Hours 单调上升，清洗后立即恢复。
+          这是渐变型特征，与突发型故障的区别在于有明确趋势。
+      - cause_ref: fab.cause.epd_failure
+        likelihood: medium
+        discriminator: >
+          终点信号曲线异常（无明显拐点或信噪比低），且残留量在批内随机。
+          调阅 EPD 波形是最直接的确认手段。
+      - cause_ref: fab.param.etch_time
+        likelihood: medium
+        discriminator: >
+          若前层膜厚偏厚（查薄膜工序量测记录），则蚀刻量相对不足，
+          属"上游膜厚偏移传导"，而非蚀刻本身失效。
+    detection:
+      - metric_ref: fab.metric.etch_depth
+        signal: 深度不足，且与前层膜厚记录联动比对可区分是蚀刻不足还是膜厚偏厚
+      - metric_ref: fab.metric.defect_density
+        signal: 残留型缺陷计数上升，缺陷分类结果指向 residue 而非 particle
+    actions:
+      - action_ref: fab.action.recipe_adjust
+        order: 1
+        condition: 轻微残留可追加过蚀刻时间挽回；桥连型残留通常已不可逆，不适用
+      - action_ref: fab.action.chamber_clean
+        order: 2
+        condition: 确认为腔体累积后执行，清洗后须跑验证片确认速率恢复再放行量产
+      - action_ref: fab.action.hold_lot
+        order: 3
+        condition: 残留造成桥连风险时先扣留，待电性影响评估后判定
+    impact:
+      blocked_processes: [fab.process.pvd_metal]
+      economic: >
+        残留若被后续金属层覆盖固化则完全不可挽回，且在 WAT 才暴露为短路，
+        届时前段投入已全部沉没。此处的拦截价值远高于处置成本。
+    tags: [蚀刻, 残留, 排查]
+  - id: kb.fab.overlay_shift_triage
+    domain: fab
+    title: 套刻偏移排查与处置
+    anomaly_ref: fab.anomaly.overlay_shift
+    detected_at_ref: fab.process.overlay_measure
+    severity: high
+    symptoms:
+    - 套刻量测显示对位误差超出规格，批次在量测站被拦下
+    - 偏移可能表现为全片系统性分量，或场内分量，或局部不规则分布
+    - 下游蚀刻被阻塞，等待处置决定
+    possible_causes:
+    - cause_ref: fab.cause.recipe_misload
+      likelihood: high
+      discriminator: '先查配方与层别是否匹配——这是最快能排除、代价也最低的一项。 配方误用通常表现为整片大幅规律性偏移，且同机台同配方的 其他批次同样异常。
+
+        '
+    - cause_ref: fab.cause.alignment_mark_damage
+      likelihood: high
+      discriminator: '对位残差异常但曝光成像质量正常。关键判别：换机台重曝仍复现， 且问题跟着前层工艺批次走而非跟着曝光机台走。
+
+        '
+    - cause_ref: fab.cause.wafer_backside_contamination
+      likelihood: medium
+      discriminator: '偏移呈局部化不规则分布，而非全片线性或旋转分量； 同一吸盘上不同晶圆的偏移位置重复出现。常伴随离焦与 CD 异常。
+
+        '
+    - cause_ref: fab.cause.lens_heating_drift
+      likelihood: medium
+      discriminator: '场内分量随批次内曝光片数递进，停机冷却后自行恢复。 与光路沾污的区别是后者持续存在且伴随对比度下降。
+
+        '
+    - cause_ref: fab.cause.env_excursion
+      likelihood: low
+      discriminator: '温湿度或振动记录越限，且同期多台机台、多产品同时异常。 单机台单产品异常基本可排除环境因素。
+
+        '
+    - cause_ref: fab.param.overlay_offset
+      likelihood: low
+      discriminator: '查 run-to-run 补偿量是否被异常更新——补偿模型吃进一个坏点后 可能把正常批次也带偏，此时机台与晶圆都没问题。
+
+        '
+    detection:
+    - metric_ref: fab.metric.overlay_error
+      signal: '直接判定量。务必看偏移的空间分布而非只看单值超规： 全片线性、旋转、场内、局部四种分布分别指向不同根因， 只看超没超规会丢掉最关键的判别信息。
+
+        '
+    - metric_ref: fab.metric.cd_uniformity
+      signal: 'CD 与套刻同时异常时更可能是背面沾污引起的离焦， 可用于把平面度类根因与纯对位类根因分开
+
+        '
+    - metric_ref: core.metric.yield
+      signal: 套刻超规若漏到后续层，最终以良率损失体现
+    actions:
+    - action_ref: fab.action.hold_lot
+      order: 1
+      condition: '先扣留，不要急着重工。套刻偏移的成因决定了该重工还是该修机台， 盲目重工会在同一台有问题的机台上再废一次。
+
+        '
+    - action_ref: fab.action.recipe_adjust
+      order: 2
+      condition: '确认为配方误用或补偿量异常时修正配方。 若是补偿模型被坏点带偏，需同时清理该点再让模型收敛。
+
+        '
+    - action_ref: fab.action.clean_chuck
+      order: 3
+      condition: '判定为背面/吸盘沾污时停机清洗并复测平面度。 清洗后要复测套刻确认恢复，否则可能是晶圆背面而非吸盘的问题。
+
+        '
+    - action_ref: fab.action.photo_rework
+      order: 4
+      condition: '仅在该层可返工且根因已消除时重工。 根因未除就重工等于把良品也拖进去。
+
+        '
+    - action_ref: fab.action.dispatch_field_service
+      order: 5
+      condition: '对位系统或镜头热补偿模型异常且厂内手段无效时报修。 这类问题通常需要原厂调机，不属厂内可自行恢复的范畴。
+
+        '
+    impact:
+      blocked_processes:
+      - fab.process.dry_etch
+      economic: '套刻偏移的代价高度依赖发现时机：在量测站拦下只是重工或报废单批， 漏到后续层则可能整批失效且已投入更多工序成本。 可返工层与不可返工层的处置逻辑完全不同，前者权衡重工成本，
+        后者直接是报废。若根因在机台侧，还要叠加该机台后续批次的 连带风险——这也是不建议根因未明就先重工的原因。
+
+        '
+    tags:
+    - 光刻
+    - 套刻
+    - 对位
+    - 排查
+    notes: '本条 provenance 为 model_prior。本轮 WebSearch 检索到若干直接相关来源， 但本环境出站 HTTPS 不可用（schannel SEC_E_NO_CREDENTIALS），
+      两个候选 PDF 均未能取回正文（一个 301 后 0 字节、一个直接失败）， PyMuPDF 1.26.5 虽可用但无文件可解析，故按规范不填未经核实的 web ref。 候选线索留待网络恢复后核实并升级：
+      Rudolph Technologies《The Impact of Backside Particle Contamination》 （背面颗粒沾污对平面度与套刻的影响，可支撑 wafer_backside_contamination
+      的机理与判别）； 美国专利 US9711419（晶圆背面沾污的处理方法）； ASML 场内子区域套刻控制专利族（可支撑 lens_heating_drift 的 场内分量建模与补偿思路）。 核实要点：URL
+      可达不等于正文支持该说法；且本条刻意未写任何数值阈值， 升级来源时若要补入残差限值或颗粒尺寸门槛，必须以原文表格为准。
+
+      '
+    provenance:
+      source_type: model_prior
+      ref: null
+      confidence: medium
+      created_at: '2026-08-28'
+      reviewed_by: 'Claude Opus 4.8 (2026-09-03)'

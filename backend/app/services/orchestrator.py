@@ -388,6 +388,7 @@ class RunOrchestrator:
                 db.commit(); self.emit(db, run_id, "run_started", "持续循环任务已启动", {"agent_count": len(run.agents), "continuous": config.get("continuous", True), "round_interval_seconds": config.get("round_interval_seconds", 5)})
             heartbeat_task = asyncio.create_task(self._heartbeat_loop(run_id), name=f"heartbeat-{run_id}")
             consecutive_failures = 0
+            max_rounds = config.get("max_rounds")  # None = 无限循环
             while True:
                 await self._pause_point(run_id)
                 with SessionLocal() as db:
@@ -395,6 +396,18 @@ class RunOrchestrator:
                     current = latest.round_number if latest else 0
                     run = db.get(Run, run_id)
                     stop_target = run.stop_after_round if run else self.stop_after_rounds.get(run_id)
+
+                # 检查是否达到最大轮次限制
+                if max_rounds is not None and int(current) >= max_rounds:
+                    with SessionLocal() as db:
+                        run = db.get(Run, run_id)
+                        if run:
+                            run.status = "completed"
+                            run.completed_at = datetime.now(timezone.utc)
+                            db.commit()
+                        self.emit(db, run_id, "run_completed", f"已完成设定的最大轮次 {max_rounds}，任务结束", {"rounds_completed": current, "max_rounds": max_rounds})
+                    break
+
                 if stop_target is not None and int(current) >= stop_target:
                     with SessionLocal() as db:
                         run = db.get(Run, run_id)

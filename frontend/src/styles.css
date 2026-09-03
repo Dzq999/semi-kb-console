@@ -163,6 +163,23 @@ td input { width: 100%; min-width: 170px; }
 .status-tag.failed, .status-tag.cancelled { color: #b72e41; background: #ffedf0; }
 .status-tag.cancelling { color: #a15a13; background: #fff3e4; }
 code { color: #31557f; font-family: Consolas, monospace; font-size: 9px; }
+/* 类层级树：把扁平的 488 个类按 subClassOf 还原成可折叠层级 */
+.onto-toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.onto-toolbar .search-input { flex: 1 1 260px; }
+.onto-toolbar-actions { display: flex; gap: 6px; }
+.onto-toolbar-actions .button { min-height: 30px; padding: 0 10px; font-size: 10px; }
+.onto-tree { max-height: 460px; overflow: auto; padding: 6px 8px; }
+.onto-row { display: flex; align-items: center; gap: 6px; min-height: 26px; padding-right: 8px; border-radius: 7px; }
+.onto-row:hover { background: #f3f6fa; }
+.onto-toggle { flex: 0 0 auto; width: 18px; height: 18px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 5px; color: #708097; background: transparent; cursor: pointer; }
+.onto-toggle:hover:not(:disabled) { color: #2864dc; background: #eaf1ff; }
+.onto-toggle:disabled { cursor: default; opacity: .55; }
+.onto-leaf { flex: 0 0 auto; width: 18px; height: 18px; position: relative; }
+.onto-leaf::before { content: ""; position: absolute; left: 7px; top: 8px; width: 4px; height: 4px; border-radius: 99px; background: #c2d0e0; }
+.onto-label { min-width: 0; color: #263448; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.onto-label.is-hit { color: #b45309; font-weight: 600; background: #fff3d6; border-radius: 5px; padding: 0 4px; }
+.onto-count { flex: 0 0 auto; padding: 1px 6px; border-radius: 99px; color: #2864dc; background: #eaf1ff; font-size: 9px; font-variant-numeric: tabular-nums; }
+.onto-mod { flex: 0 0 auto; margin-left: auto; color: #8796aa; font: 9px Consolas, monospace; }
 .catalog-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
 .catalog-card { min-width: 0; padding: 14px; display: grid; grid-template-columns: 34px minmax(0,1fr); gap: 10px; border: 1px solid #dce5ee; border-radius: 10px; background: white; }
 .catalog-card > span { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 9px; color: #2864dc; background: #eaf1ff; }
@@ -173,6 +190,17 @@ code { color: #31557f; font-family: Consolas, monospace; font-size: 9px; }
 .catalog-card .card-actions small { min-width: 0; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .catalog-card .card-actions .button { flex: 0 0 auto; white-space: nowrap; }
 .catalog-card .full-document { max-height: 440px; margin-top: 0; border: 1px solid #dce5ee; background: #fbfcfe; }
+/* 草案卡片里游离的错误列表 / 已落盘说明需横跨整行，否则会落进 34px 图标列被挤成竖排 */
+.catalog-card > ul { grid-column: 1/-1; margin: 4px 0 0; padding-left: 18px; color: #b72e41; font-size: 10px; line-height: 1.5; }
+.catalog-card > small { grid-column: 1/-1; margin-top: 2px; overflow-wrap: anywhere; }
+
+/* 经营模型草案三件套样式优化 */
+.catalog-card .draft-documents { grid-column: 1/-1; display: flex; flex-direction: column; gap: 12px; margin-top: 8px; }
+.catalog-card .draft-documents details { border: 1px solid #e3e8ef; border-radius: 8px; background: #fafbfd; overflow: hidden; }
+.catalog-card .draft-documents summary { padding: 10px 14px; cursor: pointer; font-weight: 600; font-size: 11px; color: #3d4f66; background: #f3f6fa; border-bottom: 1px solid #e3e8ef; user-select: none; }
+.catalog-card .draft-documents summary:hover { background: #edf1f7; }
+.catalog-card .draft-documents .document-content { max-height: 280px; margin: 0; padding: 12px; overflow: auto; border-radius: 0; color: #4b5c72; background: white; font-size: 10px; line-height: 1.5; white-space: pre-wrap; word-break: break-all; }
+.catalog-card .draft-documents details[open] summary { background: #e8edf5; }
 .scenario-products { min-height: 260px; display: grid; grid-template-columns: minmax(240px,.75fr) minmax(0,1.25fr); }
 .scenario-product-list { max-height: 410px; overflow: auto; padding: 7px; border-right: 1px solid #e1e8f0; }
 .scenario-product-item { width: 100%; min-height: 66px; padding: 10px; display: flex; align-items: flex-start; gap: 9px; border: 0; border-bottom: 1px solid #e5ebf2; color: #263448; background: white; text-align: left; cursor: pointer; }

@@ -53,6 +53,13 @@ def test_report_accepts_complete_content():
     assert validate_report(content, snapshot())["passed"]
 
 
+def test_report_allows_manually_removed_sections():
+    # 用户可手动删掉不想要的章节（如“质量与验证”）；审核不再强制校验章节标题是否齐全。
+    content = fixed_metrics_markdown(snapshot()).replace("## 质量与验证", "")
+    assert "质量与验证" not in content
+    assert validate_report(content, snapshot())["passed"]
+
+
 def test_internal_feature_reflects_alignment_not_a_constant():
     # 通过校验的轮次：内部特征与来源对齐都应显示真实“通过/已接入”，命中数一并展示。
     passed = snapshot()

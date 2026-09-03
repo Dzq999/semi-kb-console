@@ -756,6 +756,21 @@ class SemiKbAdapter:
                 continue
         return {"business_models": len(business_models), "business_relations": business_relations, "simulation_scenarios": simulations, "scenario_articles": scenario_count + agent_articles, "knowledge_entries": knowledge_entries, "vfab_state": vfab_state}
 
+    def source_alignment_report(self) -> dict:
+        """读取 align_sources.py 写的源层对齐报告（build/reports/source-alignment.json）。
+
+        这是『来源对齐』门禁与 vFab 接入状态的权威快照：随离线 ingest/对齐即时更新，
+        与 agent 轮次解耦。顶层 status=='pass' 即代表源层对齐通过（覆盖率是另一维度、
+        不影响 pass）。文件缺失/损坏返回空 dict，调用方须容忍并回退。
+        """
+        path = self.root / "build" / "reports" / "source-alignment.json"
+        if not path.is_file():
+            return {}
+        try:
+            return json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return {}
+
     @staticmethod
     def _is_noise_feature(code: str) -> bool:
         code = (code or "").strip()

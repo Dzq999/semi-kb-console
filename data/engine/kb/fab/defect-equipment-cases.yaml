@@ -1,0 +1,345 @@
+# 知识库实例 · 前段缺陷与设备类异常处置
+default_provenance:
+  source_type: model_prior
+  ref: null
+  confidence: medium
+  created_at: "2026-08-26"
+  reviewed_by: null
+
+cases:
+  - id: kb.fab.particle_excursion_triage
+    domain: fab
+    title: 颗粒突增排查与处置
+    anomaly_ref: fab.anomaly.particle_excursion
+    detected_at_ref: fab.process.defect_scan
+    severity: critical
+    symptoms:
+      - 缺陷密度较基线突然跃升数倍
+      - 缺陷图(Defect Map)呈现特定空间分布形态
+      - 可能同时影响多个产品与多个批次
+    possible_causes:
+      - cause_ref: fab.cause.reticle_haze
+        likelihood: high
+        discriminator: >
+          缺陷在每个曝光场的同一相对位置重复出现——这是最有辨识度的签名。
+          只要看到逐场规律重复，优先查光罩，其余成因不会产生这种周期性。
+      - cause_ref: fab.cause.chamber_polymer_buildup
+        likelihood: high
+        discriminator: >
+          缺陷集中于经过特定腔体的批次，且该腔体 RF Hours 接近清洗周期上限。
+          按机台/腔体交叉比对缺陷率即可锁定。
+      - cause_ref: fab.cause.target_end_of_life
+        likelihood: medium
+        discriminator: 缺陷集中于 PVD 后工序，且靶材累积用量接近寿命上限
+      - cause_ref: fab.cause.env_excursion
+        likelihood: medium
+        discriminator: >
+          多个不相关工序同时缺陷上升，且分布随机无规律。
+          "跨工序同步"是环境型成因的标志——单一设备问题不会波及无关工序。
+      - cause_ref: fab.cause.slurry_agglomeration
+        likelihood: medium
+        discriminator: 缺陷为线状划伤而非点状颗粒，且集中于 CMP 后量测点
+    detection:
+      - metric_ref: fab.metric.defect_density
+        signal: >
+          计数跃升 + 空间分布形态 + 缺陷分类比例。三者结合才能定位，
+          单看总数只能确认异常存在，无法指向责任工序。
+    actions:
+      - action_ref: fab.action.hold_lot
+        order: 1
+        condition: >
+          立即执行。关键是圈定范围：以缺陷批次经过的机台与时段反查所有
+          同条件批次，而非只扣留已检出的批次。
+      - action_ref: fab.action.reticle_clean
+        order: 2
+        condition: 确认为逐场重复签名后送洗；无备用光罩时需先排程避让
+      - action_ref: fab.action.chamber_clean
+        order: 2
+        condition: 确认为腔体来源后执行，清洗后跑颗粒验证片确认恢复
+      - action_ref: fab.action.expand_sampling
+        order: 3
+        condition: >
+          成因未定期间必做。突增类异常的损失规模近似等于
+          检出延迟时间 × 产出速率，加严抽检是压缩这个乘积的唯一手段。
+    impact:
+      blocked_processes: [fab.process.pvd_metal, fab.process.dry_etch]
+      economic: >
+        影响面取决于检出延迟：光罩类问题影响该光罩全部曝光批次，
+        环境类问题波及全区。这类异常的经济损失主要由发现速度决定，
+        而非缺陷本身严重度。
+    tags: [缺陷, 颗粒, 排查, 光罩]
+
+  - id: kb.fab.cmp_scratch_triage
+    domain: fab
+    title: CMP 划伤排查与处置
+    anomaly_ref: fab.anomaly.cmp_scratch
+    detected_at_ref: fab.process.defect_scan
+    severity: high
+    symptoms:
+      - 缺陷分类中线状划伤计数上升
+      - 划伤多呈弧形或直线，方向与研磨运动一致
+      - 金属层划伤在电测阶段表现为短路
+    possible_causes:
+      - cause_ref: fab.cause.pad_end_of_life
+        likelihood: high
+        discriminator: >
+          划伤率随研磨垫累积使用时长上升，且去除率同步下降。
+          两个趋势同时出现基本可确认；换垫后立即恢复是最终验证。
+      - cause_ref: fab.cause.slurry_agglomeration
+        likelihood: medium
+        discriminator: >
+          划伤突发而非渐增，且研磨垫寿命尚在中段。查研磨液批号、
+          过滤器压差与储存时长；换新液后改善则确认。
+      - cause_ref: fab.param.cmp_pressure
+        likelihood: low
+        discriminator: 仅在配方变更或压力控制异常后出现，查参数变更记录
+    detection:
+      - metric_ref: fab.metric.defect_density
+        signal: scratch 类缺陷计数与研磨垫使用时长做相关性分析
+      - metric_ref: fab.metric.film_thickness
+        signal: 去除率下降趋势，与划伤率上升同步则指向研磨垫寿命
+    actions:
+      - action_ref: fab.action.replace_consumable
+        order: 1
+        condition: >
+          确认研磨垫寿命末期后更换，换后跑首件确认。
+          换垫周期本身是决策变量：提前换降低划伤但抬高耗材成本。
+      - action_ref: fab.action.hold_lot
+        order: 2
+        condition: 金属层划伤须扣留，短路风险不可放行；介电层轻微划伤可评估后放行
+    impact:
+      blocked_processes: [fab.process.cvd_ild]
+      economic: >
+        金属层划伤致短路通常不可挽回。研磨垫换用周期是良率与耗材成本的
+        直接权衡点，也是这类异常最可控的经营旋钮。
+    tags: [CMP, 划伤, 耗材]
+
+  - id: kb.fab.implant_dose_drift_triage
+    domain: fab
+    title: 注入剂量漂移排查与处置
+    anomaly_ref: fab.anomaly.implant_dose_drift
+    detected_at_ref: fab.process.wat
+    severity: high
+    symptoms:
+      - WAT Vt 或方阻整批偏移，超出管制界限
+      - 偏移集中于特定注入机台的批次
+      - 前段各站点量测记录均正常（图形与膜厚无异常）
+    possible_causes:
+      - cause_ref: fab.cause.beam_current_drift
+        likelihood: high
+        discriminator: >
+          按注入机台分组比对 Vt 分布，特定机台整体偏移即指向该机台束流系统。
+          做剂量校验片(Dose Monitor Wafer)测方阻可直接量化偏差量。
+      - cause_ref: fab.cause.recipe_misload
+        likelihood: medium
+        discriminator: 单批突变且边界清晰，核对配方与派工记录
+      - cause_ref: fab.param.implant_dose
+        likelihood: medium
+        discriminator: 参数变更记录中有剂量调整而未做验证，属变更管理漏洞
+    detection:
+      - metric_ref: fab.metric.wat_vt
+        signal: Vt 均值偏移，按机台分组后差异显著
+      - metric_ref: fab.metric.sheet_resistance
+        signal: >
+          方阻是比 Vt 更早的观测量。若已有注入后方阻抽测，可将检出
+          从 WAT 提前数十道工序，这是缩短此类异常暴露窗口的关键手段。
+    actions:
+      - action_ref: fab.action.hold_lot
+        order: 1
+        condition: >
+          扣留该机台自上次校验通过后的全部批次。注意范围可能很大——
+          因为无在线量测，中间批次全部处于未验证状态。
+      - action_ref: fab.action.recipe_adjust
+        order: 2
+        condition: 以校验片实测反算补偿量，同时开设备工单处理束流系统
+      - action_ref: fab.action.expand_sampling
+        order: 3
+        condition: >
+          增设注入后方阻抽测。这是本异常的根本改善方向：
+          问题不在漂移本身，而在于缺乏在线反馈导致检出滞后。
+    impact:
+      blocked_processes: [fab.process.cp_test]
+      economic: >
+        检出滞后是主要损失来源。WAT 暴露时批次已完成前段绝大部分工序，
+        累计加工成本全部沉没。增设中段方阻抽测的成本远低于一次批量失效。
+    tags: [注入, 电性, 延迟暴露]
+  - id: kb.fab.scanner_down_triage
+    domain: fab
+    title: 光刻机非计划停机排查与处置
+    anomaly_ref: fab.anomaly.scanner_down
+    detected_at_ref: fab.process.photo_exposure
+    severity: critical
+    symptoms:
+    - 机台报警停机，曝光工序在制批次无法继续流动
+    - 光刻区 WIP 在数小时内快速累积，队列长度陡增
+    - OEE 可用率跌落，主流程 CT 同步拉长
+    possible_causes:
+    - cause_ref: fab.cause.reticle_stage_error
+      likelihood: high
+      discriminator: '报警发生在扫描动作阶段而非光源侧，且常在特定 slit 位置或特定 扫描方向重复。查伺服跟随误差日志即可与光源类区分。
+
+        '
+    - cause_ref: fab.cause.light_source_degradation
+      likelihood: medium
+      discriminator: '停机前已有产出率缓降或曝光时间延长的趋势——"先慢后停"是光源劣化 的签名。伺服类停机是突发的，没有这段前兆。
+
+        '
+    - cause_ref: fab.cause.pm_overdue
+      likelihood: medium
+      discriminator: '查 PM 计划是否已超期。超期则这次停机应归因于排程决策， 而不是记成随机设备故障——归因错了，改善方向也会错。
+
+        '
+    - cause_ref: fab.cause.env_excursion
+      likelihood: low
+      discriminator: 温湿度或振动超限时多台设备同时报警；单台停机基本可排除
+    detection:
+    - metric_ref: core.metric.oee
+      signal: '可用率跌落，且要区分计划内 PM 与非计划停机。两者混在同一口径里 会让停机改善看起来毫无进展。
+
+        '
+    - metric_ref: core.metric.wip
+      signal: 光刻区队列长度陡升，是停机向下游传导的最早观测量
+    - metric_ref: core.metric.throughput
+      signal: 曝光层产出率缓降可作为光源劣化的前兆信号，早于硬停机
+    actions:
+    - action_ref: fab.action.dispatch_field_service
+      order: 1
+      condition: '判定为原厂锁定模块（工件台、光源）时立即报修并按合约等级升级。 厂内自行拆装会失去保修，且伺服系统需原厂重新校准。
+
+        '
+    - action_ref: fab.action.skip_ahead
+      order: 2
+      condition: '预估停机超过一个班次时改派同类机台，需确认套刻补正模型按机台管理， 否则改派本身会引入套刻偏移。注意越站分支多数情况下不适用—— 光刻是路径强制点，只有工艺允许延后且后续站点无时效性约束才可考虑。
+
+        '
+    - action_ref: fab.action.hold_lot
+      order: 3
+      condition: '停机瞬间在机批次可能处于部分曝光状态，须扣留待工程判定， 不可直接续跑。恢复后先跑首件确认再放行队列。
+
+        '
+    impact:
+      blocked_processes:
+      - fab.process.photo_exposure
+      economic: '光刻是典型瓶颈站点，停机损失近似等于停机时长 × 瓶颈产出率， 且不可通过后续赶工完全回补。可控旋钮有两个：PM 依从性 （用计划停机换非计划停机）与关键备件本地备货水位（用资金占用换停机时长）。
+        后者决定 MTTR 而非停机是否发生——若修复方案已明确却仍在等， 瓶颈就在备件调运或原厂工程师到场，不要继续往设备本体查。
+
+        '
+    tags:
+    - 光刻
+    - 设备停机
+    - 瓶颈
+    - 排程
+    notes: '本条 provenance 为 model_prior：本轮 WebSearch 未取到可验证的停机根因 分类原文，未编造 URL。后续若取到 SEMI E10（设备可靠性/可用性/可维护性
+      定义）原文，应据此升级 provenance 并细化停机状态分类口径。
+
+      建模取舍（首轮审核结论）：备件/工程师到位延迟未建成 Cause 实体。 它影响 MTTR，不决定停机是否发生，建成 Cause 并用 may_cause 指向异常 会在图上产生一条"读起来是因果、语义上不是因果"的边，沿
+      may_cause 反查根因时会稳定混入候选集。故改写入本条 economic， 待第三层经营模型需要量化时再考虑建 Metric。
+
+      '
+    provenance:
+      source_type: model_prior
+      ref: null
+      confidence: medium
+      created_at: '2026-08-28'
+      reviewed_by: 'Claude Opus 4.8 (2026-09-03)'
+  - id: kb.fab.film_thickness_dev_triage
+    domain: fab
+    title: 薄膜膜厚偏移/均匀性超规排查与处置
+    anomaly_ref: fab.anomaly.film_thickness_dev
+    detected_at_ref: fab.process.pvd_metal
+    severity: high
+    symptoms:
+    - 随线膜厚量测超出上下规格，或片内均匀性指标超标
+    - 金属层方阻与膜厚同向偏移（膜薄则方阻升高），可作为交叉确认
+    - 片内径向剖面形状改变：中心与边缘的高低关系发生翻转
+    - 腔体清洗或长时间待机后的首片明显偏离，随后逐片回稳
+    possible_causes:
+    - cause_ref: fab.cause.chamber_wall_condition
+      likelihood: high
+      discriminator: '看时点与收敛方向。本项出现在清洗/长待机之后，偏移随加工片数 收敛；腔体聚合物累积出现在连续生产中且随片数发散。方向相反， 一次片间趋势图就能分开。
+
+        '
+    - cause_ref: fab.cause.target_erosion_profile
+      likelihood: medium
+      discriminator: '看径向剖面形状是否改变而非均值是否漂移。侵蚀沟槽演化改的是 形状（如中心厚转为边缘厚），功率或压力偏移改的是整体水平。 只看片均值会把这两类混成同一个"膜厚漂移"。
+
+        '
+    - cause_ref: fab.cause.target_end_of_life
+      likelihood: medium
+      discriminator: '查靶材累计用量是否接近寿命上限，并看缺陷扫描有无同步的颗粒 跃升。均匀性恶化叠加颗粒风险上升是寿命末期签名；仅剖面渐变 而颗粒平稳则仍在可补偿区间。
+
+        '
+    - cause_ref: fab.cause.recipe_misload
+      likelihood: medium
+      discriminator: '偏移是否在特定批次上突然出现且边界清晰。是则查配方版本与 机台配方履历，不要继续往设备本体查——归因错了改善方向也会错。
+
+        '
+    - cause_ref: fab.param.chamber_pressure
+      likelihood: low
+      discriminator: '查腔压趋势是否与偏移同步。腔压改的是散射行为，表现偏向剖面 变化；纯粹的速率高低更可能来自功率侧。
+
+        '
+    detection:
+    - metric_ref: fab.metric.film_thickness
+      signal: '超出规格上下限，或片内均匀性超标。必须同时看剖面形状—— 只看片均值会漏掉"均值在规格内、边缘已超规"这一类。
+
+        '
+    - metric_ref: fab.metric.sheet_resistance
+      signal: '金属层方阻与膜厚反向变动，可与膜厚量测互为交叉确认； 若两者不一致，先怀疑量测本身而不是制程。
+
+        '
+    - metric_ref: fab.metric.defect_density
+      signal: '颗粒数是否与膜厚偏移同步跃升。同步跃升把根因指向靶材寿命 末期或腔壁残留脱落，而不是纯参数漂移。
+
+        '
+    actions:
+    - action_ref: fab.action.hold_lot
+      order: 1
+      condition: '超规确认后先扣留同腔在制批次。膜厚偏移在后续层会被叠加， 放行的成本随层数增加而放大。
+
+        '
+    - action_ref: fab.action.chamber_season
+      order: 2
+      condition: '偏移出现在清洗或长待机之后、且随片数收敛时执行。预处理后必须 跑验证片确认恢复再放量产；连续生产中途出现的发散型偏移不适用 本动作，那是累积而非未预处理。
+
+        '
+    - action_ref: fab.action.recipe_adjust
+      order: 3
+      condition: '偏移量稳定、方向一致且在补偿窗口内时按偏移反算补偿，须留变更 记录与验证数据。剖面形状已改变的情况不适用——补偿只能移动 整体水平，改不回形状。
+
+        '
+    - action_ref: fab.action.replace_consumable
+      order: 4
+      condition: '靶材接近寿命上限或剖面已无法用参数补偿时换靶，换后跑首件确认。 换靶同时会重置腔体状态，因此换后应连带做预处理。
+
+        '
+    impact:
+      blocked_processes:
+      - fab.process.cmp_metal
+      - fab.process.cmp_oxide
+      economic: '损失结构与突增类异常一致：检出前已连续加工的片数决定波及面， 所以真正的旋钮是量测抽样频次而不是事后处置速度。膜厚不足不可 回补，过厚仅少数层可靠 CMP 修正，多数情况只能判废。
+        介电层偏移的代价还有一层延迟——改变的是层间电容与击穿裕度， 要到 WAT/CP 才充分暴露，届时受影响批次已流过多道工序。
+
+        '
+    tags:
+    - 薄膜
+    - 膜厚
+    - 靶材
+    - 腔体状态
+    - 均匀性
+    notes: '两个新增根因取自公网可核查资料：侵蚀沟槽与膜厚剖面的关系见 molecules28227660（DC 磁控溅射模拟+实验，给出钟形/鞍形/平坦剖面 随源尺寸与靶基距的演化）；腔壁残留影响片间沉积速率与片内均匀性、
+      且脱落转为颗粒污染见 Applied Materials 的 seasoning 专利 US20060093756A1 背景段。
+
+      刻意没写具体数值区间。可取到的数值来自 2/4 英寸靶、2 英寸基片的 实验条件，与 200/300 mm 量产腔体不可直接换算；照搬会得到一个 看起来有据可查、实际无效的工艺窗口。因此只沉淀机理与判别方向，
+      数值留给现场 SPC。
+
+      本条把 fab.stage.thinfilm 从"零异常节点"接进风险图谱。该段仍缺 应力类异常（膜应力导致的晶圆变形会回头影响套刻），下一轮可补—— 它是 film_thickness_dev
+      与 overlay_shift 之间缺的那条传导路径。
+
+      '
+    provenance:
+      source_type: web
+      ref: https://doi.org/10.3390/molecules28227660
+      confidence: medium
+      created_at: '2026-08-28'
+      reviewed_by: null

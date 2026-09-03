@@ -18,7 +18,8 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from fastapi import Cookie, Depends, FastAPI, HTTPException, Query, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
-from rdflib import Graph, RDF, RDFS
+from fastapi.staticfiles import StaticFiles
+from rdflib import Graph, RDF, RDFS, URIRef
 from rdflib.namespace import OWL
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -767,6 +768,40 @@ def ontology_entities(search: str = "", limit: int = Query(100, ge=1, le=500), u
     return {"items": items[:limit], "total": len(items)}
 
 
+@app.get("/api/ontology/tree")
+def ontology_tree(user: User = Depends(current_user)) -> dict:
+    """类层级视图：逐模块解析，返回每个 owl:Class 的 rdfs:subClassOf 父类与来源模块。
+
+    仅读取现有本体，不改动任何数据；前端据此把 488 个类还原成 subClassOf 树。
+    """
+    nodes: dict[str, dict] = {}
+    for path in sorted((settings.engine_root / "ontology" / "modules").glob("*.ttl")):
+        graph = Graph()
+        graph.parse(path, format="turtle")
+        module = path.stem
+        for subject in graph.subjects(RDF.type, OWL.Class):
+            if not isinstance(subject, URIRef):
+                continue  # 跳过匿名类 / owl:Restriction 等空节点
+            iri = str(subject)
+            node = nodes.get(iri)
+            if node is None:
+                node = {"iri": iri, "label": "", "parents": [], "module": module}
+                nodes[iri] = node
+            label = next(graph.objects(subject, RDFS.label), None)
+            if label and not node["label"]:
+                node["label"] = str(label)
+            for parent in graph.objects(subject, RDFS.subClassOf):
+                if isinstance(parent, URIRef):
+                    parent_iri = str(parent)
+                    if parent_iri != iri and parent_iri not in node["parents"]:
+                        node["parents"].append(parent_iri)
+    for node in nodes.values():
+        if not node["label"]:
+            node["label"] = node["iri"].rsplit(":", 1)[-1].rsplit("/", 1)[-1]
+    ordered = sorted(nodes.values(), key=lambda item: item["iri"])
+    return {"nodes": ordered, "total": len(ordered)}
+
+
 def yaml_catalog(pattern: str) -> list[dict]:
     items = []
     for path in sorted(settings.engine_root.glob(pattern)):
@@ -1353,3 +1388,20 @@ def download_export(job_id: str, user: User = Depends(current_user), db: Session
     if not path.is_file() or path.parent.resolve() != (settings.data_dir / "artifacts").resolve():
         raise HTTPException(status_code=404, detail="导出文件不存在")
     return FileResponse(path, filename=path.name, media_type="application/zip")
+
+
+# 静态文件服务：提供前端构建产物
+frontend_dist = Path(__file__).parent.parent.parent / "frontend" / "dist"
+if frontend_dist.is_dir():
+    app.mount("/assets", StaticFiles(directory=str(frontend_dist / "assets")), name="assets")
+
+    @app.get("/")
+    @app.get("/{full_path:path}")
+    def serve_frontend(full_path: str = ""):
+        # API 路由已经处理，这里只处理前端页面
+        if full_path.startswith("api/"):
+            raise HTTPException(status_code=404, detail="Not Found")
+        index_file = frontend_dist / "index.html"
+        if index_file.is_file():
+            return FileResponse(index_file)
+        raise HTTPException(status_code=404, detail="Frontend not built")

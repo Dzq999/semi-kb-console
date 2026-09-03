@@ -34,6 +34,7 @@ class RunCreate(BaseModel):
     publish_changes: bool = False
     continuous: bool = True
     round_interval_seconds: int = Field(default=5, ge=0, le=86_400)
+    max_rounds: int | None = Field(default=None, ge=1, le=1000)  # None = 无限循环
     max_consecutive_round_failures: int = Field(default=3, ge=1, le=20)
     auto_repair: bool = True
     # 每次修复都会重跑整条闸门链（align_sources + capability_validate + apply --check

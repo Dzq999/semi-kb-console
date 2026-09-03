@@ -10,6 +10,7 @@ def test_semantic_counts_are_real():
 
 def test_artifact_counts_include_vfab_state():
     counts = SemiKbAdapter().artifact_counts()
-    assert counts["vfab_state"] in {"awaiting_source", "ready", "validated"}
+    # vfab_ingest.py 只产出这两种状态：无资料 awaiting_source / 已接入 available。
+    assert counts["vfab_state"] in {"awaiting_source", "available"}
     assert counts["simulation_scenarios"] >= 1
 

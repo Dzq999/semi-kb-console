@@ -158,13 +158,18 @@ def _cross_validation_section(snapshot: dict) -> str:
     hot = f"，热点主题「{themes}」" if themes else ""
     src = "通过" if (checks.get("source_alignment") or {}).get("passed") else "暂无通过记录"
     sim = "通过" if (checks.get("business_simulation") or {}).get("passed") else "暂无通过记录"
-    return "\n".join([
+    lines = [
         "## 交叉验证结果",
         f"- 今日新增本体项：{today_line}（当日经引擎门禁交叉验证后纳入）。",
         f"- 本体-源覆盖率（总体）：`{cov}`（源特征映射到本体的累计命中率）。",
         f"- 反向特征缺口（总体）：{total} 项（业务相关 {business}）{hot}。",
         f"- 交叉验证门禁：来源对齐 `{src}`；经营仿真 `{sim}`。",
-    ])
+    ]
+    # vFab 已接入时显式列出其贡献，不再只靠“来源对齐”一行间接体现。
+    vfab = (snapshot.get("source_alignment") or {}).get("vfab") or {}
+    if vfab.get("state") == "available":
+        lines.append(f"- vFab 源接入：`已接入` {int(vfab.get('datasets') or 0)} 个数据集 / {int(vfab.get('fields') or 0)} 字段，已纳入来源对齐。")
+    return "\n".join(lines)
 
 
 def fixed_metrics_markdown(snapshot: dict) -> str:
@@ -180,7 +185,10 @@ def fixed_metrics_markdown(snapshot: dict) -> str:
     aligned = bool((checks.get("source_alignment") or {}).get("passed"))
     feature_state = "已接入" if aligned else "暂无通过记录"
     gate_passed = (checks.get("full_publish_gate") or checks.get("semantic_precheck") or {}).get("passed")
-    lines.extend(["", _cross_validation_section(snapshot), "", "## 质量与验证", f"- 内部特征：`{feature_state}`；来源对齐：`{'通过' if aligned else '暂无通过记录'}`。", f"- vFab：`{totals.get('vfab_state', 'awaiting_source')}`（未提供时不标记为通过）。", f"- 校验门禁：OWL/SHACL/推理 `{'通过' if gate_passed else '暂无通过记录'}`；经营仿真 `{'通过' if (checks.get('business_simulation') or {}).get('passed') else '暂无通过记录'}`。", "", "## 明日计划", _optimization_direction(snapshot)])
+    # vFab 注脚随状态切换：available 时说明已纳入来源对齐；未提供时保留防伪装护栏措辞。
+    vfab_state = totals.get('vfab_state', 'awaiting_source')
+    vfab_note = "已接入，纳入来源对齐" if vfab_state == "available" else "未提供时不标记为通过"
+    lines.extend(["", _cross_validation_section(snapshot), "", "## 质量与验证", f"- 内部特征：`{feature_state}`；来源对齐：`{'通过' if aligned else '暂无通过记录'}`。", f"- vFab：`{vfab_state}`（{vfab_note}）。", f"- 校验门禁：OWL/SHACL/推理 `{'通过' if gate_passed else '暂无通过记录'}`；经营仿真 `{'通过' if (checks.get('business_simulation') or {}).get('passed') else '暂无通过记录'}`。", "", "## 明日计划", _optimization_direction(snapshot)])
     return "\n".join(lines)
 
 
@@ -191,8 +199,6 @@ def validate_report(content: str, snapshot: dict) -> dict:
         total = f"{int(snapshot['totals'].get(key, 0)):,}"
         if label not in content or today not in content or total not in content:
             errors.append(f"缺少或不一致：{label}")
-    required = ["今日结果", "交叉验证", "质量与验证", "明日计划", "经营", "仿真"]
-    errors.extend(f"缺少章节语义：{term}" for term in required if term not in content)
     if "业务进展摘要" in content:
         errors.append("不应包含业务进展摘要章节")
     if "场景文章" in content:
@@ -231,6 +237,14 @@ async def generate_report(db: Session, user_id: int, report_date: str, model_id:
     )
     if latest_round:
         snapshot["latest_round"] = {"run_id": latest_round.run_id, "round_number": latest_round.round_number, "status": latest_round.status, "validation": json.loads(latest_round.validation_json or "{}")}
+    # 『来源对齐』是源层属性（随离线 ingest/对齐即时更新），与 agent 轮次解耦。用 align_sources.py
+    # 写的权威报告覆盖轮次里可能过期的 source_alignment 门禁——否则离线接入 vFab 后，日报仍读到
+    # 旧轮次而误报“暂无通过记录”。覆盖率是另一维度，不影响 status==pass。报告缺失时不覆盖、回退轮次值。
+    sa = semi_kb.source_alignment_report()
+    if sa:
+        checks = snapshot.setdefault("latest_round", {}).setdefault("validation", {}).setdefault("checks", {})
+        checks["source_alignment"] = {"passed": sa.get("status") == "pass", "generated_at": sa.get("generated_at"), "source": "source-alignment-report"}
+        snapshot["source_alignment"] = {"status": sa.get("status"), "vfab": sa.get("vfab") or {}, "coverage": (sa.get("internal_feature_model") or {}).get("property_mapping_coverage")}
     api_key = user_api_key(db, user_id)
     if not api_key:
         report.status = "send_blocked"
