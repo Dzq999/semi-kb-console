@@ -1,0 +1,117 @@
+# 来源登记表 · 文档摄取的单一入口清单
+#
+# 这份文件回答一个问题：「手上有一份新文档，它该走哪条摄取通道、落到哪一层？」
+# 它不执行任何逻辑，是声明式清单——真正干活的是各通道的脚本（见 channel 字段）。
+#
+# ── 三条通道与三层 ───────────────────────────────────────────────────
+# 结构化表格 → 检索层：md 清洗成 CSV，人工在 vfab manifest 指定 target_class，
+#              vfab_ingest 校验，build_index 摊成 vfab_dataset 检索记录。
+#              这类数据是「事实记录」，供关键词检索+下钻，不进 OWL 推理。
+# 散文文档   → 知识层：按章节拆成 knowledge/vfab/entries/*.json，建术语倒排索引，
+#              供交叉验证与检索。正文留检索层，不进 OWL 推理。
+# 语义扩展   → 推理层：生成符合 semantic-changeset.schema.json 的提案落 pending/，
+#              apply_semantic_changeset --check 预检（OWL+SHACL），人工批准后合并
+#              进 current.ttl。这是唯一进 OWL 推理的通道，且带人工落盘闸门。
+#
+# ── 两信任模型边界（务必遵守）────────────────────────────────────────
+# 自动路径只到「生成草稿 + 自动校验」为止：检索层/知识层可自动重建（派生产物），
+# 推理层的 changeset 必须落 pending/ 等人工批量复核，不自动 promote 进 current.ttl。
+#
+# ── 加一份新文档怎么做 ──────────────────────────────────────────────
+# 1. 判断类型：结构化表格 / 散文文档 / 需进推理的语义断言。
+# 2. 在下面 sources: 加一条记录（照抄同类型的写法）。
+# 3. 跑对应 channel 的脚本（见 docs/ingestion-pipeline.md 的命令）。
+# 4. classification=restricted 的（含 NDA/机密）：正文只进知识层检索，
+#    绝不写进会提交的 changeset/TTL；个体只落元数据+结构引用。
+
+schema_version: "1.0"
+
+channels:
+  structured_table:
+    description: md 表格 → CSV → manifest → 检索层 vfab_dataset 记录
+    clean_script: scripts/vfab_markdown_to_tables.py
+    ingest_script: scripts/vfab_ingest.py
+    index_script: scripts/build_index.py
+    target_layer: retrieval
+    reaches_owl: false
+  prose_document:
+    description: 散文 md → 章节知识条目 + 术语倒排索引
+    script: scripts/vfab_prose_to_knowledge.py
+    output_dir: knowledge/vfab/entries
+    target_layer: knowledge
+    reaches_owl: false
+  semantic_extension:
+    description: 语义断言提案 → pending → 预检 → 人工批准 → current.ttl
+    apply_script: scripts/apply_semantic_changeset.py
+    pending_dir: semantic_changesets/pending
+    contract: output-contracts/semantic-changeset.schema.json
+    target_layer: reasoning
+    reaches_owl: true
+    requires_human_promote: true
+
+# ── 已登记来源 ───────────────────────────────────────────────────────
+# 5 份原始文档（桌面 vfab资料/），及其已走过的通道与产物。
+sources:
+  - id: vfab.doc1.scenario_table
+    title: vfab 知识库 · 机台场景表
+    origin: "kb-知识库-1-机台场景表.md"
+    channel: structured_table
+    classification: internal
+    status: ingested
+    artifacts:
+      raw_csv: sources/internal/vfab/raw/  # 86 场景 CSV（7 机台）
+      manifest_entry: sources/internal/vfab/manifest.json
+      retrieval_records: "build/index.json (kind=vfab_dataset, 86 条)"
+    note: >
+      7 机台 × 86 场景的 SECS/GEM 消息流。已清洗成 CSV、manifest 指定
+      target_class=Equipment、进检索层。SECS 消息流的深语义（状态机跃迁）
+      保留在 CSV 列，检索命中数据集后下钻查看。
+
+  - id: vfab.doc2.process_data
+    title: vfab5 流程数据
+    origin: "kb-知识库-2-vfab5流程数据.md"
+    channel: structured_table
+    classification: internal
+    status: ingested
+    artifacts:
+      raw_csv: "sources/internal/vfab/raw/vfab5_recipe__*.csv"  # 7 数据集
+      manifest_entry: sources/internal/vfab/manifest.json
+      retrieval_records: "build/index.json (kind=vfab_dataset, 7 条)"
+    note: >
+      工艺流程/配方/工序/队列时间。target_class 分别为
+      Step/Recipe/QueueTimeObservation/Equipment。进检索层。
+
+  - id: vfab.doc3.himes_training
+    title: HiMES 培训资料
+    origin: "kb-知识库-3-HiMES培训.md"
+    channel: prose_document
+    classification: internal
+    status: ingested
+    artifacts:
+      knowledge_entries: knowledge/vfab/entries/
+    note: MES 培训散文。已按主题拆成知识条目，进知识层检索。
+
+  - id: vfab.doc4.semi_standard
+    title: SEMI 标准（E5 等）
+    origin: "kb-知识库-4-SEMI标准.md"
+    channel: prose_document
+    classification: internal
+    status: ingested
+    artifacts:
+      knowledge_entries: knowledge/vfab/entries/
+      cross_validation_index: knowledge/vfab/cross-validation-index.json
+    note: SEMI E5 SECS-II 等标准散文。拆成知识条目 + 术语倒排索引。
+
+  - id: vfab.doc5.equipment_manual
+    title: 设备手册（ASML 等）
+    origin: "kb-知识库-5-设备手册.md"
+    channel: prose_document
+    classification: restricted   # 含 "Confidential - Subject to NDA"
+    status: ingested
+    artifacts:
+      knowledge_entries: knowledge/vfab/entries/  # provenance.classification=restricted
+    note: >
+      ASML XT-1060K SECS 接口手册等，含 NDA 机密材料。仅按章节拆成知识
+      条目留检索层（provenance 标 restricted）；机密正文绝不进会提交的
+      changeset/TTL。个体化时只落元数据+结构引用。
+

@@ -42,8 +42,71 @@ def keywords_of(ent: dict) -> list[str]:
     return out
 
 
-def build_index(entities: dict, kb_cases: list[dict], meta: dict) -> dict:
+def vfab_catalog_records() -> list[dict]:
+    """把 vFab 数据集摊成检索记录（数据集级，非行级）。
+
+    行级（8092 行 SECS 消息）灌进索引会淹没检索信号——单条消息不是有意义的
+    检索单元。数据集级（93 条）才是对的粒度：检索"Aleris 的 Carrier ID Error"
+    命中数据集，用户再下钻看原始 CSV。这落实"vFab 只进检索层不进推理层"的分层
+    决策：这些记录只供关键词检索，不进 current.ttl、不参与 OWL/SHACL。
+
+    从 CSV 首行数据读真实 equipment/phase（保留原始大小写），并数出行数。
+    catalog 缺失或 status!=available 时返回空——vFab 未交付是显式状态，不是错误。
+    """
+    import csv
+
+    catalog_path = C.ROOT / "build" / "source" / "vfab-catalog.json"
+    if not catalog_path.is_file():
+        return []
+    try:
+        catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return []
+    if catalog.get("status") != "available":
+        return []
+
+    source_root = C.ROOT / "sources" / "internal" / "vfab"
+    records: list[dict] = []
+    for ds in catalog.get("datasets") or []:
+        csv_path = (source_root / ds["path"]).resolve()
+        equipment = phase = None
+        row_count = 0
+        if csv_path.is_file():
+            with csv_path.open("r", encoding="utf-8-sig", newline="") as fh:
+                reader = csv.DictReader(fh)
+                for i, row in enumerate(reader):
+                    row_count += 1
+                    if i == 0:
+                        equipment = (row.get("equipment") or "").strip() or None
+                        phase = (row.get("phase") or "").strip() or None
+        stem = csv_path.stem  # e.g. aleris__abnormal01_carrier_id_error
+        target = str(ds.get("target_class") or "").replace("urn:pxai:semi:", "")
+        keywords = [w for w in [equipment, phase, target, stem.replace("__", " ").replace("_", " ")] if w]
+        records.append({
+            "id": f"vfab.dataset.{stem}",
+            "kind": "vfab_dataset",
+            "type": target or "Dataset",
+            "domain": None,
+            "name_zh": None,
+            "name_en": f"{equipment or stem} · {phase or ''}".strip(" ·"),
+            "keywords": keywords,
+            "equipment": equipment,
+            "phase": phase,
+            "target_class": ds.get("target_class"),
+            "entity_keys": ds.get("entity_keys") or [],
+            "field_count": ds.get("field_count") or len(ds.get("headers") or []),
+            "row_count": row_count,
+            "confidence": "high",
+            "source_type": "vfab",
+            "file": f"sources/internal/vfab/{ds['path']}",
+        })
+    return records
+
+
+def build_index(entities: dict, kb_cases: list[dict], meta: dict,
+                vfab_records: list[dict] | None = None) -> dict:
     records = []
+    vfab_records = vfab_records or []
     for eid, ent in entities.items():
         prov = ent.get("provenance") or {}
         records.append({
@@ -83,6 +146,8 @@ def build_index(entities: dict, kb_cases: list[dict], meta: dict) -> dict:
             "file": case["_file"],
         })
 
+    records.extend(vfab_records)
+
     by_type: dict[str, int] = defaultdict(int)
     by_domain: dict[str, int] = defaultdict(int)
     by_conf: dict[str, int] = defaultdict(int)
@@ -99,6 +164,7 @@ def build_index(entities: dict, kb_cases: list[dict], meta: dict) -> dict:
             "total": len(records),
             "entities": len(entities),
             "kb_cases": len(kb_cases),
+            "vfab_datasets": len(vfab_records),
             "by_type": dict(sorted(by_type.items())),
             "by_domain": dict(sorted(by_domain.items())),
             "by_confidence": dict(sorted(by_conf.items())),
@@ -197,7 +263,8 @@ def main() -> int:
     build_dir = C.ROOT / "build"
     build_dir.mkdir(exist_ok=True)
 
-    index = build_index(entities, kb_cases, meta)
+    vfab_records = vfab_catalog_records()
+    index = build_index(entities, kb_cases, meta, vfab_records)
     graph = build_graph(entities, relations, derived, meta)
 
     for name, payload in (("index.json", index), ("graph.json", graph)):
@@ -207,7 +274,8 @@ def main() -> int:
         print(f"已生成 build/{name}  ({path.stat().st_size / 1024:.1f} KB)")
 
     s, g = index["stats"], graph["stats"]
-    print(f"  检索记录 {s['total']}（实体 {s['entities']} + 知识库实例 {s['kb_cases']}）")
+    print(f"  检索记录 {s['total']}（实体 {s['entities']} + 知识库实例 {s['kb_cases']}"
+          f" + vFab 数据集 {s.get('vfab_datasets', 0)}）")
     print(f"  图节点 {g['nodes']} | 边 {g['edges']}（显式 {g['explicit']} + 派生 {g['derived']}）")
     print(f"  主流程 {len(graph['routes'])} 条：" +
           "，".join(f"{v['name_zh']}({v['length']}步)" for v in graph["routes"].values()))
