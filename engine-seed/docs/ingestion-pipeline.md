@@ -38,6 +38,11 @@ python scripts/vfab_prose_to_knowledge.py   # 拆章节 + 建术语倒排索引
 ```
 产物：`knowledge/vfab/entries/*.json`（标题/摘要/正文/相关IRI/置信度/provenance）+ `cross-validation-index.json`。
 
+这些条目除喂给对齐指标（`vfab_cross_validate.py`）外，还经后端
+`semi_kb.vfab_knowledge_context()` 按可引用来源族（如 SEMI E5 / 设备手册型号）
+聚合，注入研究 Agent 的 prompt，作**证据线索**供其引用——仍不进 OWL 推理。
+NDA 约束：`classification: restricted` 条目只贡献标题+来源标识，正文绝不外泄。
+
 ### 通道 3：语义扩展 → 推理层
 适用：需要**进 OWL 推理、被 SHACL 校验**的语义断言（新类、新个体、新关系）。
 
