@@ -145,6 +145,66 @@ class SemiKbAdapter:
             scenarios.append({"path": path.relative_to(self.root).as_posix(), "document": document})
         return {"models": models, "existing_scenario_examples": scenarios[:6]}
 
+    def vfab_knowledge_context(self, samples_per_family: int = 12) -> dict:
+        """把 knowledge/vfab/entries 的散文知识整理成可引用的检索上下文。
+
+        供研究 Agent 在提出变更/知识条目时能真正引用 SEMI 标准与设备手册，而不是
+        编造来源。落实用户「vFab 只进检索层」的决定：这里只把知识作为**证据线索**
+        提供给 LLM，不生成本体断言、不进推理层。
+
+        NDA 安全：classification=restricted 的条目（设备手册，含 NDA 正文）只贡献
+        结构性元数据（title / source_ref / terms），**绝不外泄 content 或 summary**。
+        非受限条目（SEMI 标准）可带一句 summary 摘要。
+
+        按可引用的来源族（如 "SEMI E5" / 设备手册型号）聚合，返回计数 + 若干引用
+        句柄样本，控制 prompt 体积；477 条不逐条铺开。
+        """
+        entries_dir = self.root / "knowledge" / "vfab" / "entries"
+        if not entries_dir.is_dir():
+            return {"families": [], "total": 0, "note": "尚无 vFab 知识条目"}
+
+        families: dict[str, dict] = {}
+        total = 0
+        for path in sorted(entries_dir.glob("*.json")):
+            try:
+                entry = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            total += 1
+            prov = entry.get("provenance") or {}
+            restricted = prov.get("classification") == "restricted"
+            # 引用族：优先用 provenance.source_ref 的前缀（"SEMI E5 S6F11" -> "SEMI E5"），
+            # 手册用其型号名；退化到 source_type。
+            src_ref = str(prov.get("source_ref") or "").strip()
+            if src_ref.upper().startswith("SEMI "):
+                family = " ".join(src_ref.split()[:2])  # "SEMI E5"
+            elif restricted:
+                family = src_ref or "设备手册"
+            else:
+                family = src_ref or str(prov.get("source_type") or "vfab")
+            fam = families.setdefault(family, {
+                "family": family, "kind": "equipment_manual" if restricted else "standard_spec",
+                "classification": "restricted" if restricted else (prov.get("classification") or "internal"),
+                "count": 0, "citations": [],
+            })
+            fam["count"] += 1
+            if restricted:
+                fam["classification"] = "restricted"
+            # 引用句柄：受限条目只给标题（结构性、非机密），非受限再附一句摘要。
+            if len(fam["citations"]) < samples_per_family:
+                handle = {"ref": src_ref or entry.get("id"), "title": entry.get("title")}
+                if not restricted:
+                    summary = str(entry.get("summary") or "")[:80]
+                    if summary:
+                        handle["gist"] = summary
+                fam["citations"].append(handle)
+        ordered = sorted(families.values(), key=lambda f: (-f["count"], f["family"]))
+        return {
+            "families": ordered,
+            "total": total,
+            "usage": "可在 knowledge_entries.source_refs 引用这些来源族作为证据；restricted 来源正文仅本地留存，勿在输出中复制其正文。",
+        }
+
     async def cross_validate(self) -> dict:
         checks = {}
         for name, script, args in (

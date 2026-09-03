@@ -194,6 +194,7 @@ class RunOrchestrator:
                 iteration.evidence_json = json.dumps(evidence, ensure_ascii=False); db.commit()
                 ontology = semi_kb.ontology_context(limit=350)
                 business = semi_kb.business_context()
+                vfab_knowledge = semi_kb.vfab_knowledge_context()
                 previous = _compact_previous_output(json.loads(agent.output_json or "{}"))
                 source_rules = {
                     "web": "所有新增事实必须由给出的网页正文支持；每个web变更集的source_ref必须使用证据URL。",
@@ -207,6 +208,7 @@ class RunOrchestrator:
                     "每轮应优先补齐合法关系断言（object_assertions/data_assertions）和可证据支持的OWL限制；关系的subject/predicate/object必须分别是已知或本轮同一输出中实际保留的IRI。"
                     "请同时输出至少1条结构化knowledge_entries（若有摘要或痛点，系统会保存为知识条目），并在资料支持新推理模式时输出rule_candidates；自动规则必须是可解释、可执行的只读SPARQL CONSTRUCT，不得输出更新型SPARQL。"
                     "knowledge_entries必须包含可核查source_refs和不少于40字content；rule_candidates不得把普通描述冒充规则。"
+                    "vfab_knowledge_sources列出了已入库的SEMI标准与设备手册来源族；引用它们时source_refs须用其ref句柄，勿编造。标注restricted的来源（设备手册/NDA）只可引用其标题与来源标识，禁止在content中复制其正文。"
                     "所有复数结构以及实例objects/data映射中的每个值都必须使用JSON数组，即使只有一个值。"
                     "仿真只能引用已有经营模型和示例中的合法变量；不得编造现场实测数值。"
                     "若 gap_analysis.feature_gap 给出未映射的源特征，请输出 feature_mapping_candidates 把它们对齐到已声明的本体属性；"
@@ -224,6 +226,7 @@ class RunOrchestrator:
                     "gap_analysis": gap,
                     "known_ontology": ontology,
                     "business_simulation_context": business,
+                    "vfab_knowledge_sources": vfab_knowledge,
                     "evidence": [{**item, "excerpt": str(item.get("excerpt") or "")[:3000]} for item in evidence[:4]],
                     "previous_round_output": previous,
                     "repair_context": repair_context,
