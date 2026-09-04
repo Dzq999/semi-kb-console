@@ -454,11 +454,17 @@ class SemiKbAdapter:
                 else: rules_path.write_bytes(registry_backup)
                 raise
 
-    async def process_candidates(self, candidates: dict[str, list[Path]], publish: bool) -> dict:
+    async def process_candidates(self, candidates: dict[str, list[Path]], publish: bool, *, semantic_batch_prechecked: bool = False) -> dict:
         """Stage candidates under the engine lock, run all gates, and optionally publish.
 
         Semantic publication is delegated to semi-kb's atomic merger. Simulation files are
         staged first so the same full-chain validation sees them, and removed on any failure.
+
+        ``semantic_batch_prechecked`` 由 ``partial_publish`` 传入：调用方刚对**完全相同的
+        语义候选批次**跑过一次整图 ``--check`` 且整批通过。current.ttl / 本体模块 /
+        current.trig 与 pending 内容在两次调用之间不会被改动（cross_validate、property-map
+        合并都不进入语义门禁的输入），因此可以跳过这里的批量预检,避免对同一张大图重复推理。
+        最终的 apply(683 行)仍是权威门禁并会在失败时回滚——被跳过的只是预检,不是发布门禁。
         """
         self._ensure_root()
         semantic_sources = [path for path in candidates.get("semantic", []) if path.is_file()]
@@ -537,14 +543,25 @@ class SemiKbAdapter:
                         raise SemiKbError(f"语义暂存文件冲突：{target.name}")
                     await asyncio.to_thread(shutil.copy2, source, target)
                     semantic_pairs.append((source, target))
-                if semantic_pairs:
+                # 整批预检是否以「无隔离」的方式通过：只有此时,后续语义预检(646 行)
+                # 面对的 pending 集合与这里完全一致,才能安全跳过那一遍整图推理。
+                batch_precheck_passed = False
+                if semantic_pairs and semantic_batch_prechecked:
+                    # 调用方(partial_publish)已对同一批次跑过整图 --check 且整批通过,
+                    # 直接复用,省掉这一遍整图推理。
+                    batch_precheck_passed = True
+                    staged_semantic.extend(target for _, target in semantic_pairs)
+                    result["checks"]["semantic_batch_precheck"] = {"passed": True, "duration_seconds": 0.0, "output": "复用 partial_publish 的整批预检结果"}
+                elif semantic_pairs:
                     batch_check = await self.command("apply_semantic_changeset.py", "--check", timeout=600)
                     if batch_check["exit_code"] == 0:
+                        batch_precheck_passed = True
                         staged_semantic.extend(target for _, target in semantic_pairs)
                     else:
                         # Isolate only on a real batch failure.  This keeps the
                         # normal path O(1) expensive checks while preserving the
                         # existing guarantee that one bad candidate is isolated.
+                        # 隔离意味着 staged_semantic 是子集,后续语义预检不能跳过。
                         for source, target in semantic_pairs:
                             target.unlink(missing_ok=True)
                         for index, source in enumerate(semantic_sources, 1):
@@ -642,7 +659,12 @@ class SemiKbAdapter:
                 if not cross["passed"]:
                     raise SemiKbError("内部特征/vFab 或能力问题交叉验证失败")
                 result["checks"]["candidate_source_alignment"] = self.candidate_alignment(semantic_sources)
-                if staged_semantic:
+                if staged_semantic and batch_precheck_passed:
+                    # 整批已在上面通过整图预检,且 staged_semantic 就是同一批(未发生隔离)。
+                    # 其间 cross_validate / property-map 合并都不进入语义门禁输入,pending 集合
+                    # 不变,因此这一遍必然同样通过——直接复用,省掉一次整图推理。
+                    result["checks"]["semantic_precheck"] = {"passed": True, "duration_seconds": 0.0, "output": "复用整批预检结果(候选与 pending 集合未变)"}
+                elif staged_semantic:
                     check = await self.command("apply_semantic_changeset.py", "--check", timeout=600)
                     result["checks"]["semantic_precheck"] = {"passed": check["exit_code"] == 0, "duration_seconds": check["duration_seconds"], "output": check["output"][-5000:]}
                     if check["exit_code"]:

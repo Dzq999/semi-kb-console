@@ -150,6 +150,69 @@ class LlmService:
         except json.JSONDecodeError as exc:
             raise ExternalServiceError("模型响应结构不兼容") from exc
 
+    async def stream_complete(self, api_key: str, model: str, system: str, user: str, temperature: float = 0.2, timeout_seconds: int = 180, max_tokens: int | None = None, endpoint: LlmEndpoint | None = None):
+        """流式补全：逐段 yield 增量文本。用于问答汇总阶段的答案「逐字浮现」。
+
+        重试语义与 complete() 不同：只能在「首个增量到达前」重试连接/瞬时 5xx；一旦已经 yield 过
+        文本，中途断连无法从头重放，直接作为流错误上抛（保留已产出的部分）。两套协议(anthropic 原生
+        content_block_delta / OpenAI choices[].delta)在 _parse_stream_line 里统一解析。"""
+        endpoint = endpoint or _default_endpoint()
+        max_tokens = max_tokens or settings.llm_max_tokens
+        if endpoint.api_style == "anthropic":
+            url = f"{endpoint.base_url}/messages"
+            payload = {"model": model, "max_tokens": max_tokens, "system": system, "messages": [{"role": "user", "content": user}], "temperature": temperature, "stream": True}
+        else:
+            url = f"{endpoint.base_url}/chat/completions"
+            payload = {"model": model, "max_tokens": max_tokens, "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}], "temperature": temperature, "stream": True}
+        headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+        started = False
+        for attempt in range(_HTTP_RETRIES + 1):
+            try:
+                async with httpx.AsyncClient(timeout=timeout_seconds, follow_redirects=True) as client:
+                    async with client.stream("POST", url, json=payload, headers=headers) as response:
+                        if response.status_code in _RETRYABLE_STATUS and attempt < _HTTP_RETRIES:
+                            await self._backoff(attempt)
+                            continue
+                        if response.status_code >= 400:
+                            raise ExternalServiceError(f"模型流式调用失败：HTTP {response.status_code}")
+                        async for line in response.aiter_lines():
+                            piece = self._parse_stream_line(line, endpoint.api_style)
+                            if piece:
+                                started = True
+                                yield piece
+                return
+            except (*_TRANSIENT_HTTP_ERRORS, OSError) as exc:
+                if started or attempt >= _HTTP_RETRIES:
+                    raise ExternalServiceError(f"模型流式网络失败：{type(exc).__name__}") from exc
+                await self._backoff(attempt)
+                continue
+            except httpx.HTTPError as exc:
+                raise ExternalServiceError(f"模型流式网络失败：{type(exc).__name__}") from exc
+
+    @staticmethod
+    def _parse_stream_line(line: str, api_style: str) -> str:
+        """从一行 SSE 里取出增量文本；非数据行/心跳/[DONE]/无文本增量都返回空串。"""
+        if not line or not line.startswith("data:"):
+            return ""
+        data = line[5:].strip()
+        if not data or data == "[DONE]":
+            return ""
+        try:
+            obj = json.loads(data)
+        except json.JSONDecodeError:
+            return ""
+        if not isinstance(obj, dict):
+            return ""
+        delta = obj.get("delta")  # anthropic: {"type":"text_delta","text":"..."}
+        if isinstance(delta, dict) and isinstance(delta.get("text"), str):
+            return delta["text"]
+        choices = obj.get("choices")  # openai: choices[0].delta.content
+        if isinstance(choices, list) and choices:
+            piece = ((choices[0] or {}).get("delta") or {}).get("content")
+            if isinstance(piece, str):
+                return piece
+        return ""
+
     @staticmethod
     def _extract_text(data: dict) -> str:
         """兼容两套响应结构：原生 Anthropic 的 content[].text 与 OpenAI/中转归一化后的 choices[].message.content。

@@ -115,3 +115,70 @@ async def test_bad_semantic_candidate_is_quarantined_without_blocking_valid_one(
     assert result["semantic_candidates"] == 2
     assert any(item["path"] == str(bad) for item in result["quarantined_candidates"])
     assert result["checks"]["semantic_precheck"]["passed"] is True
+
+
+def _isolated_adapter(tmp_path: Path):
+    """构造一个指向临时引擎根、且所有子进程都被打桩的 SemiKbAdapter。
+
+    不接触共享的 data/engine，也不真正跑脚本——用于断言整图预检的调用次数。
+    """
+    from app.services.semi_kb import SemiKbAdapter
+
+    (tmp_path / "scripts").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "scripts" / "kb.py").write_text("# stub\n", encoding="utf-8")
+    adapter = SemiKbAdapter(root=tmp_path)
+    calls: list[tuple[str, ...]] = []
+
+    async def fake_command(*args: str, timeout: int = 1800) -> dict:
+        calls.append(tuple(args))
+        return {"exit_code": 0, "duration_seconds": 0.0, "output": "{}"}
+
+    adapter.command = fake_command  # type: ignore[assignment]
+    return adapter, calls
+
+
+def _one_semantic_candidate(tmp_path: Path) -> Path:
+    source = tmp_path / "cand.json"
+    source.write_text(json.dumps({
+        "id": "scs.console.dedup-probe", "created_at": "2026-09-04",
+        "provenance": {"source_type": "model_prior", "confidence": "low", "source_ref": "model:test"},
+        "additions": {"classes": [{"iri": "urn:pxai:semi:ConsoleDedupProbeClass", "label_zh": "去重探针类", "subclass_of": ["urn:pxai:semi:Equipment"]}]},
+    }), encoding="utf-8")
+    return source
+
+
+@pytest.mark.asyncio
+async def test_passing_batch_runs_semantic_precheck_only_once(tmp_path: Path) -> None:
+    """Opt1：整批预检通过、未发生隔离时，646 行的语义预检被复用而非重跑。
+
+    改造前:同一整批要跑 541 与 646 两遍整图 --check;改造后只剩 541 那一遍。
+    """
+    adapter, calls = _isolated_adapter(tmp_path)
+    source = _one_semantic_candidate(tmp_path)
+    result = await adapter.process_candidates(
+        {"semantic": [source], "business": [], "simulation": [], "knowledge": [], "rules": [], "articles": []},
+        publish=True,
+    )
+    checks = [c for c in calls if c == ("apply_semantic_changeset.py", "--check")]
+    applies = [c for c in calls if c == ("apply_semantic_changeset.py",)]
+    assert len(checks) == 1, f"整批通过应只剩一遍预检，实际 {calls}"
+    assert len(applies) == 1, "权威 apply 门禁必须照常执行"
+    assert result["checks"]["semantic_precheck"]["passed"] is True
+    assert "复用" in result["checks"]["semantic_precheck"]["output"]
+
+
+@pytest.mark.asyncio
+async def test_prechecked_batch_skips_both_prechecks_but_keeps_apply(tmp_path: Path) -> None:
+    """Opt2：调用方(partial_publish)已整批预检时，process_candidates 跳过全部预检，只留 apply。"""
+    adapter, calls = _isolated_adapter(tmp_path)
+    source = _one_semantic_candidate(tmp_path)
+    result = await adapter.process_candidates(
+        {"semantic": [source], "business": [], "simulation": [], "knowledge": [], "rules": [], "articles": []},
+        publish=True,
+        semantic_batch_prechecked=True,
+    )
+    checks = [c for c in calls if c == ("apply_semantic_changeset.py", "--check")]
+    applies = [c for c in calls if c == ("apply_semantic_changeset.py",)]
+    assert len(checks) == 0, f"已预检批次不应再跑任何整图预检，实际 {calls}"
+    assert len(applies) == 1, "权威 apply 门禁仍必须执行"
+    assert result["checks"]["semantic_batch_precheck"]["passed"] is True

@@ -4,9 +4,11 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
+import time
 from pathlib import Path
 from urllib.parse import quote
 
@@ -14,6 +16,40 @@ ROOT = Path(__file__).resolve().parent.parent
 PENDING = ROOT / "semantic_changesets" / "pending"
 SCHEMA_TARGET = ROOT / "ontology" / "modules" / "generated.ttl"
 DATA_TARGET = ROOT / "knowledge" / "semantic" / "current.ttl"
+
+# Windows 上 os.replace 覆盖 current.ttl / generated.ttl 时，若后端仪表盘、问答接地或 _inventory()
+# 恰好正用 rdflib 解析目标文件，会瞬时报 WinError 5(拒绝访问)/32(占用)。这些读句柄生命周期极短，
+# 有界重试即可清掉抖动；仍失败才让上层回滚。POSIX 无此共享语义，重试对其无副作用。
+_REPLACE_RETRIES = 6
+_REPLACE_BACKOFF = 0.25  # 秒；线性递增：0.25→0.5→…→1.5，累计约 5s 上限。
+_TRANSIENT_WINERRORS = frozenset({5, 32})
+
+
+def _atomic_replace(src: Path, dst: Path) -> None:
+    """os.replace 的有界重试封装：只对 Windows 瞬时共享冲突重试，其余错误立即上抛。"""
+    for attempt in range(_REPLACE_RETRIES + 1):
+        try:
+            os.replace(src, dst)
+            return
+        except OSError as exc:
+            winerror = getattr(exc, "winerror", None)
+            if winerror not in _TRANSIENT_WINERRORS or attempt >= _REPLACE_RETRIES:
+                raise
+            time.sleep(_REPLACE_BACKOFF * (attempt + 1))
+
+
+def derive_equipment_code(iri: str) -> str:
+    """从设备个体自身 IRI 后缀确定性派生 equipmentCode（主数据标识，非现场实测值）。
+
+    EquipmentShape 对 semi:equipmentCode 设了 minCount=1；Agent 候选常声明设备个体却漏填该编码，
+    触发 SHACL Violation 并连累整批回滚。编码是设备主数据标识，可从个体标识确定性得出——与
+    BusinessVariable.identifier 由 IRI 后缀补齐同源。见知识条目
+    urn-pxai-semi-knowledge-fab-equipment-code-mincount-repair。
+    """
+    local = str(iri).rsplit(":", 1)[-1].rsplit("/", 1)[-1]
+    stem = re.sub(r"^(equipment[_-]|equip[_-])", "", local, flags=re.I)
+    code = re.sub(r"[^0-9A-Za-z]+", "-", stem).strip("-").upper()
+    return code or local.upper()
 
 
 def fail_dependency(name: str) -> int:
@@ -86,6 +122,10 @@ def main() -> int:
         """
         type_names = {str(value) for value in types}
         source_refs = [str(value) for value in data_values.get("urn:pxai:semi:sourceRef", [])]
+        # 声明为 Equipment（或其子类）的个体缺 equipmentCode 时确定性补齐，避免 SHACL minCount
+        # 违规回滚整批候选；只对已按类型声明为设备的个体生效，不误伤 FacilityDigitalTwin 等联合域实体。
+        if equipment_type_strs & type_names and not data_values.get("urn:pxai:semi:equipmentCode"):
+            data_values["urn:pxai:semi:equipmentCode"] = [derive_equipment_code(str(subject))]
         if "urn:pxai:semi:BusinessVariable" in type_names:
             # identifier and unitCode are deterministic metadata when the
             # candidate already names a model variable.  Prefer nameEn, then
@@ -279,6 +319,10 @@ def main() -> int:
                     else: schema_graph.add((subject, RDFS.range, URIRef(item["datatype"])))
                     if item.get("functional"): schema_graph.add((subject, RDF.type, OWL.FunctionalProperty))
                     add_provenance(subject, provenance); seen.add(subject)
+            equipment_root = URIRef("urn:pxai:semi:Equipment")
+            equipment_type_strs = {str(equipment_root)} | {
+                str(cls) for cls in (full_schema + schema_graph).transitive_subjects(RDFS.subClassOf, equipment_root)
+            }
             for item in additions.get("individuals") or []:
                 subject = URIRef(item["iri"])
                 if subject in seen:
@@ -392,6 +436,9 @@ def main() -> int:
         DATA_TARGET,
         ROOT / "knowledge" / "scenarios" / "current.json",
         ROOT / "knowledge" / "articles" / "current-scenarios.md",
+        # 构建产物必须一起回滚：kb.py check 会重新生成它，若失败后只回滚源文件，
+        # 下一轮读到的就是带着废弃候选的脏 trig，后续所有校验都在污染基线上跑。
+        ROOT / "build" / "semantic" / "current.trig",
     ]
     backups = {path: path.read_bytes() if path.is_file() else None for path in rollback_targets}
 
@@ -410,8 +457,8 @@ def main() -> int:
         data_graph.serialize(temp_data, format="turtle", encoding="utf-8")
         Graph().parse(temp_schema, format="turtle")
         Graph().parse(temp_data, format="turtle")
-        os.replace(temp_schema, SCHEMA_TARGET)
-        os.replace(temp_data, DATA_TARGET)
+        _atomic_replace(temp_schema, SCHEMA_TARGET)
+        _atomic_replace(temp_data, DATA_TARGET)
         command = ([sys.executable, str(ROOT / "scripts" / "semantic_validate.py")]
                    if args.semantic_only else
                    [sys.executable, str(ROOT / "scripts" / "kb.py"), "check", "--no-precheck"])

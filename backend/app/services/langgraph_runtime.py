@@ -388,11 +388,19 @@ class RoundGraphEngine:
         all_files = round_candidate_files(outputs)
         semantic = list(all_files["semantic"])
 
-        async def isolate(group: list[Path]) -> list[Path]:
+        # 仅当「整批」作为一个组通过整图预检时置真。二分过程中即便每个叶子单独通过、
+        # 整批却因交互而失败(top 检查失败)也不置真——这样传给 process_candidates 的
+        # semantic_batch_prechecked 才严格等价于「这一整批刚通过整图 --check」,可安全跳过
+        # 下游重复预检；否则退回让下游自己再检一遍。
+        top_batch_ok = {"value": False}
+
+        async def isolate(group: list[Path], top: bool = False) -> list[Path]:
             if not group:
                 return []
             check = await semi_kb.semantic_precheck_sources(group)
             if check.get("exit_code", 0) == 0 or check.get("passed", False):
+                if top:
+                    top_batch_ok["value"] = True
                 return group
             if len(group) == 1:
                 path = group[0]
@@ -409,7 +417,7 @@ class RoundGraphEngine:
         # (or model repairs) for every file in that case; quarantine the new
         # semantic batch and continue with independent artifacts immediately.
         baseline_gate = self._is_baseline_gate_failure(gate_text, outputs)
-        valid_semantic = [] if baseline_gate else await isolate(semantic)
+        valid_semantic = [] if baseline_gate else await isolate(semantic, top=True)
         if baseline_gate:
             for path in semantic:
                 rejected_semantic.append(path)
@@ -436,7 +444,11 @@ class RoundGraphEngine:
                 return {"validation": {**auxiliary, "partial": True, "published": bool(published), "repair_attempts": int(state.get("repair_attempt", 0))}, "quarantined_files": list(dict.fromkeys(quarantined)), "gate_error": None, "success": published > 0}
             if not filtered["semantic"] and rejected_semantic:
                 raise RuntimeError("语义候选预检全部失败，进入候选级兜底")
-            result = await semi_kb.process_candidates(filtered, publish=True)
+            # 若整批语义候选刚在 isolate 顶层通过整图预检、且未发生任何隔离,则本批与
+            # filtered["semantic"] 完全一致,把这一事实透传给 process_candidates,让它跳过
+            # 重复的批量/语义预检,直达权威 apply 门禁。
+            batch_prechecked = bool(top_batch_ok["value"] and not rejected_semantic and filtered["semantic"])
+            result = await semi_kb.process_candidates(filtered, publish=True, semantic_batch_prechecked=batch_prechecked)
             published += int(sum((result.get("accepted_candidates") or {}).values())) or sum(len(filtered[key]) for key in ("semantic", "business", "simulation"))
             # Candidates rejected by the isolated precheck are quarantined only
             # after the valid batch has been published.

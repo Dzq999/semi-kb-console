@@ -50,6 +50,7 @@ import {
 import {
   api,
   ApiError,
+  streamNdjson,
   type AgentConfig,
   type RunInfo,
   type RunReference,
@@ -4250,6 +4251,53 @@ function QaMessageBubble({ message }: { message: QaMessage }) {
   );
 }
 
+type QaStage = {
+  key: string;
+  label: string;
+  status: "started" | "done" | "error";
+  detail?: string;
+  group?: string;
+};
+
+// 收到 stage 事件时按 key 覆盖更新（started→done 原地改状态），首次出现则追加。
+function upsertStage(prev: QaStage[], event: Record<string, unknown>): QaStage[] {
+  const key = String(event.key ?? "");
+  const next: QaStage = {
+    key,
+    label: String(event.label ?? ""),
+    status: (event.status as QaStage["status"]) ?? "started",
+    detail: event.detail ? String(event.detail) : undefined,
+    group: event.group ? String(event.group) : undefined,
+  };
+  const index = prev.findIndex((stage) => stage.key === key);
+  if (index === -1) return [...prev, next];
+  const copy = prev.slice();
+  copy[index] = { ...copy[index], ...next };
+  return copy;
+}
+
+function QaStageTracker({ stages }: { stages: QaStage[] }) {
+  return (
+    <ol className="qa-steps">
+      {stages.map((stage) => (
+        <li key={stage.key} className={`qa-step qa-step-${stage.status}${stage.group === "step" ? " qa-step-sub" : ""}`}>
+          <span className="qa-step-icon" aria-hidden="true">
+            {stage.status === "done" ? (
+              <CheckCircle2 size={13} />
+            ) : stage.status === "error" ? (
+              <AlertCircle size={13} />
+            ) : (
+              <RefreshCw className="spin" size={13} />
+            )}
+          </span>
+          <span className="qa-step-label">{stage.label}</span>
+          {stage.detail && <span className="qa-step-detail">{stage.detail}</span>}
+        </li>
+      ))}
+    </ol>
+  );
+}
+
 function QaPage({ user }: { user: User }) {
   const queryClient = useQueryClient();
   const setNotice = useAppStore((state) => state.setNotice);
@@ -4257,6 +4305,10 @@ function QaPage({ user }: { user: User }) {
   const [question, setQuestion] = useState("");
   const [model, setModel] = useState("");
   const [pending, setPending] = useState<string | null>(null);
+  const [stages, setStages] = useState<QaStage[]>([]);
+  const [streamAnswer, setStreamAnswer] = useState("");
+  const [streaming, setStreaming] = useState(false);
+  const [streamError, setStreamError] = useState<string | null>(null);
   const streamRef = useRef<HTMLDivElement>(null);
   const models = useQuery<{ items: Array<{ id: string }>; default_model_id?: string }>({
     queryKey: ["models"],
@@ -4279,7 +4331,7 @@ function QaPage({ user }: { user: User }) {
   }, [user.preferences.default_model_id, models.data?.default_model_id, model]);
   useEffect(() => {
     streamRef.current?.scrollTo({ top: streamRef.current.scrollHeight });
-  }, [active.data?.messages?.length, pending]);
+  }, [active.data?.messages?.length, pending, stages, streamAnswer]);
   const createConversation = useMutation({
     mutationFn: () =>
       api<QaConversationSummary>("/api/qa/conversations", {
@@ -4291,18 +4343,26 @@ function QaPage({ user }: { user: User }) {
       setActiveId(data.id);
     },
   });
-  const ask = useMutation({
-    mutationFn: ({ conversationId, text }: { conversationId: string; text: string }) =>
-      api<QaMessage>(`/api/qa/conversations/${conversationId}/ask`, {
-        method: "POST",
-        body: JSON.stringify({ question: text, model_id: model || null }),
-      }),
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["qa-conversation", variables.conversationId] });
-      queryClient.invalidateQueries({ queryKey: ["qa-conversations"] });
-    },
-    onSettled: () => setPending(null),
-  });
+  const runAsk = async (conversationId: string, text: string) => {
+    let failed: string | null = null;
+    await streamNdjson(
+      `/api/qa/conversations/${conversationId}/ask/stream`,
+      { question: text, model_id: model || null },
+      (event) => {
+        const type = event.type as string;
+        if (type === "stage") {
+          setStages((prev) => upsertStage(prev, event));
+        } else if (type === "token") {
+          setStreamAnswer((prev) => prev + String(event.text ?? ""));
+        } else if (type === "error") {
+          failed = String(event.detail ?? "作答失败");
+        }
+      },
+    );
+    if (failed) throw new ApiError(502, failed);
+    queryClient.invalidateQueries({ queryKey: ["qa-conversation", conversationId] });
+    queryClient.invalidateQueries({ queryKey: ["qa-conversations"] });
+  };
   const removeConversation = useMutation({
     mutationFn: (id: string) => api(`/api/qa/conversations/${id}`, { method: "DELETE" }),
     onSuccess: (_, id) => {
@@ -4313,18 +4373,28 @@ function QaPage({ user }: { user: User }) {
   });
   const send = async () => {
     const text = question.trim();
-    if (!text || ask.isPending) return;
+    if (!text || streaming) return;
     setQuestion("");
     setPending(text);
+    setStages([]);
+    setStreamAnswer("");
+    setStreamError(null);
+    setStreaming(true);
     try {
       let conversationId = activeId;
       if (!conversationId) {
         conversationId = (await createConversation.mutateAsync()).id;
       }
-      await ask.mutateAsync({ conversationId, text });
-    } catch {
+      await runAsk(conversationId, text);
+      setPending(null);
+      setStages([]);
+      setStreamAnswer("");
+    } catch (err) {
+      setStreamError(err instanceof ApiError ? err.message : "作答失败，请重试");
       setPending(null);
       setQuestion(text);
+    } finally {
+      setStreaming(false);
     }
   };
   const items = conversations.data?.items || [];
@@ -4396,15 +4466,27 @@ function QaPage({ user }: { user: User }) {
                   </div>
                 </div>
                 <div className="qa-msg qa-msg-assistant">
-                  <div className="qa-bubble qa-bubble-thinking">
-                    <RefreshCw className="spin" size={13} />
-                    正在综合模型与知识库…
+                  <div className="qa-bubble qa-bubble-live">
+                    {stages.length > 0 && <QaStageTracker stages={stages} />}
+                    {streamAnswer ? (
+                      <p className="qa-bubble-text">
+                        {streamAnswer}
+                        {streaming && <span className="qa-caret" />}
+                      </p>
+                    ) : (
+                      stages.length === 0 && (
+                        <span className="qa-bubble-thinking">
+                          <RefreshCw className="spin" size={13} />
+                          正在综合模型与知识库…
+                        </span>
+                      )
+                    )}
                   </div>
                 </div>
               </>
             )}
           </div>
-          {ask.error && <ErrorBox error={ask.error} />}
+          {streamError && <ErrorBox error={new ApiError(502, streamError)} />}
           <div className="qa-composer">
             <select value={model} onChange={(event) => setModel(event.target.value)}>
               {model && !(models.data?.items || []).some((item) => item.id === model) && (
@@ -4428,9 +4510,9 @@ function QaPage({ user }: { user: User }) {
               placeholder="例如：良率提升 2% 对单月利润的影响，Ctrl+Enter 发送"
               rows={2}
             />
-            <Button primary onClick={send} disabled={!question.trim() || ask.isPending}>
+            <Button primary onClick={send} disabled={!question.trim() || streaming}>
               <Send size={15} />
-              {ask.isPending ? "作答中…" : "发送"}
+              {streaming ? "作答中…" : "发送"}
             </Button>
           </div>
         </Panel>

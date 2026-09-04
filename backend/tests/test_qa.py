@@ -94,6 +94,133 @@ def test_qa_conversation_ask_flow_persists_history(authenticated, monkeypatch):
     assert "knowledge_context" in payload
 
 
+def test_parse_plan_complex_and_simple():
+    complex_raw = json.dumps({
+        "mode": "complex",
+        "steps": [{"title": "测算基线成本", "instruction": "取经营模型单位成本"},
+                  {"title": "测算良率增益", "instruction": "算良率对产出的影响"}],
+        "citations": [{"source": "经营模型", "ref": "business/models/base.yaml"}],
+        "grounded": True,
+    }, ensure_ascii=False)
+    plan = qa._parse_plan(complex_raw)
+    assert plan["mode"] == "complex"
+    assert [s["title"] for s in plan["steps"]] == ["测算基线成本", "测算良率增益"]
+    assert plan["citations"][0]["ref"] == "business/models/base.yaml"
+
+    simple = qa._parse_plan(json.dumps({"mode": "simple", "steps": [], "grounded": False}, ensure_ascii=False))
+    assert simple["mode"] == "simple" and simple["steps"] == []
+
+
+def test_parse_plan_falls_back_on_garbage():
+    plan = qa._parse_plan("not json at all")
+    assert plan["mode"] == "simple" and plan["steps"] == [] and plan["grounded"] is False
+
+
+def test_parse_plan_caps_steps():
+    steps = [{"title": f"步骤{i}", "instruction": "x"} for i in range(10)]
+    plan = qa._parse_plan(json.dumps({"steps": steps}, ensure_ascii=False))
+    assert len(plan["steps"]) == qa._MAX_STEPS
+
+
+def test_stream_endpoint_emits_stages_and_persists(authenticated, monkeypatch):
+    """完整档：规划→逐步真调用→流式汇总→落库；断言事件序与最终消息落库。"""
+    authenticated.put("/api/credentials", json={"kind": "llm_api_key", "value": "test-key"})
+
+    step_calls: list[dict] = []
+
+    async def fake_complete(api_key, model_id, system, user, *args, **kwargs):
+        if "规划器" in system:
+            return json.dumps({
+                "mode": "complex",
+                "steps": [{"title": "测算基线成本", "instruction": "取单位成本"},
+                          {"title": "测算利润影响", "instruction": "汇总对利润的影响"}],
+                "citations": [{"source": "经营模型", "ref": "business/models/base.yaml", "note": "unit_cost"}],
+                "grounded": True,
+            }, ensure_ascii=False)
+        step_calls.append(json.loads(user))
+        return "本步结论：单位成本约 300 CNY/unit。"
+
+    async def fake_stream(api_key, model_id, system, user, *args, **kwargs):
+        for piece in ["综合结论：", "良率提升 2% ", "带来利润增长。"]:
+            yield piece
+
+    monkeypatch.setattr(llm_service, "complete", fake_complete)
+    monkeypatch.setattr(llm_service, "stream_complete", fake_stream)
+
+    conv_id = authenticated.post("/api/qa/conversations", json={}).json()["id"]
+    with authenticated.stream("POST", f"/api/qa/conversations/{conv_id}/ask/stream",
+                              json={"question": "良率提升对利润的影响？", "model_id": "gpt-test"}) as resp:
+        assert resp.status_code == 200
+        events = [json.loads(line) for line in resp.iter_lines() if line.strip()]
+
+    types = [e["type"] for e in events]
+    assert types[0] == "stage"  # grounding started
+    assert "token" in types and types[-1] == "done"
+    # 两个分步都产生了 started/done 阶段事件。
+    step_stage_keys = {e["key"] for e in events if e["type"] == "stage" and e.get("group") == "step"}
+    assert step_stage_keys == {"step-0", "step-1"}
+    # 每个分步都真的各调了一次 LLM，且把前序结果串进去了。
+    assert len(step_calls) == 2
+    assert "previous_step_results" in step_calls[1]
+    assert step_calls[1]["previous_step_results"], "第二步应带上第一步结果"
+
+    done = next(e for e in events if e["type"] == "done")
+    assert done["message"]["content"] == "综合结论：良率提升 2% 带来利润增长。"
+    assert done["message"]["grounded"] is True
+    assert done["message"]["citations"][0]["ref"] == "business/models/base.yaml"
+
+    # 落库：user + assistant 两条，标题取首问。
+    detail = authenticated.get(f"/api/qa/conversations/{conv_id}").json()
+    assert [m["role"] for m in detail["messages"]] == ["user", "assistant"]
+    assert detail["messages"][1]["content"].startswith("综合结论")
+
+
+def test_stream_endpoint_simple_mode_skips_steps(authenticated, monkeypatch):
+    authenticated.put("/api/credentials", json={"kind": "llm_api_key", "value": "test-key"})
+
+    async def fake_complete(api_key, model_id, system, user, *args, **kwargs):
+        return json.dumps({"mode": "simple", "steps": [], "citations": [], "grounded": False}, ensure_ascii=False)
+
+    async def fake_stream(api_key, model_id, system, user, *args, **kwargs):
+        yield "直接作答内容。"
+
+    monkeypatch.setattr(llm_service, "complete", fake_complete)
+    monkeypatch.setattr(llm_service, "stream_complete", fake_stream)
+
+    conv_id = authenticated.post("/api/qa/conversations", json={}).json()["id"]
+    with authenticated.stream("POST", f"/api/qa/conversations/{conv_id}/ask/stream",
+                              json={"question": "什么是良率？", "model_id": "gpt-test"}) as resp:
+        events = [json.loads(line) for line in resp.iter_lines() if line.strip()]
+
+    # simple 模式不应出现 group=step 的分步阶段。
+    assert not any(e["type"] == "stage" and e.get("group") == "step" for e in events)
+    done = next(e for e in events if e["type"] == "done")
+    assert done["message"]["content"] == "直接作答内容。"
+
+
+def test_stream_endpoint_reports_error_as_event(authenticated, monkeypatch):
+    """规划阶段模型网络失败 → 生成器以 error 事件收尾，HTTP 仍 200、不 500。"""
+    from app.services.llm import ExternalServiceError
+
+    authenticated.put("/api/credentials", json={"kind": "llm_api_key", "value": "test-key"})
+
+    async def boom(*args, **kwargs):
+        raise ExternalServiceError("模型网络调用失败：ConnectTimeout")
+
+    monkeypatch.setattr(llm_service, "complete", boom)
+
+    conv_id = authenticated.post("/api/qa/conversations", json={}).json()["id"]
+    with authenticated.stream("POST", f"/api/qa/conversations/{conv_id}/ask/stream",
+                              json={"question": "x", "model_id": "gpt-test"}) as resp:
+        assert resp.status_code == 200
+        events = [json.loads(line) for line in resp.iter_lines() if line.strip()]
+    error = next(e for e in events if e["type"] == "error")
+    assert "网络" in error["detail"]
+    # 失败时不应落库助手消息。
+    detail = authenticated.get(f"/api/qa/conversations/{conv_id}").json()
+    assert all(m["role"] != "assistant" for m in detail["messages"])
+
+
 def test_qa_conversation_requires_model(authenticated):
     authenticated.put("/api/credentials", json={"kind": "llm_api_key", "value": "test-key"})
     conv_id = authenticated.post("/api/qa/conversations", json={}).json()["id"]

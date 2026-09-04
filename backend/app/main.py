@@ -40,7 +40,7 @@ from .services.reports import generate_report, send_report, validate_report
 from .services.articles import _markdown_to_wechat_html, discover_topics, generate_article, generate_daily_batch, validate_article
 from .services.business_assistant import discard_draft_files, draft_business_baseline, draft_dir_path, generate_baseline_batch, load_draft_documents
 from .services import imports as imports_service
-from .services.qa import answer_question
+from .services.qa import answer_question, answer_question_streamed
 from .services.semi_kb import SemiKbError, semi_kb
 
 
@@ -1295,6 +1295,28 @@ async def ask_qa_question(conversation_id: str, payload: QaAskRequest, user: Use
     except ExternalServiceError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     return _qa_message_payload(message)
+
+
+@app.post("/api/qa/conversations/{conversation_id}/ask/stream")
+async def ask_qa_question_stream(conversation_id: str, payload: QaAskRequest, user: User = Depends(current_user), db: Session = Depends(get_db)) -> StreamingResponse:
+    """分步真调用 + 流式作答：以 NDJSON（每行一个事件 JSON）推送阶段进度与答案增量。
+
+    事件在生成器内自开 SessionLocal 落库，故此处只做归属校验与模型选择，随即交给流。"""
+    conversation = _owned_qa_conversation(conversation_id, user, db)
+    preference = db.get(UserPreference, user.id)
+    selected = payload.model_id or (preference.default_model_id if preference else None)
+    if not selected:
+        raise HTTPException(status_code=422, detail="请先选择模型或设置默认模型")
+    user_id = user.id
+
+    async def stream():
+        try:
+            async for event in answer_question_streamed(user_id, conversation_id, payload.question, selected):
+                yield json.dumps(event, ensure_ascii=False) + "\n"
+        except Exception as exc:  # 兜底：任何未预期异常都以 error 事件收尾，避免前端悬挂
+            yield json.dumps({"type": "error", "detail": f"作答中断：{type(exc).__name__}"}, ensure_ascii=False) + "\n"
+
+    return StreamingResponse(stream(), media_type="application/x-ndjson", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
 @app.get("/api/scenario-articles")
