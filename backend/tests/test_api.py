@@ -5,7 +5,7 @@ import json
 from fastapi.testclient import TestClient
 
 from app.db import SessionLocal
-from app.models import AgentIteration, Article, User
+from app.models import AgentIteration, Article, Run, RunEvent, RunRound, User
 from app.schemas import RunCreate
 from app.services.llm import llm_service
 from app.services.orchestrator import orchestrator
@@ -183,3 +183,62 @@ def test_scenario_knowledge_products_are_listed_and_read(authenticated: TestClie
         assert blocked.status_code == 403
     finally:
         target.unlink(missing_ok=True)
+
+
+def _seed_run(db, user_id: int, status: str) -> str:
+    """Create a terminal-or-active run with a child round, event and iteration."""
+    run = create_run(db, user_id, RunCreate.model_validate({
+        "model_id": "gpt-test",
+        "continuous": False,
+        "agents": [{"name": "Fab", "role": "research", "domain": "fab", "objective": "coverage", "source_mode": "web"}],
+    }))
+    run.status = status
+    db.add(RunRound(run_id=run.id, round_number=1, status="completed", current_stage="completed"))
+    db.add(RunEvent(run_id=run.id, event_type="run_started", message="started", payload_json="{}"))
+    db.add(AgentIteration(run_id=run.id, agent_id=run.agents[0].id, round_number=1, status="completed"))
+    db.commit()
+    return run.id
+
+
+def test_delete_run_purges_all_children(authenticated: TestClient):
+    with SessionLocal() as db:
+        user = db.query(User).filter_by(username="admin").one()
+        run_id = _seed_run(db, user.id, "completed")
+
+    response = authenticated.delete(f"/api/runs/{run_id}")
+    assert response.status_code == 200
+    assert response.json()["deleted"] == run_id
+
+    with SessionLocal() as db:
+        assert db.get(Run, run_id) is None
+        assert db.query(RunRound).filter_by(run_id=run_id).count() == 0
+        assert db.query(RunEvent).filter_by(run_id=run_id).count() == 0
+        assert db.query(AgentIteration).filter_by(run_id=run_id).count() == 0
+
+
+def test_delete_active_run_is_rejected(authenticated: TestClient):
+    with SessionLocal() as db:
+        user = db.query(User).filter_by(username="admin").one()
+        run_id = _seed_run(db, user.id, "running")
+
+    response = authenticated.delete(f"/api/runs/{run_id}")
+    assert response.status_code == 409
+    with SessionLocal() as db:
+        assert db.get(Run, run_id) is not None
+
+
+def test_clear_finished_keeps_active_runs(authenticated: TestClient):
+    with SessionLocal() as db:
+        user = db.query(User).filter_by(username="admin").one()
+        done_id = _seed_run(db, user.id, "completed")
+        failed_id = _seed_run(db, user.id, "failed")
+        active_id = _seed_run(db, user.id, "running")
+
+    response = authenticated.post("/api/runs/clear-finished")
+    assert response.status_code == 200
+    assert response.json()["deleted"] == 2
+
+    with SessionLocal() as db:
+        assert db.get(Run, done_id) is None
+        assert db.get(Run, failed_id) is None
+        assert db.get(Run, active_id) is not None

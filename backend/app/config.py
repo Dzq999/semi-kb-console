@@ -49,24 +49,41 @@ class Settings:
     article_repair_attempts: int = min(3, max(0, int(os.getenv("ARTICLE_REPAIR_ATTEMPTS", "3"))))
     worker_heartbeat_seconds: int = min(300, max(5, int(os.getenv("WORKER_HEARTBEAT_SECONDS", "15"))))
 
-    @property
-    def database_url(self) -> str:
+    def _postgres_url(self, name_override: str | None = None) -> str | None:
+        """Build the psycopg URL from discrete env vars, optionally swapping the
+        database name.  Returns None when no postgres credentials are configured.
+        A full DATABASE_URL wins only when no name override is requested."""
         explicit = os.getenv("DATABASE_URL")
-        if explicit:
+        if explicit and name_override is None:
             return explicit
         password = os.getenv("SEMI_KB_DB_PASSWORD")
-        if password:
-            user = quote_plus(os.getenv("SEMI_KB_DB_USER", "semi_kb_console"))
-            password = quote_plus(password)
-            host = os.getenv("SEMI_KB_DB_HOST", "127.0.0.1")
-            port = int(os.getenv("SEMI_KB_DB_PORT", "5432"))
-            name = quote_plus(os.getenv("SEMI_KB_DB_NAME", "semi_kb_console"))
-            return f"postgresql+psycopg://{user}:{password}@{host}:{port}/{name}"
-        return f"sqlite:///{(self.data_dir / 'console.db').as_posix()}"
+        if not password:
+            return None
+        user = quote_plus(os.getenv("SEMI_KB_DB_USER", "semi_kb_console"))
+        password = quote_plus(password)
+        host = os.getenv("SEMI_KB_DB_HOST", "127.0.0.1")
+        port = int(os.getenv("SEMI_KB_DB_PORT", "5432"))
+        name = quote_plus(name_override or os.getenv("SEMI_KB_DB_NAME", "semi_kb_console"))
+        return f"postgresql+psycopg://{user}:{password}@{host}:{port}/{name}"
+
+    @property
+    def database_url(self) -> str:
+        return self._postgres_url() or f"sqlite:///{(self.data_dir / 'console.db').as_posix()}"
 
     @property
     def checkpoint_database_url(self) -> str | None:
-        value = os.getenv("LANGGRAPH_DATABASE_URL") or (self.database_url if self.database_url.startswith("postgresql") else "")
+        # 1) explicit full URL wins; 2) else a dedicated checkpoint DB *name*
+        # reuses the main credentials (no secret duplication); 3) else fall back
+        # to the main postgres DB (legacy shared behaviour).
+        explicit = os.getenv("LANGGRAPH_DATABASE_URL")
+        if explicit:
+            value: str = explicit
+        else:
+            ckpt_name = os.getenv("LANGGRAPH_DB_NAME")
+            if ckpt_name:
+                value = self._postgres_url(ckpt_name) or ""
+            else:
+                value = self.database_url if self.database_url.startswith("postgresql") else ""
         return value.replace("postgresql+psycopg://", "postgresql://", 1) if value else None
 
     @property

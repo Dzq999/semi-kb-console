@@ -21,7 +21,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from rdflib import Graph, RDF, RDFS, URIRef
 from rdflib.namespace import OWL
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from .config import settings
@@ -670,6 +670,43 @@ def stop_after_next_round(run_id: str, user: User = Depends(current_user), db: S
     if not run or run.user_id != user.id:
         raise HTTPException(status_code=404, detail="任务不存在")
     return _request_round_stop(run, db, 1)
+
+
+# 仍在活动的任务禁止删除；其余（完成/失败/取消/需处理）为终态，可清理。
+ACTIVE_RUN_STATUSES = {"pending", "running", "recovering", "paused", "between_rounds", "stopping_after_round", "cancelling"}
+
+
+def _purge_run(db: Session, run: Run) -> None:
+    """Delete a run and every child row. AgentIteration/RunEvent do not cascade
+    via the ORM relationships, and AgentIteration FKs agent_runs, so remove those
+    explicitly before the Run delete cascades to AgentRun/RunRound."""
+    db.execute(delete(AgentIteration).where(AgentIteration.run_id == run.id))
+    db.execute(delete(RunEvent).where(RunEvent.run_id == run.id))
+    db.delete(run)  # cascades to AgentRun + RunRound
+
+
+@app.delete("/api/runs/{run_id}")
+def delete_run(run_id: str, user: User = Depends(current_user), db: Session = Depends(get_db)) -> dict:
+    run = db.get(Run, run_id)
+    if not run or run.user_id != user.id:
+        raise HTTPException(status_code=404, detail="任务不存在")
+    if run.status in ACTIVE_RUN_STATUSES:
+        raise HTTPException(status_code=409, detail="任务仍在运行，请先停止后再删除")
+    _purge_run(db, run)
+    db.commit()
+    return {"deleted": run_id}
+
+
+@app.post("/api/runs/clear-finished")
+def clear_finished_runs(user: User = Depends(current_user), db: Session = Depends(get_db)) -> dict:
+    """One-click clear: delete every non-active run for the current user."""
+    rows = db.scalars(
+        select(Run).where(Run.user_id == user.id, Run.status.notin_(ACTIVE_RUN_STATUSES))
+    ).all()
+    for run in rows:
+        _purge_run(db, run)
+    db.commit()
+    return {"deleted": len(rows)}
 
 
 @app.get("/api/runs/{run_id}/rounds")

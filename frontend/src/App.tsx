@@ -45,6 +45,7 @@ import {
   Trash2,
   Upload,
   Workflow,
+  X,
 } from "lucide-react";
 import {
   api,
@@ -410,7 +411,7 @@ function RunStatusIcon({ status }: { status?: string }) {
     return <AlertTriangle size={19} />;
   if (status === "paused") return <PauseCircle size={19} />;
   if (status === "needs_attention") return <AlertCircle size={19} />;
-  if (status === "cancelling") return <CircleStop size={19} />;
+  if (status === "cancelling" || status === "cancelled") return <CircleStop size={19} />;
   if (status === "between_rounds") return <Pause size={18} />;
   return <LoaderCircle className="status-spin" size={19} />;
 }
@@ -630,7 +631,7 @@ function Dashboard() {
           <div>
             <strong>
               {latest
-                    ? `${latest.status === "completed" ? "持续协作任务已完成" : latest.status === "completed_partial" ? "持续协作任务部分完成" : latest.status === "completed_no_change" ? "持续协作任务完成（无新增）" : latest.status === "failed" ? "持续协作任务失败" : latest.status === "needs_attention" ? "持续协作任务需处理" : latest.status === "paused" ? "持续协作任务已暂停" : latest.status === "cancelling" ? "持续协作任务正在停止" : `持续协作任务${latest.status === "between_rounds" ? "等待下一轮" : "运行中"}`} · 第 ${latest.current_round || 1} 轮`
+                    ? `${latest.status === "completed" ? "持续协作任务已完成" : latest.status === "completed_partial" ? "持续协作任务部分完成" : latest.status === "completed_no_change" ? "持续协作任务完成（无新增）" : latest.status === "failed" ? "持续协作任务失败" : latest.status === "needs_attention" ? "持续协作任务需处理" : latest.status === "paused" ? "持续协作任务已暂停" : latest.status === "cancelling" ? "持续协作任务正在停止" : latest.status === "cancelled" ? "持续协作任务已停止" : latest.status === "recovering" ? "持续协作任务恢复中" : latest.status === "stopping_after_round" ? "持续协作任务将在本轮后停止" : `持续协作任务${latest.status === "between_rounds" ? "等待下一轮" : "运行中"}`} · 第 ${latest.current_round || 1} 轮`
                 : "持续协作任务空闲"}
             </strong>
             <span>
@@ -1813,13 +1814,14 @@ function ImportsPage() {
     queryKey: ["imports"],
     queryFn: () => api("/api/imports"),
   });
-  const [files, setFiles] = useState<FileList | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [classification, setClassification] = useState("internal_confidential");
+  const [dragging, setDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const upload = useMutation({
     mutationFn: async () => {
       const form = new FormData();
-      Array.from(files || []).forEach((file) => form.append("files", file));
+      files.forEach((file) => form.append("files", file));
       form.append("classification", classification);
       const response = await fetch("/api/imports", { method: "POST", credentials: "include", body: form });
       if (!response.ok) {
@@ -1833,35 +1835,125 @@ function ImportsPage() {
     },
     onSuccess: () => {
       setNotice("素材已上传，可在下方任务里分析与采纳");
-      setFiles(null);
+      setFiles([]);
       if (fileInputRef.current) fileInputRef.current.value = "";
       queryClient.invalidateQueries({ queryKey: ["imports"] });
     },
   });
-  const fileCount = files ? files.length : 0;
+  const fileCount = files.length;
+  const addFiles = (incoming: FileList | null) => {
+    if (!incoming || incoming.length === 0) return;
+    setFiles((current) => {
+      const seen = new Set(current.map((file) => `${file.name}:${file.size}`));
+      const merged = [...current];
+      Array.from(incoming).forEach((file) => {
+        const key = `${file.name}:${file.size}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          merged.push(file);
+        }
+      });
+      return merged;
+    });
+  };
+  const removeFile = (index: number) =>
+    setFiles((current) => current.filter((_, i) => i !== index));
+  const formatSize = (bytes: number) =>
+    bytes < 1024
+      ? `${bytes} B`
+      : bytes < 1024 * 1024
+        ? `${(bytes / 1024).toFixed(1)} KB`
+        : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+  const classificationOptions: Array<{ value: string; label: string; hint: string }> = [
+    { value: "internal", label: "internal（内部）", hint: "内部素材，可分析、校验后采纳入库。" },
+    { value: "internal_confidential", label: "internal_confidential（内部机密）", hint: "机密素材，独立来源标注，可采纳入库。" },
+    { value: "restricted", label: "restricted（受限）", hint: "受限素材仅暂存留痕，禁止采纳入库。" },
+  ];
+  const activeClassification = classificationOptions.find((item) => item.value === classification);
   return (
     <div className="page">
       <Panel title="素材导入" meta="上传 · 模型建议映射 · 引擎门禁校验 · 人工采纳">
-        <p>
-          上传结构化素材（xlsx / xls / csv / tsv / json / md），模型在已声明本体类约束下建议目标类与主键映射，经引擎真实门禁校验后由你采纳入库，用于交叉验证与知识库补充。原件 sha256 锁定不可变，绝不自动写入推理层。restricted 素材仅暂存、禁止采纳。
+        <p className="import-intro">
+          上传结构化素材，模型在已声明本体类约束下建议目标类与主键映射，经引擎真实门禁校验后由你采纳入库，用于交叉验证与知识库补充。
         </p>
-        <div className="import-upload">
-          <input
-            ref={fileInputRef}
-            type="file"
-            multiple
-            accept=".xlsx,.xls,.csv,.tsv,.json,.md,.txt"
-            onChange={(event) => setFiles(event.target.files)}
-          />
-          <select value={classification} onChange={(event) => setClassification(event.target.value)}>
-            <option value="internal">internal（内部）</option>
-            <option value="internal_confidential">internal_confidential（内部机密）</option>
-            <option value="restricted">restricted（受限·仅暂存）</option>
-          </select>
-          <Button primary onClick={() => upload.mutate()} disabled={fileCount === 0 || upload.isPending}>
-            <Upload size={15} />
-            {upload.isPending ? "上传中…" : `上传${fileCount ? `（${fileCount}）` : ""}`}
-          </Button>
+        <div className="import-tags">
+          <span className="import-tag">xlsx · xls · csv · tsv · json · md</span>
+          <span className="import-tag">sha256 原件锁定不可变</span>
+          <span className="import-tag">绝不自动写入推理层</span>
+        </div>
+        <div className="import-form">
+          <div
+            className={`dropzone ${dragging ? "dragover" : ""} ${fileCount ? "has-files" : ""}`}
+            role="button"
+            tabIndex={0}
+            onClick={() => fileInputRef.current?.click()}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                fileInputRef.current?.click();
+              }
+            }}
+            onDragOver={(event) => {
+              event.preventDefault();
+              setDragging(true);
+            }}
+            onDragLeave={() => setDragging(false)}
+            onDrop={(event) => {
+              event.preventDefault();
+              setDragging(false);
+              addFiles(event.dataTransfer.files);
+            }}
+          >
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept=".xlsx,.xls,.csv,.tsv,.json,.md,.txt"
+              onChange={(event) => {
+                addFiles(event.target.files);
+                event.target.value = "";
+              }}
+            />
+            <span className="dropzone-icon">
+              <Upload size={20} />
+            </span>
+            <strong>拖拽文件到此处，或点击选择</strong>
+            <small>支持批量上传 · 可多次添加，重复文件自动去重</small>
+          </div>
+          {fileCount > 0 && (
+            <ul className="file-chips">
+              {files.map((file, index) => (
+                <li key={`${file.name}:${file.size}:${index}`} className="file-chip">
+                  <FileText size={13} />
+                  <span className="file-chip-name" title={file.name}>{file.name}</span>
+                  <span className="file-chip-size">{formatSize(file.size)}</span>
+                  <button
+                    type="button"
+                    className="file-chip-remove"
+                    aria-label={`移除 ${file.name}`}
+                    onClick={() => removeFile(index)}
+                  >
+                    <X size={13} />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <div className="import-actions">
+            <label className="import-classification">
+              <span>密级</span>
+              <select value={classification} onChange={(event) => setClassification(event.target.value)}>
+                {classificationOptions.map((item) => (
+                  <option key={item.value} value={item.value}>{item.label}</option>
+                ))}
+              </select>
+            </label>
+            <small className="import-classification-hint">{activeClassification?.hint}</small>
+            <Button primary onClick={() => upload.mutate()} disabled={fileCount === 0 || upload.isPending}>
+              <Upload size={15} />
+              {upload.isPending ? "上传中…" : `上传${fileCount ? `（${fileCount}）` : ""}`}
+            </Button>
+          </div>
         </div>
         {upload.error && <ErrorBox error={upload.error} />}
       </Panel>
@@ -3612,12 +3704,41 @@ function Reports({ user }: { user: User }) {
   );
 }
 
+const ACTIVE_RUN_STATUSES = [
+  "pending",
+  "running",
+  "recovering",
+  "paused",
+  "between_rounds",
+  "stopping_after_round",
+  "cancelling",
+];
+
 function RunHistory() {
   const [selected, setSelected] = useState<string | null>(null);
   const setNotice = useAppStore((state) => state.setNotice);
   const query = useQuery<{ items: RunInfo[] }>({
     queryKey: ["runs"],
     queryFn: () => api("/api/runs"),
+  });
+  const finishedCount = (query.data?.items || []).filter(
+    (run) => !ACTIVE_RUN_STATUSES.includes(run.status),
+  ).length;
+  const removeRun = useMutation({
+    mutationFn: (id: string) => api(`/api/runs/${id}`, { method: "DELETE" }),
+    onSuccess: (_result, id) => {
+      setNotice("运行历史已删除");
+      if (selected === id) setSelected(null);
+      query.refetch();
+    },
+  });
+  const clearFinished = useMutation({
+    mutationFn: () => api<{ deleted: number }>("/api/runs/clear-finished", { method: "POST" }),
+    onSuccess: (result) => {
+      setNotice(`已清空 ${result.deleted} 条非运行中的历史`);
+      setSelected(null);
+      query.refetch();
+    },
   });
   const rounds = useQuery<{
     items: Array<{
@@ -3661,7 +3782,22 @@ function RunHistory() {
             产物均独立保存。
           </p>
         </div>
+        <Button
+          danger
+          disabled={finishedCount === 0 || clearFinished.isPending}
+          onClick={() => {
+            if (window.confirm(`将永久删除 ${finishedCount} 条非运行中的历史（含轮次、事件与产物），运行中的任务保留。确认清空？`)) {
+              clearFinished.mutate();
+            }
+          }}
+        >
+          <Trash2 size={15} />
+          {clearFinished.isPending ? "清空中…" : `一键清空已结束（${finishedCount}）`}
+        </Button>
       </div>
+      {(removeRun.error || clearFinished.error) && (
+        <ErrorBox error={removeRun.error || clearFinished.error} />
+      )}
       <Panel title="持续任务" meta={`${query.data?.items.length || 0} 条`}>
         {query.isLoading ? (
           <Loading />
@@ -3716,9 +3852,32 @@ function RunHistory() {
                     <td>{run.publish_changes ? "自动发布" : "仅候选"}</td>
                     <td>{new Date(run.created_at).toLocaleString()}</td>
                     <td>
-                      <Button onClick={() => retry.mutate(run.id)} disabled={retry.isPending}>
-                        {retry.isPending ? "启动中…" : "重新启动"}
-                      </Button>
+                      <div className="row-actions">
+                        <Button onClick={() => retry.mutate(run.id)} disabled={retry.isPending}>
+                          {retry.isPending ? "启动中…" : "重新启动"}
+                        </Button>
+                        <Button
+                          danger
+                          className="icon-button"
+                          aria-label="删除该运行历史"
+                          title={
+                            ACTIVE_RUN_STATUSES.includes(run.status)
+                              ? "运行中的任务需先停止才能删除"
+                              : "删除该运行历史"
+                          }
+                          disabled={
+                            ACTIVE_RUN_STATUSES.includes(run.status) ||
+                            removeRun.isPending
+                          }
+                          onClick={() => {
+                            if (window.confirm(`删除 ${run.id} 及其全部轮次、事件与产物？此操作不可恢复。`)) {
+                              removeRun.mutate(run.id);
+                            }
+                          }}
+                        >
+                          <Trash2 size={14} />
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))}
