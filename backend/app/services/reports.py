@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from ..config import settings
 from ..db import SessionLocal
 from ..models import DailyReport, ReportSetting, Run, RunRound
-from .llm import ExternalServiceError, llm_service, user_api_key
+from .llm import ExternalServiceError, llm_service, user_api_key, user_llm_endpoint
 from .notifications import NotificationError, send_wecom
 from .semi_kb import semi_kb
 
@@ -134,6 +134,37 @@ def _optimization_direction(snapshot: dict) -> str:
     return f"- 优化方向：反向特征缺口 {total} 项（业务相关 {business}）{added}{hot}，随本体逐轮成熟自动收敛。"
 
 
+# vFab 交叉验证收窄为『vFab 知识库 × 本体』单轴：门禁=引用完整性、头条=本体链接特异性、
+# 信息=本体触达。不再对不可比维度做算术平均（历史四维平均已废弃）。
+_VFAB_DIM_LABELS = [
+    ("referential_integrity", "引用完整性"),
+    ("link_specificity", "本体链接特异性"),
+    ("ontology_touch", "本体触达"),
+]
+
+
+def _vfab_cross_validation_lines(snapshot: dict) -> list[str]:
+    """vFab 知识库×本体 交叉验证行：以『本体链接特异性』为头条，附引用完整性（门禁）与本体触达。
+
+    数据取自 snapshot['vfab_cross_validation']（由 generate_report 刷新后写入）。缺失/无
+    headline_coverage 时回退中性（返回空），绝不伪造覆盖。分项覆盖率来自 dimensions[*].coverage。
+    """
+    report = snapshot.get("vfab_cross_validation") or {}
+    if not report:
+        return []
+    headline = report.get("headline_coverage")
+    if not isinstance(headline, (int, float)):
+        return []
+    dims = report.get("dimensions") or {}
+    parts = []
+    for key, label in _VFAB_DIM_LABELS:
+        cov = (dims.get(key) or {}).get("coverage")
+        if isinstance(cov, (int, float)):
+            parts.append(f"{label} {round(cov * 100, 1)}%")
+    detail = f"（{'、'.join(parts)}）" if parts else ""
+    return [f"- vFab 知识库×本体 交叉验证（本体链接特异性）：`{round(headline * 100, 1)}%`{detail}。"]
+
+
 def _cross_validation_section(snapshot: dict) -> str:
     """『交叉验证结果』小节：面向领导，只写【今日新增】与【总体】的命中/覆盖，不写单轮数据。
 
@@ -162,9 +193,13 @@ def _cross_validation_section(snapshot: dict) -> str:
         "## 交叉验证结果",
         f"- 今日新增本体项：{today_line}（当日经引擎门禁交叉验证后纳入）。",
         f"- 本体-源覆盖率（总体）：`{cov}`（源特征映射到本体的累计命中率）。",
+    ]
+    # vFab 知识库交叉验证覆盖率：与本体-源覆盖率并排呈现（有数据才追加，缺失不伪造）。
+    lines.extend(_vfab_cross_validation_lines(snapshot))
+    lines.extend([
         f"- 反向特征缺口（总体）：{total} 项（业务相关 {business}）{hot}。",
         f"- 交叉验证门禁：来源对齐 `{src}`；经营仿真 `{sim}`。",
-    ]
+    ])
     # vFab 已接入时显式列出其贡献，不再只靠“来源对齐”一行间接体现。
     vfab = (snapshot.get("source_alignment") or {}).get("vfab") or {}
     if vfab.get("state") == "available":
@@ -178,17 +213,8 @@ def fixed_metrics_markdown(snapshot: dict) -> str:
     added = snapshot["today_added"]
     for key, label in METRIC_LABELS:
         lines.append(f"| {label} | {int(added.get(key, 0)):,} | {int(totals.get(key, 0)):,} |")
-    latest = snapshot.get("latest_round") or {}
-    checks = (latest.get("validation") or {}).get("checks") or {}
-    # 内部特征状态不再写死。align_sources.py 通过即代表内部特征模型已接入并映射到本体；
-    # candidate_source_alignment（发布轮次才有）能进一步给出命中数，有就一并展示。
-    aligned = bool((checks.get("source_alignment") or {}).get("passed"))
-    feature_state = "已接入" if aligned else "暂无通过记录"
-    gate_passed = (checks.get("full_publish_gate") or checks.get("semantic_precheck") or {}).get("passed")
-    # vFab 注脚随状态切换：available 时说明已纳入来源对齐；未提供时保留防伪装护栏措辞。
-    vfab_state = totals.get('vfab_state', 'awaiting_source')
-    vfab_note = "已接入，纳入来源对齐" if vfab_state == "available" else "未提供时不标记为通过"
-    lines.extend(["", _cross_validation_section(snapshot), "", "## 质量与验证", f"- 内部特征：`{feature_state}`；来源对齐：`{'通过' if aligned else '暂无通过记录'}`。", f"- vFab：`{vfab_state}`（{vfab_note}）。", f"- 校验门禁：OWL/SHACL/推理 `{'通过' if gate_passed else '暂无通过记录'}`；经营仿真 `{'通过' if (checks.get('business_simulation') or {}).get('passed') else '暂无通过记录'}`。", "", "## 明日计划", _optimization_direction(snapshot)])
+    # 『质量与验证』小节已按需求移除：门禁与来源对齐信息统一在『交叉验证结果』小节呈现，不再重复。
+    lines.extend(["", _cross_validation_section(snapshot), "", "## 明日计划", _optimization_direction(snapshot)])
     return "\n".join(lines)
 
 
@@ -245,6 +271,9 @@ async def generate_report(db: Session, user_id: int, report_date: str, model_id:
         checks = snapshot.setdefault("latest_round", {}).setdefault("validation", {}).setdefault("checks", {})
         checks["source_alignment"] = {"passed": sa.get("status") == "pass", "generated_at": sa.get("generated_at"), "source": "source-alignment-report"}
         snapshot["source_alignment"] = {"status": sa.get("status"), "vfab": sa.get("vfab") or {}, "coverage": (sa.get("internal_feature_model") or {}).get("property_mapping_coverage")}
+    # vFab 多维交叉验证覆盖率：best-effort 刷新后挂到 snapshot，供交叉验证结果小节呈现『当前指标』。
+    # 刷新失败会回退旧报告或空 dict，_vfab_cross_validation_lines 会据此优雅降级、绝不伪造。
+    snapshot["vfab_cross_validation"] = await semi_kb.refresh_vfab_cross_validation()
     api_key = user_api_key(db, user_id)
     if not api_key:
         report.status = "send_blocked"
@@ -259,8 +288,28 @@ async def generate_report(db: Session, user_id: int, report_date: str, model_id:
         "全文禁止使用‘场景文章’和‘业务进展摘要’，统一使用‘场景知识产物’。"
         "禁止使用‘本轮/这一轮/上一轮/每轮’等轮次措辞——一天可能跑多轮，面向领导只用‘今日/当前/总体’口径，领导视角不关心单轮。"
     )
-    user = json.dumps({"date": report_date, "metrics": snapshot}, ensure_ascii=False)
-    narrative = await llm_service.complete(api_key, model_id, system, user)
+    # 只喂『今日新增 + 当前总体』给模型：剥掉 latest_round（单轮）、uncovered、分布明细等，
+    # 从源头消除模型输出“本轮/最近一轮”的诱因。渲染 markdown 仍用完整 snapshot（含 latest_round 判门禁），
+    # 二者解耦。feature_gap 只取累计覆盖率与缺口计数（总体口径），不含单轮验证明细。
+    gap = snapshot.get("feature_gap") or {}
+    vfab_cv = snapshot.get("vfab_cross_validation") or {}
+    model_metrics = {
+        "totals": snapshot.get("totals") or {},
+        "today_added": snapshot.get("today_added") or {},
+        "feature_gap": {
+            "coverage_percent": gap.get("coverage_percent"),
+            "unmapped_total": gap.get("unmapped_total"),
+            "business_relevant": gap.get("business_relevant"),
+            "by_theme": (gap.get("by_theme") or [])[:3],
+        },
+        "vfab_cross_validation": {
+            "headline_coverage": vfab_cv.get("headline_coverage"),
+            "dimensions": {key: {"coverage": (vfab_cv.get("dimensions") or {}).get(key, {}).get("coverage")}
+                           for key, _ in _VFAB_DIM_LABELS} if vfab_cv else {},
+        },
+    }
+    user = json.dumps({"date": report_date, "metrics": model_metrics}, ensure_ascii=False)
+    narrative = await llm_service.complete(api_key, model_id, system, user, endpoint=user_llm_endpoint(db, user_id))
     narrative = narrative.replace("场景文章", "场景知识产物").replace("业务进展摘要", "")
     # 兜底：模型偶尔仍漏出轮次口径，统一改写为“今日”，与上面的措辞替换并列。
     narrative = re.sub(r"本轮|这一轮|上一轮|每一轮|每轮", "今日", narrative)

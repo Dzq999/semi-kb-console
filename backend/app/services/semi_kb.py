@@ -831,6 +831,34 @@ class SemiKbAdapter:
         except (OSError, json.JSONDecodeError):
             return {}
 
+    def vfab_cross_validation_report(self) -> dict:
+        """读取 vfab_cross_validate.py 写的 vFab 知识库×本体 交叉验证报告（build/reports/vfab-cross-validation.json）。
+
+        单轴口径：门禁=引用完整性（related_iris 是否都已声明）、头条=本体链接特异性（引用具体类
+        的条目占比）、信息=本体触达。供日报『交叉验证结果』小节展示。与 source_alignment_report
+        一样纯读取、缺失/损坏回退空 dict，调用方须容忍并回退。文件由 refresh_vfab_cross_validation 刷新。
+        """
+        path = self.root / "build" / "reports" / "vfab-cross-validation.json"
+        if not path.is_file():
+            return {}
+        try:
+            return json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return {}
+
+    async def refresh_vfab_cross_validation(self) -> dict:
+        """best-effort 重跑 vfab_cross_validate.py 刷新报告，返回最新（或回退旧）报告。
+
+        脚本是本地只读脚本（几秒内完成），失败/超时不抛出——直接回退读磁盘上已有报告，
+        再没有则返回空 dict。这样日报拿到的是『当前指标』而非陈旧快照，同时绝不因刷新
+        失败阻断日报生成。
+        """
+        try:
+            await self.command("vfab_cross_validate.py", timeout=120)
+        except Exception:
+            pass
+        return self.vfab_cross_validation_report()
+
     @staticmethod
     def _is_noise_feature(code: str) -> bool:
         code = (code or "").strip()

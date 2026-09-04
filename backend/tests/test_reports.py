@@ -24,7 +24,9 @@ def test_metrics_table_contains_today_and_total():
     assert "当前总量" in content
     assert "| 类 Class | 1 | 10 |" in content
     assert "## 今日结果" in content
-    assert "## 质量与验证" in content
+    # 『质量与验证』小节已按需求移除，门禁信息统一在『交叉验证结果』小节呈现。
+    assert "## 质量与验证" not in content
+    assert "## 交叉验证结果" in content
     assert "## 明日计划" in content
     assert "## 今日关键结果" not in content
     assert "## 验证与需关注事项" not in content
@@ -54,14 +56,14 @@ def test_report_accepts_complete_content():
 
 
 def test_report_allows_manually_removed_sections():
-    # 用户可手动删掉不想要的章节（如“质量与验证”）；审核不再强制校验章节标题是否齐全。
-    content = fixed_metrics_markdown(snapshot()).replace("## 质量与验证", "")
-    assert "质量与验证" not in content
+    # 用户可手动删掉不想要的章节；审核不再强制校验章节标题是否齐全。
+    content = fixed_metrics_markdown(snapshot()).replace("## 交叉验证结果", "")
+    assert "交叉验证结果" not in content
     assert validate_report(content, snapshot())["passed"]
 
 
-def test_internal_feature_reflects_alignment_not_a_constant():
-    # 通过校验的轮次：内部特征与来源对齐都应显示真实“通过/已接入”，命中数一并展示。
+def test_alignment_gate_reflects_passed_round_in_cross_validation():
+    # 通过校验的轮次：交叉验证结果小节的门禁应显示真实“通过”。
     passed = snapshot()
     passed["latest_round"] = {"round_number": 7, "status": "completed", "validation": {"checks": {
         "source_alignment": {"passed": True},
@@ -70,20 +72,43 @@ def test_internal_feature_reflects_alignment_not_a_constant():
         "business_simulation": {"passed": True},
     }}}
     content = fixed_metrics_markdown(passed)
-    assert "内部特征：`已接入`" in content
-    assert "来源对齐：`通过`" in content
+    assert "交叉验证门禁：来源对齐 `通过`；经营仿真 `通过`" in content
     assert "暂无通过记录" not in content
     # 用户要求：日报不再出现单轮/最近轮次口径。
     assert "本轮" not in content
     assert "最近轮次" not in content
 
 
-def test_internal_feature_not_faked_when_no_validated_round():
-    # 复现被修的 bug：没有已完成校验的轮次时，内部特征不能再写死“已接入”。
+def test_alignment_gate_not_faked_when_no_validated_round():
+    # 没有已完成校验的轮次时，门禁不能写死“通过”。
     content = fixed_metrics_markdown(snapshot())  # snapshot() 无 latest_round
-    assert "内部特征：`暂无通过记录`" in content
-    assert "来源对齐：`暂无通过记录`" in content
-    assert "已接入" not in content
+    assert "交叉验证门禁：来源对齐 `暂无通过记录`；经营仿真 `暂无通过记录`" in content
+    assert "`通过`" not in content
+
+
+def test_vfab_cross_validation_coverage_rendered_when_present():
+    # vFab 知识库×本体 交叉验证：有数据时以本体链接特异性为头条，附引用完整性与本体触达。
+    snap = snapshot()
+    snap["vfab_cross_validation"] = {
+        "headline_coverage": 0.0461,
+        "dimensions": {
+            "referential_integrity": {"coverage": 1.0},
+            "link_specificity": {"coverage": 0.0461},
+            "ontology_touch": {"coverage": 0.0171},
+        },
+    }
+    content = fixed_metrics_markdown(snap)
+    assert "vFab 知识库×本体 交叉验证（本体链接特异性）：`4.6%`" in content
+    assert "引用完整性 100.0%" in content
+    assert "本体链接特异性 4.6%" in content
+    assert "本体触达 1.7%" in content
+
+
+def test_vfab_cross_validation_coverage_absent_without_report():
+    # 缺 vFab 交叉验证报告时不伪造覆盖率，也不影响其他行。
+    content = fixed_metrics_markdown(snapshot())
+    assert "vFab 知识库×本体 交叉验证" not in content
+    assert "## 交叉验证结果" in content
 
 
 def test_optimization_direction_reflects_feature_gap_and_auto_progress():
@@ -236,12 +261,23 @@ async def test_generate_report_strips_round_words(clean_db, monkeypatch):
         db.commit()
 
     async def fake_metrics(db=None, user_id=None):
-        return snapshot()
+        snap = snapshot()
+        # 制造单轮数据，验证它进入渲染快照、但绝不进入模型输入。
+        snap["latest_round"] = {"run_id": "r-1", "round_number": 9, "status": "completed",
+                                "validation": {"checks": {"source_alignment": {"passed": True}}}}
+        return snap
 
-    async def fake_complete(*args, **kwargs):
+    captured: dict = {}
+
+    async def fake_complete(api_key, model_id, system, user, *args, **kwargs):
+        captured["user"] = user
         return "- 本轮新增映射3条，这一轮门禁全通过；上一轮的缺口已收敛。"
 
+    async def fake_refresh_vfab():
+        return {}
+
     monkeypatch.setattr(reports.semi_kb, "metrics", fake_metrics)
+    monkeypatch.setattr(reports.semi_kb, "refresh_vfab_cross_validation", fake_refresh_vfab)
     monkeypatch.setattr(reports.llm_service, "complete", fake_complete)
     monkeypatch.setattr(reports, "user_api_key", lambda db, user_id: "test-key")
 
@@ -252,4 +288,10 @@ async def test_generate_report_strips_round_words(clean_db, monkeypatch):
     assert "这一轮" not in report.content
     assert "上一轮" not in report.content
     assert "今日" in report.content
+    # 模型输入只含今日+总体口径，绝不含单轮 latest_round 数据。
+    model_input = json.loads(captured["user"])
+    assert "latest_round" not in model_input["metrics"]
+    assert "round_number" not in captured["user"]
+    assert model_input["metrics"]["totals"]["classes"] == 10
+    assert model_input["metrics"]["today_added"]["classes"] == 1
 

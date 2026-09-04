@@ -31,10 +31,50 @@ def test_credentials_are_masked(authenticated: TestClient):
     assert "secret-value-123" not in str(body)
 
 
+def test_llm_endpoint_persists_and_resolves(authenticated: TestClient):
+    # 保存自定义端点后，/api/users/me 回读到，且解析器按用户覆盖返回。
+    response = authenticated.patch("/api/users/me/preferences/llm-endpoint", json={
+        "llm_base_url": "https://proxy.example.com/v1/",
+        "model_catalog_url": "https://proxy.example.com/v1/models",
+        "llm_api_style": "openai",
+    })
+    assert response.status_code == 200
+    body = response.json()
+    assert body["llm_base_url"] == "https://proxy.example.com/v1"  # 末尾斜杠被清洗
+    assert body["llm_api_style"] == "openai"
+    prefs = authenticated.get("/api/users/me").json()["preferences"]
+    assert prefs["model_catalog_url"] == "https://proxy.example.com/v1/models"
+    with SessionLocal() as db:
+        user = db.query(User).first()
+        from app.services.llm import user_llm_endpoint
+        resolved = user_llm_endpoint(db, user.id)
+    assert resolved.base_url == "https://proxy.example.com/v1"
+    assert resolved.api_style == "openai"
+
+
+def test_llm_endpoint_rejects_non_local_http(authenticated: TestClient):
+    # 防 SSRF：非 https 的远端地址应被 schema 校验拒绝（422）。
+    response = authenticated.patch("/api/users/me/preferences/llm-endpoint", json={
+        "llm_base_url": "http://169.254.169.254/latest",
+    })
+    assert response.status_code == 422
+
+
+def test_llm_endpoint_blank_falls_back_to_default(authenticated: TestClient):
+    # 留空字段回落到全局默认，不残留旧覆盖值。
+    authenticated.patch("/api/users/me/preferences/llm-endpoint", json={"llm_base_url": "https://proxy.example.com/v1"})
+    authenticated.patch("/api/users/me/preferences/llm-endpoint", json={"llm_base_url": ""})
+    with SessionLocal() as db:
+        user = db.query(User).first()
+        from app.services.llm import user_llm_endpoint
+        resolved = user_llm_endpoint(db, user.id)
+    assert resolved.base_url == settings.llm_base_url
+
+
 def test_run_keeps_each_agent_source(authenticated: TestClient, monkeypatch):
     authenticated.put("/api/credentials", json={"kind": "llm_api_key", "value": "test-key"})
 
-    async def fake_models(_key, search=""):
+    async def fake_models(_key, search="", **_kwargs):
         return [{"id": "gpt-test", "available": True}]
 
     monkeypatch.setattr(llm_service, "list_models", fake_models)

@@ -15,7 +15,7 @@ from zoneinfo import ZoneInfo
 
 import yaml
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from fastapi import Cookie, Depends, FastAPI, HTTPException, Query, Request, Response, status
+from fastapi import Cookie, Depends, FastAPI, File, Form, HTTPException, Query, Request, Response, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -27,11 +27,11 @@ from sqlalchemy.orm import Session
 from .config import settings
 from .db import Base, SessionLocal, engine, get_db
 from .migrations import upgrade_database
-from .models import AgentIteration, AgentRun, Article, ArticleAsset, ArticleRevision, ArticleSetting, ArticleTopic, BusinessBaselineSchedule, BusinessDraft, DailyReport, DailyReportRevision, EncryptedCredential, ExportJob, LoopSetting, NotificationRecord, ReportSetting, Run, RunEvent, RunRound, User, UserPreference
-from .schemas import ArticleGenerateRequest, ArticleSettingsUpdate, ArticleUpdate, BaselineScheduleUpdate, BatchApproveRequest, BusinessDraftRequest, CredentialUpdate, DefaultModelUpdate, ExportCreate, LoginRequest, LoopUpdate, ReportContentUpdate, ReportSettingsUpdate, RunCreate, RunResumeRequest, SetupRequest
+from .models import AgentIteration, AgentRun, Article, ArticleAsset, ArticleRevision, ArticleSetting, ArticleTopic, BusinessBaselineSchedule, BusinessDraft, DailyReport, DailyReportRevision, EncryptedCredential, ExportJob, ImportJob, LoopSetting, NotificationRecord, QaConversation, QaMessage, ReportSetting, Run, RunEvent, RunRound, User, UserPreference
+from .schemas import ArticleGenerateRequest, ArticleSettingsUpdate, ArticleUpdate, BaselineScheduleUpdate, BatchApproveRequest, BusinessDraftRequest, CredentialUpdate, DefaultModelUpdate, ExportCreate, ImportAnalyzeRequest, ImportMappingUpdate, LlmEndpointUpdate, LoginRequest, LoopUpdate, QaAskRequest, QaConversationCreate, ReportContentUpdate, ReportSettingsUpdate, RunCreate, RunResumeRequest, SetupRequest
 from .security import decrypt_secret, encrypt_secret, hash_password, new_session_token, verify_password
 from .services.exports import create_export, recover_export_jobs
-from .services.llm import ExternalServiceError, llm_service, user_api_key
+from .services.llm import ExternalServiceError, llm_service, user_api_key, user_llm_endpoint
 from .services.notifications import NotificationError, send_email_reminder, send_wecom
 from .services.wechat_publisher import WechatPublisherError, wechat_publisher
 from .services.orchestrator import orchestrator
@@ -39,6 +39,8 @@ from .services.checkpoints import checkpoint_runtime
 from .services.reports import generate_report, send_report, validate_report
 from .services.articles import _markdown_to_wechat_html, discover_topics, generate_article, generate_daily_batch, validate_article
 from .services.business_assistant import discard_draft_files, draft_business_baseline, draft_dir_path, generate_baseline_batch, load_draft_documents
+from .services import imports as imports_service
+from .services.qa import answer_question
 from .services.semi_kb import SemiKbError, semi_kb
 
 
@@ -442,7 +444,14 @@ def logout(response: Response, session_id: Annotated[str | None, Cookie()] = Non
 @app.get("/api/users/me")
 def me(user: User = Depends(current_user), db: Session = Depends(get_db)) -> dict:
     preference = db.get(UserPreference, user.id)
-    return {"id": user.id, "username": user.username, "preferences": {"default_model_id": preference.default_model_id, "default_agent_count": preference.default_agent_count, "timezone": preference.timezone}}
+    return {"id": user.id, "username": user.username, "preferences": {
+        "default_model_id": preference.default_model_id,
+        "default_agent_count": preference.default_agent_count,
+        "timezone": preference.timezone,
+        "llm_base_url": preference.llm_base_url,
+        "model_catalog_url": preference.model_catalog_url,
+        "llm_api_style": preference.llm_api_style,
+    }}
 
 
 @app.get("/api/models")
@@ -456,7 +465,7 @@ async def models(search: str = "", refresh: bool = False, user: User = Depends(c
     stale = not fetched_at or datetime.now(timezone.utc) - fetched_at > timedelta(minutes=5)
     try:
         if refresh or stale or not cached["items"]:
-            cached["items"] = await llm_service.list_models(api_key)
+            cached["items"] = await llm_service.list_models(api_key, endpoint=user_llm_endpoint(db, user.id))
             cached["fetched_at"] = datetime.now(timezone.utc)
     except ExternalServiceError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
@@ -473,7 +482,7 @@ async def update_default_model(payload: DefaultModelUpdate, user: User = Depends
     if not api_key:
         raise HTTPException(status_code=424, detail="未配置模型 API Key")
     try:
-        available = await llm_service.list_models(api_key, payload.model_id)
+        available = await llm_service.list_models(api_key, payload.model_id, endpoint=user_llm_endpoint(db, user.id))
     except ExternalServiceError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     if payload.model_id not in {item["id"] for item in available}:
@@ -482,6 +491,20 @@ async def update_default_model(payload: DefaultModelUpdate, user: User = Depends
     preference.default_model_id = payload.model_id
     db.commit()
     return {"default_model_id": payload.model_id}
+
+
+@app.patch("/api/users/me/preferences/llm-endpoint")
+def update_llm_endpoint(payload: LlmEndpointUpdate, user: User = Depends(current_user), db: Session = Depends(get_db)) -> dict:
+    # 端点是每用户覆盖：留空字段回落到 settings 默认（见 user_llm_endpoint）。校验/清洗在 schema 层完成
+    # （仅允许 https 或 http://localhost，防 SSRF）。改后清模型目录缓存，避免旧端点结果残留。
+    preference = db.get(UserPreference, user.id)
+    data = payload.model_dump(exclude_unset=True)
+    for field in ("llm_base_url", "model_catalog_url", "llm_api_style"):
+        if field in data:
+            setattr(preference, field, data[field])
+    db.commit()
+    model_cache.clear()
+    return {"llm_base_url": preference.llm_base_url, "model_catalog_url": preference.model_catalog_url, "llm_api_style": preference.llm_api_style}
 
 
 @app.get("/api/credentials")
@@ -547,7 +570,7 @@ async def start_run(payload: RunCreate, user: User = Depends(current_user), db: 
     if not api_key:
         raise HTTPException(status_code=424, detail="未配置模型 API Key")
     try:
-        available = await llm_service.list_models(api_key)
+        available = await llm_service.list_models(api_key, endpoint=user_llm_endpoint(db, user.id))
     except ExternalServiceError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     requested_models = {payload.model_id} | {agent.model_override for agent in payload.agents if agent.model_override}
@@ -802,6 +825,141 @@ def ontology_tree(user: User = Depends(current_user)) -> dict:
     return {"nodes": ordered, "total": len(ordered)}
 
 
+def _iri_short(iri: str) -> str:
+    """把完整 IRI 收敛成便于阅读的短名，仅用于展示，不改动底层数据。"""
+    tail = iri
+    for sep in (">",):
+        tail = tail.rstrip(sep)
+    tail = tail.rsplit("#", 1)[-1].rsplit("/", 1)[-1].rsplit(":", 1)[-1]
+    return tail or iri
+
+
+@app.get("/api/ontology/graph")
+def ontology_graph(user: User = Depends(current_user)) -> dict:
+    """本体关系图数据：类拓扑（subClassOf 虚线 + domain/range 关系实线）与实例拓扑
+    （rdf:type 归属 + 个体间对象属性断言）。仅读取现有 TTL，不做任何写入或推理提升。
+    """
+    # ---- 1. 类层（modules/*.ttl）：类节点、subClassOf、以及对象属性的 domain→range 关系 ----
+    schema = Graph()
+    class_module: dict[str, str] = {}
+    for path in sorted((settings.engine_root / "ontology" / "modules").glob("*.ttl")):
+        module = path.stem
+        part = Graph()
+        part.parse(path, format="turtle")
+        for subj in part.subjects(RDF.type, OWL.Class):
+            if isinstance(subj, URIRef):
+                class_module.setdefault(str(subj), module)
+        schema += part
+
+    class_nodes: dict[str, dict] = {}
+
+    def _touch_class(iri: str) -> dict:
+        node = class_nodes.get(iri)
+        if node is None:
+            node = {
+                "id": iri,
+                "label": _iri_short(iri),
+                "module": class_module.get(iri, "external"),
+                "subClassCount": 0,
+            }
+            class_nodes[iri] = node
+        return node
+
+    for subj in schema.subjects(RDF.type, OWL.Class):
+        if not isinstance(subj, URIRef):
+            continue
+        node = _touch_class(str(subj))
+        label = next(schema.objects(subj, RDFS.label), None)
+        if label:
+            node["label"] = str(label)
+
+    class_edges: list[dict] = []
+    seen_edges: set[tuple[str, str, str]] = set()
+
+    def _add_class_edge(src: str, dst: str, kind: str, label: str) -> None:
+        key = (src, dst, kind + label)
+        if src == dst or key in seen_edges:
+            return
+        seen_edges.add(key)
+        class_edges.append({"source": src, "target": dst, "kind": kind, "label": label})
+
+    for subj, parent in schema.subject_objects(RDFS.subClassOf):
+        if isinstance(subj, URIRef) and isinstance(parent, URIRef):
+            _touch_class(str(parent))
+            _add_class_edge(str(subj), str(parent), "subClassOf", "")
+            class_nodes[str(subj)]["subClassCount"] += 1
+
+    for prop in schema.subjects(RDF.type, OWL.ObjectProperty):
+        if not isinstance(prop, URIRef):
+            continue
+        plabel = next(schema.objects(prop, RDFS.label), None)
+        pname = str(plabel) if plabel else _iri_short(str(prop))
+        domains = [d for d in schema.objects(prop, RDFS.domain) if isinstance(d, URIRef)]
+        ranges = [r for r in schema.objects(prop, RDFS.range) if isinstance(r, URIRef)]
+        for dom in domains:
+            for rng in ranges:
+                _touch_class(str(dom))
+                _touch_class(str(rng))
+                _add_class_edge(str(dom), str(rng), "relation", pname)
+
+    # ---- 2. 实例层（current.ttl）：个体、rdf:type 归属、个体间对象属性断言 ----
+    object_props = {str(p) for p in schema.subjects(RDF.type, OWL.ObjectProperty)}
+    meta_types = {str(OWL.Class), str(OWL.ObjectProperty), str(OWL.DatatypeProperty),
+                  str(OWL.Ontology), str(OWL.NamedIndividual), str(OWL.FunctionalProperty)}
+
+    inst_nodes: dict[str, dict] = {}
+    inst_edges: list[dict] = []
+    current_path = settings.engine_root / "knowledge" / "semantic" / "current.ttl"
+    if current_path.exists():
+        cur = Graph()
+        cur.parse(current_path, format="turtle")
+
+        def _touch_inst(iri: str) -> dict:
+            node = inst_nodes.get(iri)
+            if node is None:
+                node = {"id": iri, "label": _iri_short(iri), "typeIri": "", "typeLabel": ""}
+                inst_nodes[iri] = node
+            return node
+
+        for subj in set(cur.subjects()):
+            if not isinstance(subj, URIRef):
+                continue
+            types = [t for t in cur.objects(subj, RDF.type)
+                     if isinstance(t, URIRef) and str(t) not in meta_types]
+            if not types:
+                continue
+            node = _touch_inst(str(subj))
+            primary = str(types[0])
+            node["typeIri"] = primary
+            node["typeLabel"] = class_nodes.get(primary, {}).get("label") or _iri_short(primary)
+            label = next(cur.objects(subj, RDFS.label), None)
+            if label:
+                node["label"] = str(label)
+
+        for subj, pred, obj in cur:
+            if (isinstance(subj, URIRef) and isinstance(obj, URIRef)
+                    and str(pred) in object_props
+                    and str(subj) in inst_nodes and str(obj) in inst_nodes):
+                plabel = next(schema.objects(pred, RDFS.label), None)
+                inst_edges.append({
+                    "source": str(subj), "target": str(obj),
+                    "label": str(plabel) if plabel else _iri_short(str(pred)),
+                })
+
+    modules = sorted({node["module"] for node in class_nodes.values() if node["module"] != "external"})
+    return {
+        "classes": {
+            "nodes": sorted(class_nodes.values(), key=lambda n: n["id"]),
+            "edges": class_edges,
+        },
+        "instances": {
+            "nodes": sorted(inst_nodes.values(), key=lambda n: n["id"]),
+            "edges": inst_edges,
+        },
+        "modules": modules,
+    }
+
+
 def yaml_catalog(pattern: str) -> list[dict]:
     items = []
     for path in sorted(settings.engine_root.glob(pattern)):
@@ -951,9 +1109,155 @@ def update_baseline_schedule(payload: BaselineScheduleUpdate, user: User = Depen
     return {"enabled": row.enabled, "generate_time": row.generate_time, "timezone": row.timezone, "daily_count": row.daily_count, "llm_model_id": row.llm_model_id, "domain_strategy": row.domain_strategy, "last_generated_date": row.last_generated_date}
 
 
+# ---- 素材导入通道（上传 → 模型建议映射 → 人工改 → 引擎门禁校验 → 人工采纳）----
+
+@app.get("/api/imports")
+def list_import_jobs(user: User = Depends(current_user), db: Session = Depends(get_db)) -> dict:
+    rows = db.scalars(select(ImportJob).where(ImportJob.user_id == user.id).order_by(ImportJob.created_at.desc())).all()
+    return {"items": [imports_service.job_summary(row) for row in rows]}
+
+
+@app.get("/api/imports/{job_id}")
+def get_import_job(job_id: str, user: User = Depends(current_user), db: Session = Depends(get_db)) -> dict:
+    row = db.get(ImportJob, job_id)
+    if not row or row.user_id != user.id:
+        raise HTTPException(status_code=404, detail="导入任务不存在")
+    return imports_service.job_summary(row)
+
+
+@app.post("/api/imports")
+async def create_import_job(
+    files: list[UploadFile] = File(...),
+    classification: str = Form("internal_confidential"),
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+) -> dict:
+    """上传多份素材文件，原件 sha256 锁定暂存，建导入任务。"""
+    payloads: list[tuple[str, bytes]] = []
+    for upload in files:
+        content = await upload.read()
+        payloads.append((upload.filename or "unnamed", content))
+    try:
+        return await imports_service.create_import_job(db, user, payloads, classification)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.post("/api/imports/{job_id}/analyze")
+async def analyze_import_job(job_id: str, payload: ImportAnalyzeRequest, user: User = Depends(current_user), db: Session = Depends(get_db)) -> dict:
+    """扁平化 md、读表头、模型在已声明本体类约束下建议 target_class/entity_keys 映射草案。"""
+    try:
+        return await imports_service.analyze_import_job(db, user, job_id, payload.model_id)
+    except ExternalServiceError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    except (ValueError, SemiKbError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.patch("/api/imports/{job_id}/mapping")
+def update_import_mapping(job_id: str, payload: ImportMappingUpdate, user: User = Depends(current_user), db: Session = Depends(get_db)) -> dict:
+    try:
+        return imports_service.update_mapping(db, user, job_id, [f.model_dump(exclude_unset=True) for f in payload.files])
+    except (ValueError, SemiKbError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.post("/api/imports/{job_id}/validate")
+async def validate_import_job(job_id: str, user: User = Depends(current_user), db: Session = Depends(get_db)) -> dict:
+    """把映射草案落 staging，跑 imported_ingest.py --check 真门禁（不碰线上）。"""
+    try:
+        return await imports_service.validate_import_job(db, user, job_id)
+    except (ValueError, SemiKbError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.post("/api/imports/{job_id}/adopt")
+async def adopt_import_job(job_id: str, user: User = Depends(current_user), db: Session = Depends(get_db)) -> dict:
+    """人点『采纳』：合入线上 sources/internal/imported/ 并跑线上门禁，失败回滚。"""
+    try:
+        return await imports_service.adopt_import_job(db, user, job_id)
+    except (ValueError, SemiKbError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.delete("/api/imports/{job_id}")
+def delete_import_job(job_id: str, user: User = Depends(current_user), db: Session = Depends(get_db)) -> dict:
+    row = db.get(ImportJob, job_id)
+    if not row or row.user_id != user.id:
+        raise HTTPException(status_code=404, detail="导入任务不存在")
+    if row.status != "adopted":
+        row.status = "rejected"
+        row.rejected_at = datetime.now(timezone.utc)
+        db.commit()
+    imports_service.discard_job_files(job_id)
+    return imports_service.job_summary(row)
+
+
 @app.get("/api/simulations")
 def simulations(user: User = Depends(current_user)) -> dict:
     return {"items": yaml_catalog("simulation/scenarios/*.yaml")}
+
+
+# --------------------------------------------------------------------------- 知识库问答
+
+def _qa_message_payload(row: QaMessage) -> dict:
+    return {
+        "id": row.id, "role": row.role, "content": row.content,
+        "citations": json_load(row.citations_json, []), "model_id": row.model_id,
+        "grounded": row.grounded, "created_at": row.created_at,
+    }
+
+
+def _qa_conversation_summary(row: QaConversation) -> dict:
+    return {"id": row.id, "title": row.title, "created_at": row.created_at, "updated_at": row.updated_at}
+
+
+@app.get("/api/qa/conversations")
+def list_qa_conversations(user: User = Depends(current_user), db: Session = Depends(get_db)) -> dict:
+    rows = db.scalars(select(QaConversation).where(QaConversation.user_id == user.id).order_by(QaConversation.updated_at.desc())).all()
+    return {"items": [_qa_conversation_summary(row) for row in rows]}
+
+
+@app.post("/api/qa/conversations", status_code=201)
+def create_qa_conversation(payload: QaConversationCreate, user: User = Depends(current_user), db: Session = Depends(get_db)) -> dict:
+    conversation = QaConversation(id=uuid.uuid4().hex[:16], user_id=user.id, title=payload.title or "新会话")
+    db.add(conversation); db.commit(); db.refresh(conversation)
+    return _qa_conversation_summary(conversation)
+
+
+def _owned_qa_conversation(conversation_id: str, user: User, db: Session) -> QaConversation:
+    conversation = db.get(QaConversation, conversation_id)
+    if not conversation or conversation.user_id != user.id:
+        raise HTTPException(status_code=404, detail="会话不存在")
+    return conversation
+
+
+@app.get("/api/qa/conversations/{conversation_id}")
+def get_qa_conversation(conversation_id: str, user: User = Depends(current_user), db: Session = Depends(get_db)) -> dict:
+    conversation = _owned_qa_conversation(conversation_id, user, db)
+    messages = db.scalars(select(QaMessage).where(QaMessage.conversation_id == conversation_id).order_by(QaMessage.created_at, QaMessage.id)).all()
+    return {**_qa_conversation_summary(conversation), "messages": [_qa_message_payload(row) for row in messages]}
+
+
+@app.delete("/api/qa/conversations/{conversation_id}", status_code=204)
+def delete_qa_conversation(conversation_id: str, user: User = Depends(current_user), db: Session = Depends(get_db)) -> Response:
+    conversation = _owned_qa_conversation(conversation_id, user, db)
+    db.delete(conversation); db.commit()
+    return Response(status_code=204)
+
+
+@app.post("/api/qa/conversations/{conversation_id}/ask")
+async def ask_qa_question(conversation_id: str, payload: QaAskRequest, user: User = Depends(current_user), db: Session = Depends(get_db)) -> dict:
+    conversation = _owned_qa_conversation(conversation_id, user, db)
+    preference = db.get(UserPreference, user.id)
+    selected = payload.model_id or (preference.default_model_id if preference else None)
+    if not selected:
+        raise HTTPException(status_code=422, detail="请先选择模型或设置默认模型")
+    try:
+        message = await answer_question(db, user, conversation, payload.question, selected)
+    except ExternalServiceError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return _qa_message_payload(message)
 
 
 @app.get("/api/scenario-articles")

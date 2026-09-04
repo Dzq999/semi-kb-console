@@ -26,6 +26,10 @@ class UserPreference(Base):
     default_model_id: Mapped[str | None] = mapped_column(String(160), nullable=True)
     default_agent_count: Mapped[int] = mapped_column(Integer, default=6)
     timezone: Mapped[str] = mapped_column(String(80), default="Asia/Shanghai")
+    # 每用户可覆盖的 LLM 端点（非机密）；留空回退全局 settings。由系统设置页维护。
+    llm_base_url: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    model_catalog_url: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    llm_api_style: Mapped[str | None] = mapped_column(String(16), nullable=True)
 
 
 class EncryptedCredential(Base):
@@ -225,6 +229,35 @@ class BusinessBaselineSchedule(Base):
     last_generated_date: Mapped[str | None] = mapped_column(String(10), nullable=True)
 
 
+class ImportJob(Base):
+    """一次素材导入任务（可含多份结构化文件）：上传→模型建议映射→人工改→引擎门禁校验→人工采纳。
+
+    与经营基线草案同一信任模型（[[semi-kb ...]] 的 draft→gate→adopt）：原件 sha256 锁定存
+    imports/drafts/<id>/，模型只产出 manifest 草案（target_class/entity_keys 建议），一切过
+    imported_ingest.py 真门禁，人点『采纳』才合入线上 sources/internal/imported/。绝不自动
+    写入推理层/current.ttl；restricted 素材可暂存+记元数据，但禁止采纳入库。
+
+    引擎真源是磁盘上的 imports/drafts/<id>/ 目录；本行仅供 UI 列表/状态/用户隔离。
+    """
+
+    __tablename__ = "import_jobs"
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    # uploaded → analyzed → validated / invalid → adopted / rejected
+    status: Mapped[str] = mapped_column(String(24), default="uploaded", index=True)
+    channel: Mapped[str] = mapped_column(String(32), default="structured_table")
+    classification: Mapped[str] = mapped_column(String(32), default="internal_confidential")
+    llm_model_id: Mapped[str] = mapped_column(String(160), default="")
+    summary: Mapped[str] = mapped_column(Text, default="")
+    # 待入库文件清单（含 sha256 与人工可改的 target_class/entity_keys 映射建议）。
+    manifest_json: Mapped[str] = mapped_column(Text, default="{}")
+    validation_json: Mapped[str] = mapped_column(Text, default="{}")
+    adopted_paths_json: Mapped[str] = mapped_column(Text, default="{}")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    adopted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    rejected_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
 class DailyReportRevision(Base):
     __tablename__ = "daily_report_revisions"
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -359,3 +392,32 @@ class ArticleSetting(Base):
     auto_repair: Mapped[bool] = mapped_column(Boolean, default=True)
     max_repair_attempts: Mapped[int] = mapped_column(Integer, default=3)
     last_generated_date: Mapped[str | None] = mapped_column(String(10), nullable=True)
+
+
+class QaConversation(Base):
+    """用户与知识库问答助手的一次多轮会话。
+
+    答案由 qa 服务综合经营模型/仿真场景/项目知识库(含 vFab 可引用来源)接地生成，
+    每条消息的引用来源存于 QaMessage.citations_json，供 UI 展示可追溯出处。
+    """
+
+    __tablename__ = "qa_conversations"
+    id: Mapped[str] = mapped_column(String(40), primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    title: Mapped[str] = mapped_column(String(240), default="新会话")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+    messages: Mapped[list["QaMessage"]] = relationship(back_populates="conversation", cascade="all, delete-orphan")
+
+
+class QaMessage(Base):
+    __tablename__ = "qa_messages"
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    conversation_id: Mapped[str] = mapped_column(ForeignKey("qa_conversations.id"), index=True)
+    role: Mapped[str] = mapped_column(String(16))  # user / assistant
+    content: Mapped[str] = mapped_column(Text, default="")
+    citations_json: Mapped[str] = mapped_column(Text, default="[]")
+    model_id: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    grounded: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    conversation: Mapped[QaConversation] = relationship(back_populates="messages")

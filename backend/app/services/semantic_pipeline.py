@@ -36,6 +36,51 @@ def _as_list(value: Any) -> list:
     return [value]
 
 
+# 知识库自身建设机制的高精标记：这些词只在“建库工程口径”里出现，一旦落进面向客户的
+# 场景/痛点/影响文本，就说明模型把内部工程当成了客户业务问题。命中阈值取 2，既能拦住
+# “反向缺口收敛/映射覆盖率卡在N%/新建属性作为下一轮映射目标”这类自述式场景，又给方法学
+# 段落里偶尔提到的单个术语留出余量（现有合格文章的痛点段均为 0 命中）。详见业务场景质量约束。
+_SELF_REFERENTIAL_MARKERS: tuple[str, ...] = (
+    "反向特征缺口", "反向缺口", "特征缺口收敛", "缺口收敛",
+    "映射覆盖", "覆盖率卡", "覆盖率停滞", "映射未生效", "映射覆盖生效", "使映射覆盖",
+    "逐字重映射", "重映射", "作为下一轮映射目标", "作为映射目标", "下一轮映射目标",
+    "未映射的源特征", "源特征目录", "源特征未映射",
+    "缺乏本体属性", "缺少本体属性", "无本体属性承载", "本体属性承载", "无法与本体对齐", "未与本体对齐",
+    "门禁发现类", "特征映射覆盖度量",
+)
+_SELF_REFERENTIAL_THRESHOLD = 2
+# 面向客户的段落标题：只在这些段落里查建库口径；证据边界/仿真含义允许出现方法学术语。
+_CUSTOMER_FACING_HEADINGS = ("业务场景", "场景", "客户痛点", "痛点", "经营影响", "影响")
+
+
+def _customer_facing_text(article: str, pains: list[str], summary: str) -> str:
+    """抽取面向客户的文本：summary + customer_pains + 文章里客户向段落，排除证据/仿真段。"""
+    parts: list[str] = [str(summary or "")]
+    parts.extend(str(item) for item in pains)
+    current_customer_facing = False
+    for line in (article or "").splitlines():
+        heading = re.match(r"^#{1,6}\s*(.+?)\s*$", line)
+        if heading:
+            title = heading.group(1).strip()
+            current_customer_facing = any(title.startswith(h) for h in _CUSTOMER_FACING_HEADINGS)
+            continue
+        if current_customer_facing:
+            parts.append(line)
+    return "\n".join(parts)
+
+
+def _reject_self_referential_scenario(article: str, pains: list[str], summary: str) -> None:
+    """场景/痛点/影响若把知识库自建机制当客户问题，抛错触发重试（面向客户段落才检查）。"""
+    text = _customer_facing_text(article, pains, summary)
+    hits = sorted({marker for marker in _SELF_REFERENTIAL_MARKERS if marker in text})
+    if len(hits) >= _SELF_REFERENTIAL_THRESHOLD:
+        raise ValueError(
+            "场景/痛点写成了知识库自建机制而非产线现场客户问题（命中："
+            + "、".join(hits) + "）。请改写为设备停机/良率/工艺偏移/周期/追溯/排障等真实业务痛点；"
+            "映射覆盖、反向缺口、门禁/本体声明等只能进 semantic_changesets/feature_mapping_candidates。"
+        )
+
+
 def _normalize_semantic_candidate(candidate: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
     """Repair harmless scalar-vs-array drift before strict JSON Schema validation."""
     normalized = dict(candidate)
@@ -273,8 +318,18 @@ def prompt_contract() -> dict:
             "就在本轮 datatype_properties/object_properties 里新建它（发布后下一轮即可作为映射目标），本轮不要指向未声明目标。"
             "纯技术字段（*_id、代理键、时间戳等）无业务含义，不要映射。",
         ],
-        "summary": "string",
-        "customer_pains": ["string"],
+        "_scenario_rules": [
+            "summary / customer_pains / scenario_article_markdown 面向的是半导体工厂（Fab/封测厂）产线现场的真实"
+            "业务问题：设备非计划停机、工艺偏移、良率/缺陷、周期与 WIP、跨系统根因调查、追溯与排障工时等。"
+            "要写工程师/产线在现场遇到的困境，而不是本知识库自身的建设进度。",
+            "严禁把知识库的内部建设机制当成客户痛点或经营影响，包括但不限于：特征映射覆盖率（如“覆盖率卡在N%”“映射未生效”）、"
+            "反向特征缺口收敛、逐字重映射已发布属性、把新建属性描述为“下一轮映射目标”、门禁/SHACL/OWL 校验状态、"
+            "变更集/发布流程、“缺乏本体属性承载”“未与本体对齐”这类以建模缺失来描述客户问题的说法。"
+            "这些是内部工程口径，只可出现在本轮的 semantic_changesets / feature_mapping_candidates，绝不能进入面向客户的场景叙事。",
+            "痛点要能被一位不了解本体工程的产线主管读懂：他关心的是停机、良率、交期、排障效率，而不是覆盖率或映射目标。",
+        ],
+        "summary": "string（一句话概括本场景对应的产线现场业务问题，不是本轮建库动作）",
+        "customer_pains": ["string（产线/工程团队在现场遇到的真实痛点，禁止写映射覆盖率、反向缺口、门禁/本体声明等建库机制）"],
         "evidence_notes": ["string"],
         "semantic_changesets": [{
             "provenance": {"source_type": "web|model_prior", "confidence": "high|medium|low", "source_ref": "URL or model reference"},
@@ -318,7 +373,9 @@ def prompt_contract() -> dict:
                 "required_sources": ["string"], "tests": ["tests/semantic/..."], "confidence": "high|medium|low"
             }
         }],
-        "scenario_article_markdown": "Markdown正文，包含场景、客户痛点、影响、证据边界和仿真含义",
+        "scenario_article_markdown": "Markdown正文，含场景、客户痛点、影响、证据边界、仿真含义五段；场景/痛点/影响三段必须写"
+        "产线现场业务问题，不得把映射覆盖率、反向缺口收敛、逐字重映射、门禁/SHACL/本体声明状态等建库机制写成客户痛点或经营影响。"
+        "本体/映射/校验等工程口径只允许在证据边界或仿真含义里做方法学说明。",
         "feature_mapping_candidates": [{
             "mapping": {
                 "feature_codes": ["源特征 code，必须来自 gap_analysis.feature_gap 的未映射清单"],
@@ -341,6 +398,13 @@ def validate_and_store_agent_output(
 ) -> dict:
     if not isinstance(raw, dict):
         raise ValueError("Agent 输出必须是 JSON 对象")
+    # 先卡场景质量：痛点/场景写成建库工程机制而非产线现场客户问题时，快速抛错触发重试，
+    # 避免自述式内容落进知识条目或文章文件。
+    _reject_self_referential_scenario(
+        str(raw.get("scenario_article_markdown") or ""),
+        [str(item) for item in _as_list(raw.get("customer_pains"))],
+        str(raw.get("summary") or ""),
+    )
     output_dir = round_directory(run_id, round_number) / "agents" / agent_id
     output_dir.mkdir(parents=True, exist_ok=True)
     (output_dir / "evidence.json").write_text(json.dumps(evidence, ensure_ascii=False, indent=2), encoding="utf-8")

@@ -11,7 +11,9 @@
     "typecheck": "tsc -b --pretty false"
   },
   "dependencies": {
+    "@dagrejs/dagre": "^1.1.8",
     "@tanstack/react-query": "^5.66.0",
+    "@xyflow/react": "^12.11.6",
     "lucide-react": "^0.468.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

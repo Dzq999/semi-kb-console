@@ -17,13 +17,40 @@ import httpx
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from dataclasses import dataclass
+
 from ..config import settings
-from ..models import EncryptedCredential
+from ..models import EncryptedCredential, UserPreference
 from ..security import decrypt_secret
 
 
 class ExternalServiceError(RuntimeError):
     pass
+
+
+@dataclass(frozen=True)
+class LlmEndpoint:
+    """已解析的模型端点：文本补全基址、模型目录地址与接口风格。
+
+    每个字段都先取用户 UserPreference 里的自定义值，缺省再回落到进程级 settings，
+    因此未设置端点的用户与历史行为完全一致。"""
+
+    base_url: str
+    catalog_url: str
+    api_style: str
+
+
+def _default_endpoint() -> LlmEndpoint:
+    return LlmEndpoint(base_url=settings.llm_base_url, catalog_url=settings.model_catalog_url, api_style=settings.llm_api_style)
+
+
+def user_llm_endpoint(db: Session, user_id: int) -> LlmEndpoint:
+    """解析某用户的模型端点：自定义值优先，未填字段各自回落到 settings 默认。"""
+    pref = db.get(UserPreference, user_id)
+    base = (pref.llm_base_url if pref and pref.llm_base_url else settings.llm_base_url).rstrip("/")
+    catalog = pref.model_catalog_url if pref and pref.model_catalog_url else settings.model_catalog_url
+    style = (pref.llm_api_style if pref and pref.llm_api_style else settings.llm_api_style).casefold()
+    return LlmEndpoint(base_url=base, catalog_url=catalog, api_style=style)
 
 
 # 瞬时网络错误：连接被上游代理中途掐断、连接/读超时、连接失败等，均为可重试的抖动
@@ -49,7 +76,8 @@ def user_api_key(db: Session, user_id: int) -> str | None:
 
 
 class LlmService:
-    async def list_models(self, api_key: str, search: str = "") -> list[dict]:
+    async def list_models(self, api_key: str, search: str = "", endpoint: LlmEndpoint | None = None) -> list[dict]:
+        endpoint = endpoint or _default_endpoint()
         headers = {"Authorization": f"Bearer {api_key}"}
         # 目录取自与 complete 同源的第三方代理，同样会遇到瞬时抖动（ConnectTimeout / 连接被中途掐断
         # / 瞬时 5xx）。原先单次即抛，任务编排里就会频繁弹“模型目录网络失败”；这里与 complete 一致
@@ -58,7 +86,7 @@ class LlmService:
         for attempt in range(_HTTP_RETRIES + 1):
             try:
                 async with httpx.AsyncClient(timeout=20, follow_redirects=True) as client:
-                    response = await client.get(settings.model_catalog_url, headers=headers)
+                    response = await client.get(endpoint.catalog_url, headers=headers)
             except (*_TRANSIENT_HTTP_ERRORS, OSError) as exc:
                 if attempt >= _HTTP_RETRIES:
                     raise ExternalServiceError(f"模型目录网络失败：{type(exc).__name__}") from exc
@@ -82,16 +110,17 @@ class LlmService:
             models = [item for item in models if needle in item["id"].casefold()]
         return sorted(models, key=lambda item: item["id"])
 
-    async def complete(self, api_key: str, model: str, system: str, user: str, temperature: float = 0.2, timeout_seconds: int = 120, max_tokens: int | None = None) -> str:
+    async def complete(self, api_key: str, model: str, system: str, user: str, temperature: float = 0.2, timeout_seconds: int = 120, max_tokens: int | None = None, endpoint: LlmEndpoint | None = None) -> str:
+        endpoint = endpoint or _default_endpoint()
         # Claude 模型经中转的 OpenAI 兼容层（/chat/completions）做协议转译，长响应/并发下更易被中途
         # 掐断（RemoteProtocolError）；原生 /v1/messages 少一层转译、更稳，是本系统默认走的路。system 在
         # 原生契约里是顶层字段而非消息，且 max_tokens 必填。两套响应结构都在 _extract_text 里兼容解析。
         max_tokens = max_tokens or settings.llm_max_tokens
-        if settings.llm_api_style == "anthropic":
-            url = f"{settings.llm_base_url}/messages"
+        if endpoint.api_style == "anthropic":
+            url = f"{endpoint.base_url}/messages"
             payload = {"model": model, "max_tokens": max_tokens, "system": system, "messages": [{"role": "user", "content": user}], "temperature": temperature}
         else:
-            url = f"{settings.llm_base_url}/chat/completions"
+            url = f"{endpoint.base_url}/chat/completions"
             payload = {"model": model, "max_tokens": max_tokens, "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}], "temperature": temperature}
         headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
         # 瞬时 5xx/429 与连接抖动是网络问题而非“模型输出不合法”，在 HTTP 层就地重试即可消化，
@@ -147,17 +176,18 @@ class LlmService:
     async def _backoff(attempt: int) -> None:
         await asyncio.sleep(min(_HTTP_BACKOFF_CAP, _HTTP_BACKOFF_BASE * (2 ** attempt)) + random.uniform(0, 0.4))
 
-    async def generate_image(self, api_key: str, model: str, prompt: str, size: str = "1536x1024") -> tuple[bytes, str]:
+    async def generate_image(self, api_key: str, model: str, prompt: str, size: str = "1536x1024", endpoint: LlmEndpoint | None = None) -> tuple[bytes, str]:
         """Generate one image and return bytes plus a safe extension.
 
         The provider follows the OpenAI-compatible /images/generations contract.
         URL responses are downloaded server-side; data URLs never reach logs.
         """
+        endpoint = endpoint or _default_endpoint()
         payload = {"model": model, "prompt": prompt, "size": size, "response_format": "b64_json"}
         headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
         try:
             async with httpx.AsyncClient(timeout=90, follow_redirects=True) as client:
-                response = await client.post(f"{settings.llm_base_url}/images/generations", json=payload, headers=headers)
+                response = await client.post(f"{endpoint.base_url}/images/generations", json=payload, headers=headers)
         except (httpx.HTTPError, OSError) as exc:
             raise ExternalServiceError(f"图片模型网络调用失败：{type(exc).__name__}") from exc
         if response.status_code >= 400:

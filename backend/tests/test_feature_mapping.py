@@ -44,11 +44,12 @@ def _live_feature_codes() -> tuple[str, str]:
 
 
 def _raw_with_mappings(mappings: list[dict]) -> dict:
+    # 场景叙事写产线现场真实痛点（本用例只验证映射清洗，痛点文本走场景质量防护栏须合规）。
     return {
-        "summary": "特征映射通道结构测试",
-        "customer_pains": ["源特征未映射到本体，反向缺口无法收敛"],
+        "summary": "工艺分类信息散落在多套系统，排障时难以快速核对",
+        "customer_pains": ["工程师排查异常时需跨系统人工比对工艺编码，定位缓慢"],
         "feature_mapping_candidates": mappings,
-        "scenario_article_markdown": "场景：源特征对齐本体。客户痛点：跨系统特征未映射。经营与仿真含义：仅用于验证流程，不代表经营承诺。" * 3,
+        "scenario_article_markdown": "场景：产线工艺追溯。客户痛点：跨系统工艺编码口径不一致，排障工时高。经营与仿真含义：仅用于验证流程，不代表经营承诺。" * 3,
     }
 
 

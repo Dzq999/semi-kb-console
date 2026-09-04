@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from ..config import settings
 from ..models import Article, ArticleAsset, ArticleRevision, ArticleSetting, ArticleTopic
-from .llm import ExternalServiceError, llm_service, user_api_key
+from .llm import ExternalServiceError, llm_service, user_api_key, user_llm_endpoint
 from .semi_kb import semi_kb
 
 
@@ -325,11 +325,12 @@ async def generate_article(db: Session, user_id: int, topic: ArticleTopic, model
     key = user_api_key(db, user_id)
     if not key:
         raise ExternalServiceError("未配置模型 API Key，无法生成场景文章")
+    endpoint = user_llm_endpoint(db, user_id)
     article = Article(user_id=user_id, topic_id=topic.id, title=topic.title[:240], subtitle=topic.pain_point[:200], status="generating", generation_stage="正文生成中", generation_progress=5, approval_required=approval_required, article_model_id=model_id, image_model_id=image_model_id, generation_date=generation_date, sequence_no=sequence_no, generated_at=datetime.now(timezone.utc))
     db.add(article); db.commit(); db.refresh(article)
     system = "你是半导体行业公众号主编。只写一个具体业务场景和一个核心问题，使用自然中文、短段落和小标题，深入解释症状、根因和经营影响，避免任何AI套话。不得编造数字；不确定处明确写待验证。第一行只输出一个吸引人的公众号标题（不要出现‘客户痛点’或‘痛点分析’），随后输出正文。正文必须包含：场景背景、现场表现、客户痛点、问题根因、经营影响、证据与仿真/校验依据、建议行动。"
     prompt = json.dumps({"title": topic.title, "domain": topic.domain, "pain_point": topic.pain_point, "business_context": topic.business_context, "evidence": evidence}, ensure_ascii=False)
-    narrative = (await llm_service.complete(key, model_id, system, prompt)).strip()
+    narrative = (await llm_service.complete(key, model_id, system, prompt, endpoint=endpoint)).strip()
 
     def compose(candidate: str) -> tuple[str, str, str]:
         first_line, _, body = candidate.partition("\n")
@@ -358,7 +359,7 @@ async def generate_article(db: Session, user_id: int, topic: ArticleTopic, model
             "主题": topic.title,
             "证据": evidence,
         }, ensure_ascii=False)
-        repaired = (await llm_service.complete(key, model_id, system, repair_prompt)).strip()
+        repaired = (await llm_service.complete(key, model_id, system, repair_prompt, endpoint=endpoint)).strip()
         title, body, content = compose(repaired)
         validation = validate_article(content, topic, evidence, title)
         article.title = title
@@ -393,7 +394,7 @@ async def generate_article(db: Session, user_id: int, topic: ArticleTopic, model
             prompt = f"半导体生产现场纪实插图，环节：{heading}；对应正文：{excerpt}。画面必须与该段内容一致，专业写实风格，无文字水印。"
             try:
                 if image_model_id:
-                    image_bytes, extension = await llm_service.generate_image(key, image_model_id, prompt)
+                    image_bytes, extension = await llm_service.generate_image(key, image_model_id, prompt, endpoint=endpoint)
                     path = path.with_suffix(extension)
                     path.write_bytes(image_bytes)
                 else:

@@ -159,3 +159,51 @@ class BaselineScheduleUpdate(BaseModel):
 
 class BatchApproveRequest(BaseModel):
     draft_ids: list[str] = Field(min_length=1, max_length=50)
+
+
+class ImportAnalyzeRequest(BaseModel):
+    model_id: str = Field(min_length=1, max_length=160)
+
+
+class ImportFileMapping(BaseModel):
+    stored_name: str = Field(min_length=1, max_length=200)
+    target_class: str | None = Field(default=None, max_length=300)
+    entity_keys: list[str] | None = Field(default=None, max_length=32)
+    time_field: str | None = Field(default=None, max_length=200)
+
+
+class ImportMappingUpdate(BaseModel):
+    files: list[ImportFileMapping] = Field(min_length=1, max_length=200)
+
+
+class QaConversationCreate(BaseModel):
+    title: str = Field(default="新会话", max_length=240)
+
+
+class QaAskRequest(BaseModel):
+    question: str = Field(min_length=1, max_length=4000)
+    model_id: str | None = Field(default=None, max_length=160)
+
+
+_ALLOWED_LLM_SCHEMES = ("https://", "http://localhost", "http://127.0.0.1")
+
+
+class LlmEndpointUpdate(BaseModel):
+    """每用户 LLM 端点覆盖；留空/None 表示回退全局 settings 默认。仅允许 https，或本地 http（防 SSRF）。"""
+
+    llm_base_url: str | None = Field(default=None, max_length=300)
+    model_catalog_url: str | None = Field(default=None, max_length=300)
+    llm_api_style: Literal["anthropic", "openai"] | None = None
+
+    @field_validator("llm_base_url", "model_catalog_url")
+    @classmethod
+    def validate_url(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        value = value.strip()
+        if not value:
+            return None
+        low = value.casefold()
+        if not low.startswith(_ALLOWED_LLM_SCHEMES):
+            raise ValueError("端点仅允许 https:// 或本地 http://localhost / http://127.0.0.1")
+        return value.rstrip("/")

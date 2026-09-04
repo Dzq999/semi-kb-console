@@ -23,7 +23,7 @@ from sqlalchemy.orm import Session
 
 from ..config import settings
 from ..models import BusinessDraft, User
-from .llm import ExternalServiceError, llm_service, user_api_key
+from .llm import ExternalServiceError, llm_service, user_api_key, user_llm_endpoint
 from .orchestrator import _json_object
 from .semi_kb import SemiKbError, semi_kb
 
@@ -200,7 +200,7 @@ async def draft_business_baseline(db: Session, user: User, intent: str, domain: 
     if not api_key:
         raise ExternalServiceError("未配置模型 API Key，无法起草经营基线")
     system, user_prompt = _build_prompt(intent, domain)
-    raw = await llm_service.complete(api_key, model_id, system, user_prompt, temperature=0.2)
+    raw = await llm_service.complete(api_key, model_id, system, user_prompt, temperature=0.2, endpoint=user_llm_endpoint(db, user.id))
     parsed = _json_object(raw)
 
     draft_id = f"{user.id}-{uuid.uuid4().hex[:12]}"

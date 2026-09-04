@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 from ..config import settings
 from ..db import SessionLocal
 from ..models import AgentIteration, AgentRun, Run, RunEvent, RunRound
-from .llm import ExternalServiceError, llm_service, user_api_key, web_research
+from .llm import ExternalServiceError, LlmEndpoint, llm_service, user_api_key, user_llm_endpoint, web_research
 from .semantic_pipeline import prompt_contract, round_candidate_files, round_directory, validate_and_store_agent_output
 from .semi_kb import SemiKbError, semi_kb
 
@@ -158,11 +158,17 @@ class RunOrchestrator:
         except asyncio.CancelledError:
             return
 
-    async def execute_agent(self, run_id: str, agent_id: str, round_number: int, api_key: str, gap: dict, agent_config: dict) -> dict | None:
+    async def execute_agent(self, run_id: str, agent_id: str, round_number: int, api_key: str, gap: dict, agent_config: dict, endpoint: LlmEndpoint | None = None) -> dict | None:
         with SessionLocal() as db:
             agent = db.get(AgentRun, agent_id)
             if not agent:
                 return None
+            # endpoint 未由上层传入时（如 langgraph 引擎路径自行解析 api_key、不透传端点），
+            # 就地按本任务归属用户解析每用户覆盖，确保两条引擎路径都尊重用户自定义端点。
+            if endpoint is None:
+                run = db.get(Run, run_id)
+                if run:
+                    endpoint = user_llm_endpoint(db, run.user_id)
             input_hash = str(agent_config.get("input_hash") or hashlib.sha256(json.dumps({"run": run_id, "round": round_number, "agent": agent_id, "gap": gap}, ensure_ascii=False, sort_keys=True).encode()).hexdigest())
             iteration = db.scalar(select(AgentIteration).where(AgentIteration.agent_id == agent_id, AgentIteration.round_number == round_number))
             previous_input_hash = iteration.input_hash if iteration else None
@@ -212,7 +218,11 @@ class RunOrchestrator:
                     "所有复数结构以及实例objects/data映射中的每个值都必须使用JSON数组，即使只有一个值。"
                     "仿真只能引用已有经营模型和示例中的合法变量；不得编造现场实测数值。"
                     "若 gap_analysis.feature_gap 给出未映射的源特征，请输出 feature_mapping_candidates 把它们对齐到已声明的本体属性；"
-                    "缺少贴切属性时先在本轮新建该属性（发布后下一轮即可映射），逐轮收敛反向缺口。" + source_rules
+                    "缺少贴切属性时先在本轮新建该属性（发布后下一轮即可映射），逐轮收敛反向缺口。"
+                    "注意：特征映射、反向缺口收敛、门禁/校验、新建属性作为下一轮映射目标，这些都是知识库内部的工程动作，"
+                    "只能体现在 semantic_changesets/feature_mapping_candidates 里；summary、customer_pains 与 scenario_article_markdown "
+                    "必须面向半导体产线现场的真实客户业务问题（停机、良率、工艺偏移、周期、追溯、排障工时等），"
+                    "绝不能把“映射覆盖率卡在N%”“逐字重映射已发布属性”“缺乏本体属性承载”这类建库口径写成客户痛点或经营影响。" + source_rules
                 )
                 repair_context = agent_config.get("repair_context") or {}
                 if repair_context:
@@ -242,7 +252,7 @@ class RunOrchestrator:
                             self.emit(db, run_id, "model_response_reused", f"{agent.name} 复用崩溃前已保存的模型响应", {"agent_id": agent.id, "round": round_number, "attempt": attempt + 1})
                         else:
                             async with self.provider_semaphore:
-                                text = await llm_service.complete(api_key, agent.model_id, system, prompt, timeout_seconds=int(agent_config.get("timeout_seconds", 300)))
+                                text = await llm_service.complete(api_key, agent.model_id, system, prompt, timeout_seconds=int(agent_config.get("timeout_seconds", 300)), endpoint=endpoint)
                             raw_path.write_text(text, encoding="utf-8")
                         parsed = _json_object(text)
                         output = validate_and_store_agent_output(
@@ -279,7 +289,7 @@ class RunOrchestrator:
                 if iteration.status == "completed":
                     self.emit(db, run_id, "agent_completed", f"第 {round_number} 轮 · {agent.name} 完成", {"agent_id": agent.id, "round": round_number, "duration_seconds": duration})
 
-    async def execute_round(self, run_id: str, round_number: int, config: dict, api_key: str) -> bool:
+    async def execute_round(self, run_id: str, round_number: int, config: dict, api_key: str, endpoint: LlmEndpoint | None = None) -> bool:
         engine_name = str(config.get("orchestrator_engine") or settings.orchestrator_engine).casefold()
         if engine_name == "langgraph":
             from .langgraph_runtime import RoundGraphEngine
@@ -287,9 +297,9 @@ class RunOrchestrator:
                 row = db.scalar(select(RunRound).where(RunRound.run_id == run_id, RunRound.round_number == round_number))
                 resume = bool(row and row.status in {"running", "paused", "recovering"})
             return await RoundGraphEngine(self).execute(run_id, round_number, config, resume=resume)
-        return await self.execute_round_legacy(run_id, round_number, config, api_key)
+        return await self.execute_round_legacy(run_id, round_number, config, api_key, endpoint)
 
-    async def execute_round_legacy(self, run_id: str, round_number: int, config: dict, api_key: str) -> bool:
+    async def execute_round_legacy(self, run_id: str, round_number: int, config: dict, api_key: str, endpoint: LlmEndpoint | None = None) -> bool:
         started = time.monotonic()
         with SessionLocal() as db:
             run = db.get(Run, run_id)
@@ -317,7 +327,7 @@ class RunOrchestrator:
                     with SessionLocal() as db:
                         run = db.get(Run, run_id); agent_ids = [agent.id for agent in run.agents] if run else []
                     agent_configs = config.get("agents") or []
-                    results = await asyncio.gather(*(self.execute_agent(run_id, aid, round_number, api_key, gap, agent_configs[pos] if pos < len(agent_configs) else {}) for pos, aid in enumerate(agent_ids)))
+                    results = await asyncio.gather(*(self.execute_agent(run_id, aid, round_number, api_key, gap, agent_configs[pos] if pos < len(agent_configs) else {}, endpoint) for pos, aid in enumerate(agent_ids)))
                     outputs = [item for item in results if item]
                     if not outputs: raise RuntimeError("本轮所有 Agent 均失败")
                     if len(outputs) < len(agent_ids):
@@ -384,6 +394,7 @@ class RunOrchestrator:
                         return
                 api_key = user_api_key(db, run.user_id)
                 if not api_key: raise ExternalServiceError("未配置模型 API Key")
+                endpoint = user_llm_endpoint(db, run.user_id)
                 config = json.loads(run.config_json or "{}")
                 run.status = "running"; run.started_at = run.started_at or datetime.now(timezone.utc); run.completed_at = None; run.error = None
                 run.worker_id = self.worker_id; run.heartbeat_at = datetime.now(timezone.utc)
@@ -420,7 +431,7 @@ class RunOrchestrator:
                     return
                 resume_round = bool(latest and latest.status in {"running", "paused", "recovering"})
                 round_number = int(current) if resume_round else int(current) + 1
-                success = await self.execute_round(run_id, round_number, config, api_key)
+                success = await self.execute_round(run_id, round_number, config, api_key, endpoint)
                 consecutive_failures = 0 if success else consecutive_failures + 1
                 with SessionLocal() as db:
                     persisted = db.get(Run, run_id)

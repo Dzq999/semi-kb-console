@@ -28,6 +28,7 @@ import {
   LockKeyhole,
   LoaderCircle,
   Mail,
+  MessagesSquare,
   Network,
   Newspaper,
   Pause,
@@ -38,18 +39,23 @@ import {
   Search,
   Send,
   Settings,
+  Share2,
   ShieldCheck,
   Sparkles,
+  Trash2,
+  Upload,
   Workflow,
 } from "lucide-react";
 import {
   api,
+  ApiError,
   type AgentConfig,
   type RunInfo,
   type RunReference,
   type SourceMode,
 } from "./api";
 import { useAppStore } from "./store";
+import OntologyGraph from "./OntologyGraph";
 
 type User = {
   id: number;
@@ -58,6 +64,9 @@ type User = {
     default_model_id?: string;
     default_agent_count: number;
     timezone: string;
+    llm_base_url?: string | null;
+    model_catalog_url?: string | null;
+    llm_api_style?: string | null;
   };
 };
 type DashboardData = {
@@ -104,10 +113,13 @@ const nav = [
   ["/", "总览", LayoutDashboard],
   ["/orchestrator", "任务编排", Bot],
   ["/ontology", "本体中心", Network],
+  ["/ontology-graph", "关系图谱", Share2],
   ["/knowledge", "知识库", Database],
+  ["/imports", "素材导入", Upload],
   ["/business", "经营模型", Gauge],
   ["/simulation", "仿真引擎", Cpu],
   ["/scenarios", "业务场景", FileText],
+  ["/qa", "智能问答", MessagesSquare],
   ["/reports", "日报中心", Newspaper],
   ["/exports", "导出中心", Archive],
   ["/history", "运行历史", History],
@@ -301,14 +313,20 @@ function Layout({
             element={<Orchestrator user={user} onUserChange={onUserChange} />}
           />
           <Route path="/ontology" element={<Ontology />} />
+          <Route path="/ontology-graph" element={<OntologyGraph />} />
           <Route path="/knowledge" element={<Knowledge />} />
+          <Route path="/imports" element={<ImportsPage />} />
           <Route path="/business" element={<Business />} />
           <Route path="/simulation" element={<Simulation />} />
           <Route path="/scenarios" element={<Scenarios />} />
+          <Route path="/qa" element={<QaPage user={user} />} />
           <Route path="/reports" element={<Reports user={user} />} />
           <Route path="/exports" element={<ExportCenter />} />
           <Route path="/history" element={<RunHistory />} />
-          <Route path="/settings" element={<SettingsPage user={user} />} />
+          <Route
+            path="/settings"
+            element={<SettingsPage user={user} onUserChange={onUserChange} />}
+          />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
@@ -1734,6 +1752,356 @@ function Knowledge() {
       metricKeys={["knowledge_entries"]}
       query={query}
     />
+  );
+}
+
+type ImportDeclaredClass = { iri: string; label: string };
+type ImportFileMapping = {
+  stored_name: string;
+  format: string;
+  headers: string[];
+  derived_from?: string | null;
+  target_class: string;
+  entity_keys: string[];
+  time_field?: string | null;
+  target_class_valid: boolean;
+};
+type ImportValidation = {
+  passed?: boolean;
+  status?: string;
+  error?: string | null;
+  datasets?: Array<{ path: string; target_class: string; field_count: number }>;
+};
+type ImportJobSummary = {
+  job_id: string;
+  status: string;
+  channel: string;
+  classification: string;
+  summary: string;
+  llm_model_id: string;
+  manifest: {
+    files?: ImportFileMapping[];
+    staged_only?: Array<{ stored_name: string; note: string }>;
+    declared_classes?: ImportDeclaredClass[];
+  };
+  validation: ImportValidation;
+  adopted_paths: { files?: string[]; gate_output?: string };
+  created_at: string;
+  adopted_at?: string | null;
+  rejected_at?: string | null;
+  uploaded?: Array<{ original_name: string; stored_name: string; format: string; size_bytes: number }>;
+};
+
+const IMPORT_STATUS_LABEL: Record<string, string> = {
+  uploaded: "已上传",
+  analyzed: "已分析",
+  validated: "校验通过",
+  invalid: "校验未过",
+  adopted: "已采纳",
+  rejected: "已丢弃",
+};
+
+function ImportsPage() {
+  const queryClient = useQueryClient();
+  const setNotice = useAppStore((state) => state.setNotice);
+  const models = useQuery<{ items: Array<{ id: string }>; default_model_id?: string }>({
+    queryKey: ["models"],
+    queryFn: () => api("/api/models?refresh=true"),
+    retry: false,
+  });
+  const jobs = useQuery<{ items: ImportJobSummary[] }>({
+    queryKey: ["imports"],
+    queryFn: () => api("/api/imports"),
+  });
+  const [files, setFiles] = useState<FileList | null>(null);
+  const [classification, setClassification] = useState("internal_confidential");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const upload = useMutation({
+    mutationFn: async () => {
+      const form = new FormData();
+      Array.from(files || []).forEach((file) => form.append("files", file));
+      form.append("classification", classification);
+      const response = await fetch("/api/imports", { method: "POST", credentials: "include", body: form });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({ detail: response.statusText }));
+        const detail = Array.isArray(body.detail)
+          ? body.detail.map((item: { msg?: string }) => item.msg).join("；")
+          : body.detail;
+        throw new ApiError(response.status, detail || `HTTP ${response.status}`);
+      }
+      return response.json() as Promise<ImportJobSummary>;
+    },
+    onSuccess: () => {
+      setNotice("素材已上传，可在下方任务里分析与采纳");
+      setFiles(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      queryClient.invalidateQueries({ queryKey: ["imports"] });
+    },
+  });
+  const fileCount = files ? files.length : 0;
+  return (
+    <div className="page">
+      <Panel title="素材导入" meta="上传 · 模型建议映射 · 引擎门禁校验 · 人工采纳">
+        <p>
+          上传结构化素材（xlsx / xls / csv / tsv / json / md），模型在已声明本体类约束下建议目标类与主键映射，经引擎真实门禁校验后由你采纳入库，用于交叉验证与知识库补充。原件 sha256 锁定不可变，绝不自动写入推理层。restricted 素材仅暂存、禁止采纳。
+        </p>
+        <div className="import-upload">
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            accept=".xlsx,.xls,.csv,.tsv,.json,.md,.txt"
+            onChange={(event) => setFiles(event.target.files)}
+          />
+          <select value={classification} onChange={(event) => setClassification(event.target.value)}>
+            <option value="internal">internal（内部）</option>
+            <option value="internal_confidential">internal_confidential（内部机密）</option>
+            <option value="restricted">restricted（受限·仅暂存）</option>
+          </select>
+          <Button primary onClick={() => upload.mutate()} disabled={fileCount === 0 || upload.isPending}>
+            <Upload size={15} />
+            {upload.isPending ? "上传中…" : `上传${fileCount ? `（${fileCount}）` : ""}`}
+          </Button>
+        </div>
+        {upload.error && <ErrorBox error={upload.error} />}
+      </Panel>
+      {jobs.isLoading ? (
+        <Loading />
+      ) : jobs.error ? (
+        <ErrorBox error={jobs.error} />
+      ) : (jobs.data?.items || []).length === 0 ? (
+        <Panel title="导入任务">
+          <small>暂无导入任务。</small>
+        </Panel>
+      ) : (
+        <div className="catalog-grid">
+          {(jobs.data?.items || []).map((job) => (
+            <ImportJobCard
+              key={job.job_id}
+              job={job}
+              models={models.data?.items || []}
+              defaultModel={models.data?.default_model_id}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ImportJobCard({
+  job,
+  models,
+  defaultModel,
+}: {
+  job: ImportJobSummary;
+  models: Array<{ id: string }>;
+  defaultModel?: string;
+}) {
+  const queryClient = useQueryClient();
+  const setNotice = useAppStore((state) => state.setNotice);
+  const [model, setModel] = useState(job.llm_model_id || defaultModel || "");
+  const [draft, setDraft] = useState<ImportFileMapping[]>(job.manifest.files || []);
+  useEffect(() => {
+    setDraft(job.manifest.files || []);
+  }, [job.manifest.files]);
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ["imports"] });
+  const classes = job.manifest.declared_classes || [];
+  const restricted = job.classification === "restricted";
+
+  const analyze = useMutation({
+    mutationFn: () =>
+      api<ImportJobSummary>(`/api/imports/${job.job_id}/analyze`, {
+        method: "POST",
+        body: JSON.stringify({ model_id: model || defaultModel || "" }),
+      }),
+    onSuccess: () => {
+      setNotice("模型已给出映射建议，请核对目标类后校验");
+      invalidate();
+    },
+  });
+  const saveMapping = useMutation({
+    mutationFn: () =>
+      api<ImportJobSummary>(`/api/imports/${job.job_id}/mapping`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          files: draft.map((file) => ({
+            stored_name: file.stored_name,
+            target_class: file.target_class,
+            entity_keys: file.entity_keys,
+            time_field: file.time_field ?? null,
+          })),
+        }),
+      }),
+    onSuccess: () => {
+      setNotice("映射已保存，请重新校验");
+      invalidate();
+    },
+  });
+  const validate = useMutation({
+    mutationFn: () => api<ImportJobSummary>(`/api/imports/${job.job_id}/validate`, { method: "POST" }),
+    onSuccess: (data) => {
+      setNotice(data.validation?.passed ? "校验通过，可采纳入库" : "校验未通过，请查看错误");
+      invalidate();
+    },
+  });
+  const adopt = useMutation({
+    mutationFn: () => api<ImportJobSummary>(`/api/imports/${job.job_id}/adopt`, { method: "POST" }),
+    onSuccess: () => {
+      setNotice("已采纳入库并通过线上门禁");
+      invalidate();
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+    },
+  });
+  const remove = useMutation({
+    mutationFn: () => api(`/api/imports/${job.job_id}`, { method: "DELETE" }),
+    onSuccess: () => {
+      setNotice("导入任务已丢弃");
+      invalidate();
+    },
+  });
+
+  const updateFile = (name: string, patch: Partial<ImportFileMapping>) =>
+    setDraft((prev) => prev.map((file) => (file.stored_name === name ? { ...file, ...patch } : file)));
+  const busy = analyze.isPending || saveMapping.isPending || validate.isPending || adopt.isPending || remove.isPending;
+  const mutationError = analyze.error || saveMapping.error || validate.error || adopt.error || remove.error;
+  const terminal = job.status === "adopted" || job.status === "rejected";
+
+  return (
+    <div className="catalog-card import-card">
+      <div className="import-card-head">
+        <div>
+          <strong>{job.summary || job.job_id}</strong>
+          <small className="import-sub">
+            {new Date(job.created_at).toLocaleString()} · {job.classification}
+          </small>
+        </div>
+        <span className={`import-badge import-badge-${job.status}`}>
+          {IMPORT_STATUS_LABEL[job.status] || job.status}
+        </span>
+      </div>
+
+      {restricted && (
+        <div className="import-restricted">
+          <LockKeyhole size={14} /> restricted 素材仅暂存与记录元数据，禁止采纳入库。
+        </div>
+      )}
+
+      {job.uploaded && job.status === "uploaded" && (
+        <ul className="import-filelist">
+          {job.uploaded.map((file) => (
+            <li key={file.stored_name}>
+              {file.original_name}
+              <small> · {file.format} · {(file.size_bytes / 1024).toFixed(1)} KB</small>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {(job.manifest.staged_only || []).length > 0 && (
+        <div className="import-hint">
+          仅暂存（需人工转结构化后再导入）：
+          {(job.manifest.staged_only || []).map((item) => item.stored_name).join("、")}
+        </div>
+      )}
+
+      {draft.length > 0 && (
+        <div className="import-mapping">
+          {draft.map((file) => (
+            <div key={file.stored_name} className="import-map-row">
+              <div className="import-map-name">
+                {file.stored_name}
+                {file.derived_from && <small> · 由 {file.derived_from} 扁平化</small>}
+              </div>
+              <select
+                value={file.target_class}
+                disabled={terminal}
+                onChange={(event) =>
+                  updateFile(file.stored_name, { target_class: event.target.value, target_class_valid: true })
+                }
+              >
+                <option value="">— 选择目标本体类 —</option>
+                {classes.map((cls) => (
+                  <option key={cls.iri} value={cls.iri}>
+                    {cls.label}（{cls.iri.split(":").pop()}）
+                  </option>
+                ))}
+              </select>
+              <div className="import-keys">
+                {file.headers.map((header) => (
+                  <label key={header} className="import-key">
+                    <input
+                      type="checkbox"
+                      disabled={terminal}
+                      checked={file.entity_keys.includes(header)}
+                      onChange={(event) =>
+                        updateFile(file.stored_name, {
+                          entity_keys: event.target.checked
+                            ? [...file.entity_keys, header]
+                            : file.entity_keys.filter((key) => key !== header),
+                        })
+                      }
+                    />
+                    {header}
+                  </label>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {job.validation?.error && <div className="import-error">{job.validation.error}</div>}
+      {job.validation?.passed && (
+        <div className="import-ok">
+          <CheckCircle2 size={14} /> {job.validation.datasets?.length || 0} 个数据集通过门禁
+        </div>
+      )}
+      {job.status === "adopted" && (job.adopted_paths.files || []).length > 0 && (
+        <div className="import-hint">已入库：{(job.adopted_paths.files || []).join("、")}</div>
+      )}
+      {mutationError && <ErrorBox error={mutationError} />}
+
+      <div className="import-actions">
+        {job.status === "uploaded" && (
+          <>
+            <select value={model} onChange={(event) => setModel(event.target.value)}>
+              {models.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.id}
+                </option>
+              ))}
+            </select>
+            <Button primary onClick={() => analyze.mutate()} disabled={busy}>
+              <Sparkles size={14} />
+              {analyze.isPending ? "分析中…" : "分析映射"}
+            </Button>
+          </>
+        )}
+        {(job.status === "analyzed" || job.status === "invalid" || job.status === "validated") && !restricted && (
+          <>
+            <Button onClick={() => saveMapping.mutate()} disabled={busy}>
+              <Save size={14} /> 保存映射
+            </Button>
+            <Button primary onClick={() => validate.mutate()} disabled={busy}>
+              <ShieldCheck size={14} />
+              {validate.isPending ? "校验中…" : "校验"}
+            </Button>
+          </>
+        )}
+        {job.status === "validated" && !restricted && (
+          <Button primary onClick={() => adopt.mutate()} disabled={busy}>
+            <CheckCircle2 size={14} />
+            {adopt.isPending ? "采纳中…" : "采纳入库"}
+          </Button>
+        )}
+        {!terminal && (
+          <Button danger onClick={() => remove.mutate()} disabled={busy}>
+            <Trash2 size={14} /> 丢弃
+          </Button>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -3447,7 +3815,13 @@ function RunHistory() {
   );
 }
 
-function SettingsPage({ user }: { user: User }) {
+function SettingsPage({
+  user,
+  onUserChange,
+}: {
+  user: User;
+  onUserChange: (user: User) => void;
+}) {
   const queryClient = useQueryClient();
   const setNotice = useAppStore((state) => state.setNotice);
   const [values, setValues] = useState<Record<string, string>>({
@@ -3487,6 +3861,40 @@ function SettingsPage({ user }: { user: User }) {
     mutationFn: () =>
       api("/api/report-settings/test-email", { method: "POST" }),
     onSuccess: () => setNotice("测试提醒邮件已发送"),
+  });
+  const [endpoint, setEndpoint] = useState({
+    llm_base_url: user.preferences.llm_base_url || "",
+    model_catalog_url: user.preferences.model_catalog_url || "",
+    llm_api_style: user.preferences.llm_api_style || "anthropic",
+  });
+  const saveEndpoint = useMutation({
+    mutationFn: () =>
+      api<{
+        llm_base_url: string | null;
+        model_catalog_url: string | null;
+        llm_api_style: string | null;
+      }>("/api/users/me/preferences/llm-endpoint", {
+        method: "PATCH",
+        body: JSON.stringify({
+          llm_base_url: endpoint.llm_base_url.trim() || null,
+          model_catalog_url: endpoint.model_catalog_url.trim() || null,
+          llm_api_style: endpoint.llm_api_style,
+        }),
+      }),
+    onSuccess: async (data) => {
+      setEndpoint({
+        llm_base_url: data.llm_base_url || "",
+        model_catalog_url: data.model_catalog_url || "",
+        llm_api_style: data.llm_api_style || "anthropic",
+      });
+      queryClient.invalidateQueries({ queryKey: ["models"] });
+      try {
+        onUserChange(await api<User>("/api/users/me"));
+      } catch {
+        /* 保存成功即可，用户信息刷新失败不阻断 */
+      }
+      setNotice("模型端点已保存");
+    },
   });
   const labels: Record<string, string> = {
     llm_api_key: "4SAPI API Key",
@@ -3577,6 +3985,297 @@ function SettingsPage({ user }: { user: User }) {
           />
         )}
       </Panel>
+      <Panel title="模型端点" meta="留空即用系统默认">
+        <div className="endpoint-form">
+          <p className="endpoint-hint">
+            自定义模型服务地址。仅允许 https:// 或本地 http://localhost / http://127.0.0.1，留空则回退系统默认。
+          </p>
+          <label>
+            <span>LLM Base URL</span>
+            <input
+              value={endpoint.llm_base_url}
+              onChange={(event) =>
+                setEndpoint((prev) => ({ ...prev, llm_base_url: event.target.value }))
+              }
+              placeholder="https://4sapi.org/v1"
+            />
+          </label>
+          <label>
+            <span>模型目录 URL</span>
+            <input
+              value={endpoint.model_catalog_url}
+              onChange={(event) =>
+                setEndpoint((prev) => ({ ...prev, model_catalog_url: event.target.value }))
+              }
+              placeholder="https://4sapi.org/v1/models"
+            />
+          </label>
+          <label>
+            <span>接口风格</span>
+            <select
+              value={endpoint.llm_api_style}
+              onChange={(event) =>
+                setEndpoint((prev) => ({ ...prev, llm_api_style: event.target.value }))
+              }
+            >
+              <option value="anthropic">Anthropic 原生 /v1/messages</option>
+              <option value="openai">OpenAI 兼容 /v1/chat/completions</option>
+            </select>
+          </label>
+          <div className="actions">
+            <Button
+              primary
+              onClick={() => saveEndpoint.mutate()}
+              disabled={saveEndpoint.isPending}
+            >
+              <Save size={14} />
+              {saveEndpoint.isPending ? "保存中…" : "保存端点"}
+            </Button>
+          </div>
+          {saveEndpoint.error && <ErrorBox error={saveEndpoint.error} />}
+        </div>
+      </Panel>
+    </div>
+  );
+}
+
+type QaCitation = { source?: string; ref?: string; note?: string };
+type QaMessage = {
+  id: number;
+  role: "user" | "assistant";
+  content: string;
+  citations: QaCitation[];
+  model_id?: string | null;
+  grounded: boolean;
+  created_at: string;
+};
+type QaConversationSummary = {
+  id: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+};
+type QaConversationDetail = QaConversationSummary & { messages: QaMessage[] };
+
+function QaMessageBubble({ message }: { message: QaMessage }) {
+  const isUser = message.role === "user";
+  return (
+    <div className={`qa-msg ${isUser ? "qa-msg-user" : "qa-msg-assistant"}`}>
+      <div className="qa-bubble">
+        {!isUser && !message.grounded && (
+          <span className="qa-badge-fallback">
+            <AlertTriangle size={11} aria-hidden="true" />
+            非本库来源 · 仅供参考
+          </span>
+        )}
+        <p className="qa-bubble-text">{message.content}</p>
+        {!isUser && message.citations.length > 0 && (
+          <details className="qa-citations">
+            <summary>引用来源（{message.citations.length}）</summary>
+            <ul>
+              {message.citations.map((cite, index) => (
+                <li key={`${cite.ref ?? cite.source ?? index}-${index}`}>
+                  <strong>{cite.source || "来源"}</strong>
+                  {cite.ref && <code>{cite.ref}</code>}
+                  {cite.note && <span>{cite.note}</span>}
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
+        {!isUser && message.model_id && (
+          <small className="qa-model-tag">{message.model_id}</small>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function QaPage({ user }: { user: User }) {
+  const queryClient = useQueryClient();
+  const setNotice = useAppStore((state) => state.setNotice);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [question, setQuestion] = useState("");
+  const [model, setModel] = useState("");
+  const [pending, setPending] = useState<string | null>(null);
+  const streamRef = useRef<HTMLDivElement>(null);
+  const models = useQuery<{ items: Array<{ id: string }>; default_model_id?: string }>({
+    queryKey: ["models"],
+    queryFn: () => api("/api/models?refresh=true"),
+    retry: false,
+  });
+  const conversations = useQuery<{ items: QaConversationSummary[] }>({
+    queryKey: ["qa-conversations"],
+    queryFn: () => api("/api/qa/conversations"),
+  });
+  const active = useQuery<QaConversationDetail>({
+    queryKey: ["qa-conversation", activeId],
+    queryFn: () => api(`/api/qa/conversations/${activeId}`),
+    enabled: !!activeId,
+  });
+  useEffect(() => {
+    if (!model) {
+      setModel(user.preferences.default_model_id || models.data?.default_model_id || "");
+    }
+  }, [user.preferences.default_model_id, models.data?.default_model_id, model]);
+  useEffect(() => {
+    streamRef.current?.scrollTo({ top: streamRef.current.scrollHeight });
+  }, [active.data?.messages?.length, pending]);
+  const createConversation = useMutation({
+    mutationFn: () =>
+      api<QaConversationSummary>("/api/qa/conversations", {
+        method: "POST",
+        body: JSON.stringify({ title: "新会话" }),
+      }),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["qa-conversations"] });
+      setActiveId(data.id);
+    },
+  });
+  const ask = useMutation({
+    mutationFn: ({ conversationId, text }: { conversationId: string; text: string }) =>
+      api<QaMessage>(`/api/qa/conversations/${conversationId}/ask`, {
+        method: "POST",
+        body: JSON.stringify({ question: text, model_id: model || null }),
+      }),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["qa-conversation", variables.conversationId] });
+      queryClient.invalidateQueries({ queryKey: ["qa-conversations"] });
+    },
+    onSettled: () => setPending(null),
+  });
+  const removeConversation = useMutation({
+    mutationFn: (id: string) => api(`/api/qa/conversations/${id}`, { method: "DELETE" }),
+    onSuccess: (_, id) => {
+      if (activeId === id) setActiveId(null);
+      queryClient.invalidateQueries({ queryKey: ["qa-conversations"] });
+      setNotice("会话已删除");
+    },
+  });
+  const send = async () => {
+    const text = question.trim();
+    if (!text || ask.isPending) return;
+    setQuestion("");
+    setPending(text);
+    try {
+      let conversationId = activeId;
+      if (!conversationId) {
+        conversationId = (await createConversation.mutateAsync()).id;
+      }
+      await ask.mutateAsync({ conversationId, text });
+    } catch {
+      setPending(null);
+      setQuestion(text);
+    }
+  };
+  const items = conversations.data?.items || [];
+  const messages = active.data?.messages || [];
+  return (
+    <div className="page">
+      <div className="page-head">
+        <div>
+          <h2>智能问答</h2>
+          <p>基于经营模型、仿真引擎与项目知识库综合作答，答案附可追溯来源。</p>
+        </div>
+        <Button primary onClick={() => setActiveId(null)}>
+          <Sparkles size={15} />
+          新建会话
+        </Button>
+      </div>
+      <div className="qa-layout">
+        <Panel title="历史会话" meta={`${items.length} 个`} className="qa-list-panel">
+          {conversations.isLoading ? (
+            <Loading />
+          ) : items.length === 0 ? (
+            <div className="reference-empty">还没有会话，直接提问即可开启。</div>
+          ) : (
+            <ul className="qa-conv-list">
+              {items.map((conv) => (
+                <li
+                  key={conv.id}
+                  className={conv.id === activeId ? "qa-conv-item active" : "qa-conv-item"}
+                >
+                  <button type="button" onClick={() => setActiveId(conv.id)}>
+                    <span>{conv.title}</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="qa-conv-del"
+                    aria-label="删除会话"
+                    onClick={() => removeConversation.mutate(conv.id)}
+                    disabled={removeConversation.isPending}
+                  >
+                    <CircleStop size={13} />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Panel>
+        <Panel
+          title={active.data?.title || "新会话"}
+          meta="严格接地 · 通用兜底"
+          className="qa-chat-panel"
+        >
+          <div className="qa-stream" ref={streamRef}>
+            {activeId && active.isLoading ? (
+              <Loading />
+            ) : messages.length === 0 && !pending ? (
+              <div className="reference-empty">
+                问我成本预测、良率影响、场景对比等问题，我会结合模型与知识库作答。
+              </div>
+            ) : (
+              messages.map((message) => (
+                <QaMessageBubble key={message.id} message={message} />
+              ))
+            )}
+            {pending && (
+              <>
+                <div className="qa-msg qa-msg-user">
+                  <div className="qa-bubble">
+                    <p className="qa-bubble-text">{pending}</p>
+                  </div>
+                </div>
+                <div className="qa-msg qa-msg-assistant">
+                  <div className="qa-bubble qa-bubble-thinking">
+                    <RefreshCw className="spin" size={13} />
+                    正在综合模型与知识库…
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+          {ask.error && <ErrorBox error={ask.error} />}
+          <div className="qa-composer">
+            <select value={model} onChange={(event) => setModel(event.target.value)}>
+              {model && !(models.data?.items || []).some((item) => item.id === model) && (
+                <option value={model}>{model}</option>
+              )}
+              {(models.data?.items || []).map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.id}
+                </option>
+              ))}
+            </select>
+            <textarea
+              value={question}
+              onChange={(event) => setQuestion(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+                  event.preventDefault();
+                  send();
+                }
+              }}
+              placeholder="例如：良率提升 2% 对单月利润的影响，Ctrl+Enter 发送"
+              rows={2}
+            />
+            <Button primary onClick={send} disabled={!question.trim() || ask.isPending}>
+              <Send size={15} />
+              {ask.isPending ? "作答中…" : "发送"}
+            </Button>
+          </div>
+        </Panel>
+      </div>
     </div>
   );
 }

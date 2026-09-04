@@ -151,3 +151,19 @@ async def test_openai_style_builds_chat_completions_request(monkeypatch):
     assert result == "compat-ok"
     assert _CapturingClient.last_url.endswith("/chat/completions")
     assert _CapturingClient.last_payload["messages"][0] == {"role": "system", "content": "sys-prompt"}
+
+
+@pytest.mark.asyncio
+async def test_endpoint_override_beats_global_settings(monkeypatch):
+    # 传入的 per-user endpoint 应完全覆盖全局 settings：即便全局是 anthropic，
+    # endpoint.api_style=openai 也要打到自定义 base_url 的 /chat/completions。
+    from app.services.llm import LlmEndpoint
+
+    _use_style(monkeypatch, "anthropic")
+    _CapturingClient.script = [_FakeResponse(200, "custom-ok")]
+    _CapturingClient.calls = 0
+    monkeypatch.setattr(httpx, "AsyncClient", _CapturingClient)
+    endpoint = LlmEndpoint(base_url="https://proxy.example.com/v1", catalog_url="https://proxy.example.com/v1/models", api_style="openai")
+    result = await LlmService().complete("key", "gpt-x", "sys", "user", endpoint=endpoint)
+    assert result == "custom-ok"
+    assert _CapturingClient.last_url == "https://proxy.example.com/v1/chat/completions"

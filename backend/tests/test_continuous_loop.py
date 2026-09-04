@@ -32,7 +32,7 @@ async def test_continuous_run_stops_at_requested_round(authenticated, monkeypatc
 
     rounds: list[int] = []
 
-    async def execute_round(run_id: str, round_number: int, _config: dict, _api_key: str) -> bool:
+    async def execute_round(run_id: str, round_number: int, _config: dict, _api_key: str, _endpoint=None) -> bool:
         rounds.append(round_number)
         with SessionLocal() as db:
             db.add(RunRound(run_id=run_id, round_number=round_number, status="completed", current_stage="completed", metrics_before_json="{}", metrics_after_json="{}"))
@@ -68,7 +68,7 @@ async def test_running_loop_keeps_starting_rounds_until_next_round_stop_is_click
 
     rounds: list[int] = []
 
-    async def execute_round(active_run_id: str, round_number: int, _config: dict, _api_key: str) -> bool:
+    async def execute_round(active_run_id: str, round_number: int, _config: dict, _api_key: str, _endpoint=None) -> bool:
         rounds.append(round_number)
         with SessionLocal() as db:
             db.add(RunRound(run_id=active_run_id, round_number=round_number, status="completed", current_stage="completed", metrics_before_json="{}", metrics_after_json="{}"))
@@ -89,7 +89,7 @@ async def test_running_loop_keeps_starting_rounds_until_next_round_stop_is_click
 def test_stop_after_next_round_endpoint(authenticated, monkeypatch):
     authenticated.put("/api/credentials", json={"kind": "llm_api_key", "value": "test-key"})
 
-    async def fake_models(_key, search=""):
+    async def fake_models(_key, search="", **_kwargs):
         return [{"id": "gpt-test", "available": True}]
 
     monkeypatch.setattr("app.main.llm_service.list_models", fake_models)
