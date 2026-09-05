@@ -22,7 +22,7 @@
 4. **PowerShell 5.1+**（Windows 10/11 自带）
    - 验证：`$PSVersionTable.PSVersion`
 
-5. **Git**（可选，用于克隆仓库）
+5. **Git**（可选，用于从 GitHub 克隆仓库）
    - 下载：https://git-scm.com/download/win
 
 ### 可选软件
@@ -70,20 +70,36 @@ $env:SEMI_KB_DB_PASSWORD
 
 ## 三、项目迁移步骤
 
-假设你已经拿到项目压缩包或 Git 仓库。
-
-### 1. 解压/克隆项目
+### 方式一：从 GitHub 克隆（推荐）
 
 ```powershell
-# 如果是压缩包，解压到目标目录（例如 D:\Projects\semi-kb-console）
-# 如果是 Git 仓库：
-git clone <仓库地址> D:\Projects\semi-kb-console
+git clone https://github.com/Dzq999/semi-kb-console.git D:\Projects\semi-kb-console
 cd D:\Projects\semi-kb-console
 ```
 
-### 2. 配置 `.env` 文件
+### 方式二：从压缩包解压
 
-复制示例配置并按需修改：
+如果从当前电脑打包迁移，先在原电脑压缩项目目录（**排除以下目录以减小体积**）：
+
+- `.venv/`（虚拟环境，新电脑会重建）
+- `frontend/node_modules/`（npm 依赖，新电脑会重装）
+- `backend/__pycache__/`、`**/*.pyc`（Python 缓存）
+- `data/console.db`（如果已迁移到 PostgreSQL）
+
+解压到新电脑目标目录（例如 `D:\Projects\semi-kb-console`）。
+
+**重要数据**：
+- `data/.master.key`（加密密钥，必须保留）
+- `data/engine/`（本体、经营模型、知识库数据）
+- `.env`（配置文件，需根据新电脑环境调整数据库密码等）
+
+---
+
+## 四、初始化新环境
+
+### 1. 配置 `.env` 文件
+
+如果从 GitHub 克隆，复制示例配置：
 
 ```powershell
 Copy-Item .env.example .env
@@ -105,40 +121,40 @@ SEMI_KB_DB_USER=semi_kb_console
 
 **警告**：不要把密码、API Key 等敏感信息直接写入 `.env` 文件并提交到版本控制！
 
-### 3. 迁移引擎数据
+### 2. 初始化引擎数据（仅 GitHub 克隆需要）
 
-项目自带 `engine-seed` 目录作为初始引擎数据。首次部署执行：
+如果从 GitHub 克隆，项目自带 `engine-seed` 初始数据。执行：
 
 ```powershell
 .\scripts\migrate-engine.ps1
 ```
 
-**如果从旧版 `semi-kb` 项目迁移**，可以指定源路径（仅执行一次）：
+这会把 `engine-seed` 的本体、经营模型、仿真、知识库等数据复制到 `data\engine`。
 
-```powershell
-.\scripts\migrate-engine.ps1 -Source D:\old-projects\semi-kb
-```
+**如果从压缩包迁移**，`data\engine` 已包含原电脑的数据，**跳过此步骤**。
 
-这会把旧项目的本体、经营模型、仿真、知识库等数据复制到 `data\engine`。迁移完成后，运行时不再依赖旧项目。
-
-### 4. 初始化 PostgreSQL 数据库
+### 3. 初始化 PostgreSQL 数据库
 
 ```powershell
 .\scripts\migrate-postgres.ps1
 ```
 
 这会：
-- 安装 Python 依赖（如果 venv 不存在）
+- 安装 Python 依赖（如果 `.venv` 不存在）
 - 执行 Alembic 数据库迁移（创建表结构）
 - 验证 PostgreSQL 连接
 
-**仅在从旧 SQLite 数据库导入时**，额外带参数：
+**如果从原电脑 PostgreSQL 导出了数据**，可以先恢复备份，再执行上述命令（Alembic 会跳过已存在的表）：
 
 ```powershell
-.\scripts\migrate-postgres.ps1 -MigrateSqlite -SqliteSource .\data\console.db
+# 先恢复备份（可选）
+psql -U semi_kb_console -h localhost -d semi_kb_console < backup.sql
+
+# 再执行迁移脚本
+.\scripts\migrate-postgres.ps1
 ```
 
-### 5. 启动后端和前端
+### 4. 启动后端和前端
 
 ```powershell
 .\scripts\dev.ps1
@@ -156,7 +172,7 @@ SEMI_KB_DB_USER=semi_kb_console
 - **前端**：http://127.0.0.1:5173
 - **后端 API 文档**：http://127.0.0.1:8765/docs
 
-### 6. 首次设置
+### 5. 首次设置
 
 1. 浏览器打开 http://127.0.0.1:5173
 2. 首次进入会提示创建管理员账号，设置用户名和密码
@@ -167,9 +183,11 @@ SEMI_KB_DB_USER=semi_kb_console
 
 所有凭据由后端加密保存（Fernet），前端不回显明文。
 
+**如果从压缩包迁移且保留了 `data/.master.key`**，加密凭据会自动沿用，无需重新录入。
+
 ---
 
-## 四、日常使用
+## 五、日常使用
 
 ### 启动项目
 
@@ -200,7 +218,7 @@ SEMI_KB_DB_USER=semi_kb_console
 
 ---
 
-## 五、常见问题
+## 六、常见问题
 
 ### Q1: `dev.ps1` 报错"无法加载，因为禁止运行脚本"
 
@@ -219,7 +237,9 @@ Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 
 ### Q3: 后端启动失败，提示"缺少控制台本地引擎"
 
-先执行 `.\scripts\migrate-engine.ps1` 初始化引擎数据。
+从 GitHub 克隆后需要先执行 `.\scripts\migrate-engine.ps1` 初始化引擎数据。
+
+从压缩包迁移的情况下，确认 `data\engine\scripts\kb.py` 文件存在。
 
 ### Q4: 前端页面空白或报 API 错误
 
@@ -232,6 +252,7 @@ Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 1. 检查 `netstat -ano | findstr ":443"` 是否有到 `112.90.14.200:443` 的 `ESTABLISHED` 连接（WeCom 长连接）
 2. 检查"系统设置"里企微 Bot ID 和 Secret 是否正确
 3. 查看后端日志是否有 `WeCom AI bot authenticated` 或错误信息
+4. **检查系统代理设置**：WeCom WebSocket 长连接可能被代理拦截握手，导致超时。尝试临时关闭代理后重启后端。
 
 ### Q6: Python 依赖安装很慢
 
@@ -241,9 +262,13 @@ Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 .\.venv\Scripts\python.exe -m pip install -r backend\requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 ```
 
+### Q7: 从压缩包迁移后加密凭据无法解密
+
+确认 `data\.master.key` 文件已从原电脑复制过来。如果丢失，需要在"系统设置"页重新录入所有凭据。
+
 ---
 
-## 六、备份与恢复
+## 七、备份与恢复
 
 ### 备份 PostgreSQL 数据库
 
@@ -265,9 +290,22 @@ psql -U semi_kb_console -h localhost -d semi_kb_console < backup_20260905_120000
 
 `data\.master.key` 是加密凭据的主密钥，**必须妥善保管**。丢失后无法解密已保存的 API Key 等凭据。
 
+### 完整项目备份（迁移到新电脑）
+
+压缩整个项目目录，但建议**排除以下目录**以减小体积：
+
+- `.venv/`（虚拟环境，新电脑会重建）
+- `frontend/node_modules/`（npm 依赖，新电脑会重装）
+- `backend/__pycache__/`、`**/*.pyc`（Python 缓存）
+
+**必须保留**：
+- `data/.master.key`
+- `data/engine/`
+- `.env`（需根据新电脑调整）
+
 ---
 
-## 七、更新项目
+## 八、更新项目
 
 如果从 Git 拉取更新：
 
@@ -285,7 +323,7 @@ git pull origin main
 
 ---
 
-## 八、生产部署建议
+## 九、生产部署建议
 
 本指南面向开发和测试环境。生产部署需要额外考虑：
 

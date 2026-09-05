@@ -28,7 +28,7 @@
    - 或下载图形化安装器：https://www.postgresql.org/download/macosx/
    - 验证：`psql --version`
 
-4. **Git**（可选，用于克隆仓库）
+4. **Git**（可选，用于从 GitHub 克隆仓库）
    - macOS 自带，或通过 Xcode Command Line Tools 安装：
      ```bash
      xcode-select --install
@@ -88,20 +88,36 @@ echo $SEMI_KB_DB_PASSWORD
 
 ## 三、项目迁移步骤
 
-假设你已经拿到项目压缩包或 Git 仓库。
-
-### 1. 解压/克隆项目
+### 方式一：从 GitHub 克隆（推荐）
 
 ```bash
-# 如果是压缩包，解压到目标目录（例如 ~/Projects/semi-kb-console）
-# 如果是 Git 仓库：
-git clone <仓库地址> ~/Projects/semi-kb-console
+git clone https://github.com/Dzq999/semi-kb-console.git ~/Projects/semi-kb-console
 cd ~/Projects/semi-kb-console
 ```
 
-### 2. 配置 `.env` 文件
+### 方式二：从压缩包解压
 
-复制示例配置并按需修改：
+如果从当前电脑打包迁移，先在原电脑压缩项目目录（**排除以下目录以减小体积**）：
+
+- `.venv/`（虚拟环境，新电脑会重建）
+- `frontend/node_modules/`（npm 依赖，新电脑会重装）
+- `backend/__pycache__/`、`**/*.pyc`（Python 缓存）
+- `data/console.db`（如果已迁移到 PostgreSQL）
+
+解压到新电脑目标目录（例如 `~/Projects/semi-kb-console`）。
+
+**重要数据**：
+- `data/.master.key`（加密密钥，必须保留）
+- `data/engine/`（本体、经营模型、知识库数据）
+- `.env`（配置文件，需根据新电脑环境调整数据库密码等）
+
+---
+
+## 四、初始化新环境
+
+### 1. 配置 `.env` 文件
+
+如果从 GitHub 克隆，复制示例配置：
 
 ```bash
 cp .env.example .env
@@ -123,29 +139,25 @@ SEMI_KB_DB_USER=semi_kb_console
 
 **警告**：不要把密码、API Key 等敏感信息直接写入 `.env` 文件并提交到版本控制！
 
-### 3. 给脚本添加执行权限
+### 2. 给脚本添加执行权限
 
 ```bash
 chmod +x scripts/*.sh
 ```
 
-### 4. 迁移引擎数据
+### 3. 初始化引擎数据（仅 GitHub 克隆需要）
 
-项目自带 `engine-seed` 目录作为初始引擎数据。首次部署执行：
+如果从 GitHub 克隆，项目自带 `engine-seed` 初始数据。执行：
 
 ```bash
 ./scripts/migrate-engine.sh
 ```
 
-**如果从旧版 `semi-kb` 项目迁移**，可以指定源路径（仅执行一次）：
+这会把 `engine-seed` 的本体、经营模型、仿真、知识库等数据复制到 `data/engine`。
 
-```bash
-./scripts/migrate-engine.sh --source ~/old-projects/semi-kb
-```
+**如果从压缩包迁移**，`data/engine` 已包含原电脑的数据，**跳过此步骤**。
 
-这会把旧项目的本体、经营模型、仿真、知识库等数据复制到 `data/engine`。迁移完成后，运行时不再依赖旧项目。
-
-### 5. 初始化 PostgreSQL 数据库
+### 4. 初始化 PostgreSQL 数据库
 
 ```bash
 ./scripts/migrate-postgres.sh
@@ -157,13 +169,17 @@ chmod +x scripts/*.sh
 - 执行 Alembic 数据库迁移（创建表结构）
 - 验证 PostgreSQL 连接
 
-**仅在从旧 SQLite 数据库导入时**，额外带参数：
+**如果从原电脑 PostgreSQL 导出了数据**，可以先恢复备份，再执行上述命令（Alembic 会跳过已存在的表）：
 
 ```bash
-./scripts/migrate-postgres.sh --migrate-sqlite --sqlite-source ./data/console.db
+# 先恢复备份（可选）
+psql -U semi_kb_console -h localhost -d semi_kb_console < backup.sql
+
+# 再执行迁移脚本
+./scripts/migrate-postgres.sh
 ```
 
-### 6. 启动后端和前端
+### 5. 启动后端和前端
 
 ```bash
 ./scripts/dev.sh
@@ -181,7 +197,7 @@ chmod +x scripts/*.sh
 - **前端**：http://127.0.0.1:5173
 - **后端 API 文档**：http://127.0.0.1:8765/docs
 
-### 7. 首次设置
+### 6. 首次设置
 
 1. 浏览器打开 http://127.0.0.1:5173
 2. 首次进入会提示创建管理员账号，设置用户名和密码
@@ -192,9 +208,11 @@ chmod +x scripts/*.sh
 
 所有凭据由后端加密保存（Fernet），前端不回显明文。
 
+**如果从压缩包迁移且保留了 `data/.master.key`**，加密凭据会自动沿用，无需重新录入。
+
 ---
 
-## 四、日常使用
+## 五、日常使用
 
 ### 启动项目
 
@@ -234,7 +252,7 @@ cd backend
 
 ---
 
-## 五、常见问题
+## 六、常见问题
 
 ### Q1: `./scripts/dev.sh` 报错 "Permission denied"
 
@@ -258,7 +276,9 @@ chmod +x scripts/*.sh
 
 ### Q3: 后端启动失败，提示"缺少控制台本地引擎"
 
-先执行 `./scripts/migrate-engine.sh` 初始化引擎数据。
+从 GitHub 克隆后需要先执行 `./scripts/migrate-engine.sh` 初始化引擎数据。
+
+从压缩包迁移的情况下，确认 `data/engine/scripts/kb.py` 文件存在。
 
 ### Q4: `lsof: command not found`
 
@@ -267,8 +287,6 @@ macOS 应该自带 `lsof`。如果缺失，检查是否安装了 Xcode Command L
 ```bash
 xcode-select --install
 ```
-
-或者使用 `netstat` 替代（需要安装 `net-tools`）。
 
 ### Q5: Python 版本不匹配
 
@@ -291,6 +309,7 @@ brew install python@3.10
    应该看到 1 条稳定连接。
 2. 检查"系统设置"里企微 Bot ID 和 Secret 是否正确
 3. 查看后端日志是否有 `WeCom AI bot authenticated` 或错误信息
+4. **检查系统代理设置**：WeCom WebSocket 长连接可能被代理拦截握手，导致超时。尝试临时关闭代理后重启后端。
 
 ### Q7: npm 依赖安装很慢
 
@@ -313,9 +332,13 @@ arch -arm64 brew install python@3.10
 arch -x86_64 brew install python@3.10
 ```
 
+### Q9: 从压缩包迁移后加密凭据无法解密
+
+确认 `data/.master.key` 文件已从原电脑复制过来。如果丢失，需要在"系统设置"页重新录入所有凭据。
+
 ---
 
-## 六、备份与恢复
+## 七、备份与恢复
 
 ### 备份 PostgreSQL 数据库
 
@@ -353,9 +376,27 @@ cp -r data/engine data/engine_backup_$(date +%Y%m%d)
 cp data/.master.key ~/secure_backup/semi-kb-console-master.key
 ```
 
+### 完整项目备份（迁移到新电脑）
+
+压缩整个项目目录，但建议**排除以下目录**以减小体积：
+
+```bash
+tar --exclude='.venv' \
+    --exclude='frontend/node_modules' \
+    --exclude='backend/__pycache__' \
+    --exclude='**/*.pyc' \
+    -czf semi-kb-console_$(date +%Y%m%d).tar.gz \
+    semi-kb-console/
+```
+
+**必须保留**：
+- `data/.master.key`
+- `data/engine/`
+- `.env`（需根据新电脑调整）
+
 ---
 
-## 七、更新项目
+## 八、更新项目
 
 如果从 Git 拉取更新：
 
@@ -373,7 +414,7 @@ git pull origin main
 
 ---
 
-## 八、生产部署建议
+## 九、生产部署建议
 
 本指南面向开发和测试环境。生产部署需要额外考虑：
 
@@ -417,7 +458,7 @@ sudo systemctl start semi-kb-backend
 
 ---
 
-## 九、macOS 特定注意事项
+## 十、macOS 特定注意事项
 
 ### 1. Gatekeeper 和安全性
 
