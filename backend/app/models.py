@@ -402,9 +402,17 @@ class QaConversation(Base):
     """
 
     __tablename__ = "qa_conversations"
+    # 同一 owner 同一来源的同一外部会话(企微群 chatid)只应有一条会话：防并发消息各自建重复。
+    # NULL 在唯一约束里互不冲突(pg/sqlite 同此语义)，故 web 会话(external_chat_id=NULL)不受限。
+    __table_args__ = (UniqueConstraint("user_id", "source", "external_chat_id"),)
     id: Mapped[str] = mapped_column(String(40), primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     title: Mapped[str] = mapped_column(String(240), default="新会话")
+    # 会话来源：web=前端问答；wecom=企微群 @机器人。企微群消息复用同一问答链路与历史，
+    # 归到机器人 owner 名下，前端按 source 加来源徽标区分。
+    source: Mapped[str] = mapped_column(String(16), default="web", index=True)
+    # 企微群标识(chatid)：同一群复用同一会话；web 会话为空。用于按群幂等定位会话。
+    external_chat_id: Mapped[str | None] = mapped_column(String(120), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
     messages: Mapped[list["QaMessage"]] = relationship(back_populates="conversation", cascade="all, delete-orphan")

@@ -14,7 +14,7 @@ $python = Join-Path $venv 'Scripts\python.exe'
 if (-not $env:SEMI_KB_DB_PASSWORD) {
   $env:SEMI_KB_DB_PASSWORD = [Environment]::GetEnvironmentVariable('SEMI_KB_DB_PASSWORD', 'User')
 }
-& $python -c 'import alembic, fastapi, langgraph, psycopg, rdflib, sqlalchemy; import langgraph.checkpoint.postgres, owlrl, pyshacl'
+& $python -c 'import alembic, fastapi, langgraph, psycopg, rdflib, sqlalchemy, aibot; import langgraph.checkpoint.postgres, owlrl, pyshacl'
 if ($LASTEXITCODE -ne 0) {
   & $python -m pip install -r (Join-Path $backend 'requirements.txt')
 }

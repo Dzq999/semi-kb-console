@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import json
+import re
 
 import yaml
 from sqlalchemy import select
@@ -67,7 +68,7 @@ def build_grounding_context() -> dict:
     except Exception:
         context["knowledge_sources"] = {}
     try:
-        context["ontology_terms"] = semi_kb.ontology_context(limit=200)
+        context["ontology_terms"] = semi_kb.ontology_context(limit=200, balanced=True)
     except Exception:
         context["ontology_terms"] = {}
     return context
@@ -185,12 +186,40 @@ def _history_messages(db: Session, conversation_id: str) -> list[dict]:
     return [{"role": row.role, "content": row.content} for row in reversed(rows)]
 
 
+# envelope 里正文夹了裸引号、json.loads 失败时，用于抠出 answer 串与 grounded 标志。
+# answer 位于 citations/grounded 之前，贪婪匹配到最后一个 `","citations|grounded"` 结构边界。
+_ANSWER_RE = re.compile(r'"answer"\s*:\s*"(.*)"\s*,\s*"(?:citations|grounded)"', re.DOTALL)
+_GROUNDED_RE = re.compile(r'"grounded"\s*:\s*(true|false)', re.IGNORECASE)
+_JSON_ESCAPE = {"n": "\n", "t": "\t", "r": "\r", "b": "\b", "f": "\f", '"': '"', "\\": "\\", "/": "/"}
+
+
+def _json_unescape(s: str) -> str:
+    """单遍还原 JSON 字符串转义（\\n→换行、\\"→"、\\uXXXX→字符 等）。
+    正则抠出的 answer 体常夹杂裸引号——单遍替换不会像 json.loads 那样被裸引号连锁误伤。"""
+    def repl(m: re.Match) -> str:
+        esc = m.group(0)
+        if esc[1] == "u":
+            try:
+                return chr(int(esc[2:], 16))
+            except ValueError:
+                return esc
+        return _JSON_ESCAPE.get(esc[1], esc[1])
+    return re.sub(r"\\u[0-9a-fA-F]{4}|\\.", repl, s, flags=re.DOTALL)
+
+
 def _parse_answer(raw: str) -> dict:
-    """解析模型 JSON 输出；容错：非 JSON 时整体当作 answer、grounded 未知按 false 处理。"""
+    """解析模型 JSON 输出，三级容错——务必保证 JSON 原文永不直接回给用户：
+      1) 严格 json.loads：正常时拿到 answer/citations/grounded。
+      2) 是本 envelope 但正文夹了裸引号导致解析失败时，用正则抠出 answer 串并还原转义，
+         grounded 从文本里单独判读，citations 放弃（宁可少引用也不把 JSON 原文回群）。
+      3) 完全不像本 envelope 的输出，剥掉围栏后按纯 Markdown 原样返回。
+    """
     text = raw.strip()
     if text.startswith("```"):
         text = text.strip("`")
         text = text[text.find("\n") + 1:] if "\n" in text else text
+    text = text.strip()
+    # 1) 严格解析
     try:
         data = json.loads(text)
         if isinstance(data, dict) and "answer" in data:
@@ -206,11 +235,34 @@ def _parse_answer(raw: str) -> dict:
                     "grounded": bool(data.get("grounded"))}
     except (json.JSONDecodeError, ValueError):
         pass
-    return {"answer": raw.strip(), "citations": [], "grounded": False}
+    # 2) envelope 内正文含裸引号——抠出 answer 串、还原转义、单独判 grounded
+    m = _ANSWER_RE.search(text)
+    if m:
+        answer = _json_unescape(m.group(1)).strip()
+        if answer:
+            g = _GROUNDED_RE.search(text)
+            grounded = bool(g) and g.group(1).lower() == "true"
+            return {"answer": answer, "citations": [], "grounded": grounded}
+    # 3) 不是本 envelope，剥壳后按纯 Markdown 原样返回（绝不把围栏/JSON 原文带出去）
+    return {"answer": text or raw.strip(), "citations": [], "grounded": False}
 
 
-async def answer_question(db: Session, user: User, conversation: QaConversation, question: str, model_id: str) -> QaMessage:
-    """记录用户提问 → 综合库内知识调用 LLM 作答 → 落库助手消息(含引用来源)。"""
+async def answer_question(
+    db: Session,
+    user: User,
+    conversation: QaConversation,
+    question: str,
+    model_id: str,
+    *,
+    max_tokens: int | None = None,
+    timeout_seconds: int = 120,
+) -> QaMessage:
+    """记录用户提问 → 综合库内知识调用 LLM 作答 → 落库助手消息(含引用来源)。
+
+    max_tokens/timeout_seconds 默认沿用 llm_service.complete 的口径（Web 路径不设上限）；
+    企微群路径会显式收紧这两项——单次成型、生成期间不回中间内容，长答案 + 首调超时重试
+    会让群里只见三个点转两三分钟，故收紧输出上限与单次超时，把等待压回可接受区间。
+    """
     api_key = user_api_key(db, user.id)
     if not api_key:
         raise ExternalServiceError("未配置模型 API Key，无法回答")
@@ -224,7 +276,11 @@ async def answer_question(db: Session, user: User, conversation: QaConversation,
         "conversation_history": history,
         "knowledge_context": context,
     }, ensure_ascii=False)
-    raw = await llm_service.complete(api_key, model_id, _SYSTEM_PROMPT, user_payload, temperature=0.2, endpoint=user_llm_endpoint(db, user.id))
+    raw = await llm_service.complete(
+        api_key, model_id, _SYSTEM_PROMPT, user_payload,
+        temperature=0.2, max_tokens=max_tokens, timeout_seconds=timeout_seconds,
+        endpoint=user_llm_endpoint(db, user.id),
+    )
     parsed = _parse_answer(raw)
     message = QaMessage(
         conversation_id=conversation.id, role="assistant",

@@ -249,6 +249,79 @@ def test_augment_gap_injects_prior_round_direction(clean_db):
     assert "运维域" in gap["prior_round_direction"]["text"]
 
 
+# --------------------------------------------------------------------------- 本体领域覆盖小节
+
+def _domain_snapshot():
+    snap = snapshot()
+    snap["domain_coverage"] = {
+        "domains": [
+            {"module": "risk-diagnosis", "label": "风险诊断", "classes": 10, "instances": 269},
+            {"module": "equipment", "label": "设备", "classes": 9, "instances": 40},
+            {"module": "quality-metrology", "label": "质量量测", "classes": 19, "instances": 25},
+            {"module": "organization", "label": "组织", "classes": 6, "instances": 0},
+            {"module": "wip-production", "label": "在制生产", "classes": 9, "instances": 0},
+        ],
+        "domain_total_classes": 104,
+        "domain_total_instances": 390,
+        "domains_with_instances": 3,
+        "empty_domains": ["组织", "在制生产"],
+        "auto_generated_classes": 733,
+        "auto_generated_instances": 694,
+        "business_baselines": ["应用场景", "设备", "Fab产线", "厂务"],
+        "business_human_models": 3,
+    }
+    return snap
+
+
+def test_domain_coverage_section_renders_table():
+    # 一句总览 + 逐领域明细表（领域/领域类/落地实例/状态）+ 经营基线；自动扩展类单列进总览。
+    content = fixed_metrics_markdown(_domain_snapshot())
+    assert "## 本体领域覆盖" in content
+    assert "5 个专业领域已建模" in content
+    assert "领域类 104、落地实例 390，其中 3 域已有落地" in content
+    assert "另有自动扩展类 733" in content
+    # 表头与逐领域数据行（已落地/待补充状态）。
+    assert "| 领域 | 领域类 | 落地实例 | 状态 |" in content
+    assert "| 风险诊断 | 10 | 269 | 已落地 |" in content
+    assert "| 组织 | 6 | 0 | 待补充 |" in content
+    assert "| 在制生产 | 9 | 0 | 待补充 |" in content
+    # 表按落地实例降序：风险诊断(269) 排在设备(40) 之前。
+    assert content.index("| 风险诊断 |") < content.index("| 设备 | 9 | 40")
+    assert "已建 应用场景、设备、Fab产线、厂务 4 条经营基线" in content
+    assert "制造域人工模型 3 个" in content
+    # 顺序：紧随交叉验证之后、明日计划之前。
+    assert content.index("## 交叉验证结果") < content.index("## 本体领域覆盖") < content.index("## 明日计划")
+
+
+def test_domain_coverage_section_absent_without_data():
+    # 无 domain_coverage 时整节跳过，绝不伪造，且不影响其余小节与合法性。
+    content = fixed_metrics_markdown(snapshot())
+    assert "## 本体领域覆盖" not in content
+    assert "## 交叉验证结果" in content
+    assert validate_report(content, snapshot())["passed"]
+
+
+def test_domain_coverage_section_omits_auto_clause_when_zero():
+    # auto_generated_classes=0 时总览不追加『另有自动扩展类』；单个已落地领域在表内显示为『已落地』。
+    snap = snapshot()
+    snap["domain_coverage"] = {
+        "domains": [{"module": "equipment", "label": "设备", "classes": 9, "instances": 40}],
+        "domain_total_classes": 9, "domain_total_instances": 40, "domains_with_instances": 1,
+        "empty_domains": [], "auto_generated_classes": 0, "business_baselines": [],
+    }
+    content = fixed_metrics_markdown(snap)
+    assert "## 本体领域覆盖" in content
+    assert "另有自动扩展类" not in content  # auto=0 时不追加
+    assert "| 设备 | 9 | 40 | 已落地 |" in content
+
+
+def test_domain_coverage_section_keeps_report_within_length_gate():
+    # 新增小节后日报仍须通过 4000 字领导摘要约束。
+    content = fixed_metrics_markdown(_domain_snapshot())
+    assert validate_report(content, _domain_snapshot())["passed"]
+    assert len(content) <= 4000
+
+
 @pytest.mark.asyncio
 async def test_generate_report_strips_round_words(clean_db, monkeypatch):
     # narrative 兜底：模型漏出「本轮/这一轮」等轮次口径 → 正文统一改写为「今日」。

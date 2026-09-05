@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import logging
 import secrets
 import uuid
 from contextlib import asynccontextmanager
@@ -42,6 +43,8 @@ from .services.business_assistant import discard_draft_files, draft_business_bas
 from .services import imports as imports_service
 from .services.qa import answer_question, answer_question_streamed
 from .services.semi_kb import SemiKbError, semi_kb
+from .services.wecom_aibot import WecomAiBotClient, WecomAiBotNotWired, _default_sdk_factory
+from .services import wecom_qa_bridge
 
 
 def prepare_recoverable_runs(db: Session) -> list[str]:
@@ -106,9 +109,11 @@ async def lifespan(_app: FastAPI):
         orchestrator.start(run_id)
     for export_id in export_ids:
         asyncio.create_task(export_job_task(export_id))
+    _start_wecom_bot()
     try:
         yield
     finally:
+        await _stop_wecom_bot()
         if scheduler.running:
             scheduler.shutdown(wait=False)
         await checkpoint_runtime.shutdown()
@@ -116,9 +121,66 @@ async def lifespan(_app: FastAPI):
 
 app = FastAPI(title=settings.app_name, version="1.0.0", lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=[settings.frontend_origin], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+logger = logging.getLogger("semi_kb.main")
 scheduler = AsyncIOScheduler(timezone=settings.timezone)
 sessions: dict[str, int] = {}
 model_cache: dict[str, dict[str, object]] = {}
+# 企微智能机器人长连接常驻实例（单进程一份，由 lifespan 守卫启停）。
+_wecom_bot_client: WecomAiBotClient | None = None
+_wecom_bot_task: asyncio.Task | None = None
+
+
+async def _record_wecom_bot_alert(owner_user_id: int, detail: str) -> None:
+    """机器人连续失败/处理异常时落一条 NotificationRecord 告警（不含明文凭据）。"""
+    try:
+        with SessionLocal() as db:
+            db.add(NotificationRecord(user_id=owner_user_id, channel="wecom_aibot", status="failed", detail=detail[:480]))
+            db.commit()
+    except Exception:  # noqa: BLE001 告警本身失败不得影响主流程
+        logger.warning("WeCom AI bot alert record failed")
+
+
+def _start_wecom_bot() -> None:
+    """按凭据配置守卫启动企微机器人长连接。未配置或 SDK 未接入时记录并跳过，不影响后端其余功能。"""
+    global _wecom_bot_client, _wecom_bot_task
+    with SessionLocal() as db:
+        owner_id = wecom_qa_bridge.find_bot_owner_id(db)
+        if owner_id is None:
+            logger.info("WeCom AI bot: 未配置凭据，跳过长连接启动")
+            return
+        creds = wecom_qa_bridge.bot_credentials(db, owner_id)
+    if creds is None:
+        logger.info("WeCom AI bot: 凭据不完整，跳过长连接启动")
+        return
+    bot_id, secret = creds
+
+    def sdk_factory():
+        return _default_sdk_factory(bot_id, secret)
+
+    async def handler(message):
+        return await wecom_qa_bridge.handle_group_message(owner_id, message)
+
+    async def on_error(detail: str) -> None:
+        await _record_wecom_bot_alert(owner_id, detail)
+
+    _wecom_bot_client = WecomAiBotClient(sdk_factory, handler, on_error=on_error)
+    _wecom_bot_task = asyncio.create_task(_wecom_bot_client.run())
+    logger.info("WeCom AI bot: 长连接任务已拉起（owner=%s）", owner_id)
+
+
+async def _stop_wecom_bot() -> None:
+    """优雅停止企微机器人长连接。"""
+    global _wecom_bot_client, _wecom_bot_task
+    if _wecom_bot_client is not None:
+        await _wecom_bot_client.stop()
+    if _wecom_bot_task is not None:
+        _wecom_bot_task.cancel()
+        try:
+            await _wecom_bot_task
+        except (asyncio.CancelledError, Exception):  # noqa: BLE001
+            pass
+    _wecom_bot_client = None
+    _wecom_bot_task = None
 
 
 def current_user(session_id: Annotated[str | None, Cookie()] = None, db: Session = Depends(get_db)) -> User:
@@ -1246,7 +1308,7 @@ def _qa_message_payload(row: QaMessage) -> dict:
 
 
 def _qa_conversation_summary(row: QaConversation) -> dict:
-    return {"id": row.id, "title": row.title, "created_at": row.created_at, "updated_at": row.updated_at}
+    return {"id": row.id, "title": row.title, "source": row.source, "created_at": row.created_at, "updated_at": row.updated_at}
 
 
 @app.get("/api/qa/conversations")

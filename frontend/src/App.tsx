@@ -3990,6 +3990,8 @@ function SettingsPage({
     qq_smtp_auth_code: "",
     wechat_app_id: "",
     wechat_app_secret: "",
+    wecom_aibot_id: "",
+    wecom_aibot_secret: "",
   });
   const credentials = useQuery<{
     items: Array<{ kind: string; configured: boolean; masked_hint: string }>;
@@ -4062,6 +4064,8 @@ function SettingsPage({
     qq_smtp_auth_code: "QQ SMTP 授权码",
     wechat_app_id: "公众号 AppID",
     wechat_app_secret: "公众号 AppSecret",
+    wecom_aibot_id: "企微智能机器人 Bot ID",
+    wecom_aibot_secret: "企微智能机器人 Secret",
   };
   return (
     <div className="page">
@@ -4212,6 +4216,7 @@ type QaMessage = {
 type QaConversationSummary = {
   id: string;
   title: string;
+  source?: string;
   created_at: string;
   updated_at: string;
 };
@@ -4425,16 +4430,24 @@ function QaPage({ user }: { user: User }) {
                   className={conv.id === activeId ? "qa-conv-item active" : "qa-conv-item"}
                 >
                   <button type="button" onClick={() => setActiveId(conv.id)}>
+                    {conv.source === "wecom" && (
+                      <span className="qa-conv-badge" title="来自企业微信群 @机器人">群</span>
+                    )}
                     <span>{conv.title}</span>
                   </button>
                   <button
                     type="button"
                     className="qa-conv-del"
                     aria-label="删除会话"
-                    onClick={() => removeConversation.mutate(conv.id)}
+                    title="删除该会话"
+                    onClick={() => {
+                      if (window.confirm(`删除会话「${conv.title}」及其全部消息？此操作不可恢复。`)) {
+                        removeConversation.mutate(conv.id);
+                      }
+                    }}
                     disabled={removeConversation.isPending}
                   >
-                    <CircleStop size={13} />
+                    <Trash2 size={13} />
                   </button>
                 </li>
               ))}

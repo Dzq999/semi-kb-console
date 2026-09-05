@@ -207,6 +207,43 @@ def _cross_validation_section(snapshot: dict) -> str:
     return "\n".join(lines)
 
 
+def _domain_coverage_section(snapshot: dict) -> str:
+    """『本体领域覆盖』小节：一句总览 + 逐领域明细表（领域/领域类/落地实例/状态）+ 经营基线。
+
+    数据取自 snapshot['domain_coverage']（由 generate_report 挂载）。缺失时返回空串（调用方
+    会跳过该小节），绝不伪造。表已按落地实例降序（取数侧排好），故顶部自然是落地最充分的领域，
+    不再单列『落地最充分前三』；空领域在表内以『待补充』状态呈现，替代原独立的『覆盖缺口』行。
+    auto_generated（LLM 逐轮扩展的类）不进领域表、单列进总览一句，避免掩盖手工领域真实分布。
+    表体紧凑（约 12 行），整篇仍受 4000 字领导摘要约束。
+    """
+    cov = snapshot.get("domain_coverage") or {}
+    domains = cov.get("domains") or []
+    if not domains:
+        return ""
+    auto = int(cov.get("auto_generated_classes") or 0)
+    auto_text = f"，另有自动扩展类 {auto}" if auto else ""
+    with_inst = int(cov.get("domains_with_instances") or 0)
+    lines = [
+        "## 本体领域覆盖",
+        f"{len(domains)} 个专业领域已建模（领域类 {int(cov.get('domain_total_classes') or 0)}、"
+        f"落地实例 {int(cov.get('domain_total_instances') or 0)}，其中 {with_inst} 域已有落地）{auto_text}。",
+        "",
+        "| 领域 | 领域类 | 落地实例 | 状态 |",
+        "|---|---:|---:|---|",
+    ]
+    for item in domains:
+        inst = int(item.get("instances") or 0)
+        status = "已落地" if inst > 0 else "待补充"
+        lines.append(f"| {item['label']} | {int(item.get('classes') or 0)} | {inst} | {status} |")
+    baselines = cov.get("business_baselines") or []
+    if baselines:
+        human = int(cov.get("business_human_models") or 0)
+        human_text = f" + 制造域人工模型 {human} 个" if human else ""
+        lines.append("")
+        lines.append(f"经营领域：已建 {'、'.join(baselines)} {len(baselines)} 条经营基线{human_text}。")
+    return "\n".join(lines)
+
+
 def fixed_metrics_markdown(snapshot: dict) -> str:
     lines = ["## 今日结果", "", "| 指标 | 今日新增 | 当前总量 |", "|---|---:|---:|"]
     totals = snapshot["totals"]
@@ -214,7 +251,12 @@ def fixed_metrics_markdown(snapshot: dict) -> str:
     for key, label in METRIC_LABELS:
         lines.append(f"| {label} | {int(added.get(key, 0)):,} | {int(totals.get(key, 0)):,} |")
     # 『质量与验证』小节已按需求移除：门禁与来源对齐信息统一在『交叉验证结果』小节呈现，不再重复。
-    lines.extend(["", _cross_validation_section(snapshot), "", "## 明日计划", _optimization_direction(snapshot)])
+    lines.extend(["", _cross_validation_section(snapshot)])
+    # 『本体领域覆盖』紧随交叉验证之后、明日计划之前；无数据时 section 返回空串即跳过。
+    domain_section = _domain_coverage_section(snapshot)
+    if domain_section:
+        lines.extend(["", domain_section])
+    lines.extend(["", "## 明日计划", _optimization_direction(snapshot)])
     return "\n".join(lines)
 
 
@@ -274,6 +316,12 @@ async def generate_report(db: Session, user_id: int, report_date: str, model_id:
     # vFab 多维交叉验证覆盖率：best-effort 刷新后挂到 snapshot，供交叉验证结果小节呈现『当前指标』。
     # 刷新失败会回退旧报告或空 dict，_vfab_cross_validation_lines 会据此优雅降级、绝不伪造。
     snapshot["vfab_cross_validation"] = await semi_kb.refresh_vfab_cross_validation()
+    # 『本体领域覆盖』小节取数：按模块聚合的只读快照。解析 TTL 有开销，故只在日报生成时取一次、
+    # 不进 metrics() 热路径。失败降级为空 dict，_domain_coverage_section 会据此跳过整节、绝不伪造。
+    try:
+        snapshot["domain_coverage"] = semi_kb.domain_coverage()
+    except Exception:
+        snapshot["domain_coverage"] = {}
     api_key = user_api_key(db, user_id)
     if not api_key:
         report.status = "send_blocked"

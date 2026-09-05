@@ -47,6 +47,32 @@ def test_parse_answer_drops_malformed_citations():
     assert parsed["citations"][0]["ref"] == ""
 
 
+def test_parse_answer_salvages_answer_when_body_has_bare_quotes():
+    """回归：answer 正文夹裸引号会让 json.loads 失败——绝不能把 JSON 原文回给用户，
+    须抠出 answer markdown、还原 \\n、并单独判读 grounded。（企微机器人回 JSON 的 bug）"""
+    # 正文里的 "裸引号" 破坏 JSON；\n 是合法转义，应还原为真实换行。
+    raw = '{"answer": "开头说明。这里有"裸引号"会破坏 JSON。\\n\\n## 小标题\\n要点一", ' \
+          '"citations": [{"source": "经营模型", "ref": "x.yaml", "note": "n"}], "grounded": true}'
+    parsed = qa._parse_answer(raw)
+    assert parsed["grounded"] is True  # grounded 从文本单独判读，未被裸引号连累
+    assert "裸引号" in parsed["answer"]
+    assert "\n" in parsed["answer"]  # \\n 已还原为真实换行
+    # 绝不泄漏 JSON 骨架
+    assert not parsed["answer"].lstrip().startswith("{")
+    assert '"answer"' not in parsed["answer"]
+    assert '"citations"' not in parsed["answer"]
+
+
+def test_parse_answer_never_leaks_json_fence_on_broken_envelope():
+    """回归：带 ```json 围栏且正文含裸引号——剥壳+抠取后不得残留围栏或 JSON 结构。"""
+    raw = '```json\n{"answer": "答案含"引号"文本", "citations": [], "grounded": false}\n```'
+    parsed = qa._parse_answer(raw)
+    assert "引号" in parsed["answer"]
+    assert "```" not in parsed["answer"]
+    assert '"grounded"' not in parsed["answer"]
+    assert parsed["grounded"] is False
+
+
 def test_build_grounding_context_is_readonly_and_shaped():
     ctx = qa.build_grounding_context()
     assert set(ctx.keys()) >= {"business_models", "simulation_scenarios", "knowledge_sources", "ontology_terms"}

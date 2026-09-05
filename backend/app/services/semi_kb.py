@@ -13,7 +13,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import yaml
-from rdflib import Graph, RDF, RDFS
+from rdflib import Graph, RDF, RDFS, URIRef
 from rdflib.namespace import OWL
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -30,6 +30,51 @@ _NOISE_FEATURE_RE = re.compile(
     r"|record_id|unique_record|_biz_ts|_time$|_ts$|^_|_$",
     re.I,
 )
+
+
+def _evenly_sample(items: list, k: int) -> list:
+    """从已排序列表里等距抽 k 个（含首尾），k<=0 返回空，k>=len 原样返回。
+
+    用于本体样本跨字母段均匀覆盖：stride=(n-1)/(k-1)，round 后严格递增不重复。
+    """
+    n = len(items)
+    if k <= 0:
+        return []
+    if k >= n:
+        return list(items)
+    if k == 1:
+        return [items[0]]
+    step = (n - 1) / (k - 1)
+    return [items[round(i * step)] for i in range(k)]
+
+
+def _balanced_quota(sizes: dict[str, int], limit: int, floor: int = 1) -> dict[str, int]:
+    """按各桶占比分配 limit 名额，非空桶保底 floor，余数补给最大桶，且不超过桶自身容量。"""
+    total = sum(sizes.values())
+    if total <= 0 or limit <= 0:
+        return {key: 0 for key in sizes}
+    if limit >= total:  # 名额够全取，无需采样
+        return dict(sizes)
+    quota = {key: (floor if size > 0 else 0) for key, size in sizes.items()}
+    remaining = limit - sum(quota.values())
+    if remaining > 0:  # 剩余名额按占比分（扣掉已给的 floor，避免小桶被高估）
+        weight_total = sum(max(0, size - quota[key]) for key, size in sizes.items())
+        if weight_total > 0:
+            for key, size in sizes.items():
+                head = max(0, size - quota[key])
+                quota[key] += int(remaining * head / weight_total)
+    # 收尾：夹到容量上限，再把仍剩的名额按桶大小降序补齐。
+    for key in quota:
+        quota[key] = min(quota[key], sizes[key])
+    leftover = limit - sum(quota.values())
+    for key in sorted(sizes, key=lambda k: sizes[k], reverse=True):
+        if leftover <= 0:
+            break
+        room = sizes[key] - quota[key]
+        take = min(room, leftover)
+        quota[key] += take
+        leftover -= take
+    return quota
 
 
 class SemiKbError(RuntimeError):
@@ -117,16 +162,46 @@ class SemiKbAdapter:
         result["passed"] = result["exit_code"] == 0
         return result
 
-    def ontology_context(self, limit: int = 500) -> dict:
+    def ontology_context(self, limit: int = 500, *, balanced: bool = False) -> dict:
+        """本体术语上下文。
+
+        balanced=False（默认，供导入门禁/编排的 target_class 白名单）：按 (kind, iri)
+        排序取前 limit，class 优先，保持原有语义不变。
+        balanced=True（供问答接地）：按 kind 占比分配名额、每类内跨字母段等距采样，
+        避免样本偏科到「只有 A–D 段的 class、property 一条不入」。
+        两种模式都附全量 by_kind 计数与 sampled/strategy 标注，便于消费方（尤其 LLM）
+        据实说明覆盖口径，不必从样本反推分布。
+        """
         schema = Graph()
         for path in sorted((self.root / "ontology" / "modules").glob("*.ttl")):
             schema.parse(path, format="turtle")
-        items = []
+        buckets: dict[str, list[dict]] = {"class": [], "object_property": [], "datatype_property": []}
         for rdf_type, kind in ((OWL.Class, "class"), (OWL.ObjectProperty, "object_property"), (OWL.DatatypeProperty, "datatype_property")):
             for subject in schema.subjects(RDF.type, rdf_type):
                 label = next(schema.objects(subject, RDFS.label), None)
-                items.append({"iri": str(subject), "label": str(label) if label else str(subject), "kind": kind})
-        return {"terms": sorted(items, key=lambda item: (item["kind"], item["iri"]))[:limit], "total": len(items)}
+                buckets[kind].append({"iri": str(subject), "label": str(label) if label else str(subject), "kind": kind})
+        by_kind = {kind: len(items) for kind, items in buckets.items()}
+        total = sum(by_kind.values())
+        for items in buckets.values():
+            items.sort(key=lambda item: item["iri"])
+
+        if not balanced:
+            terms = sorted(
+                (item for items in buckets.values() for item in items),
+                key=lambda item: (item["kind"], item["iri"]),
+            )[:limit]
+        else:
+            quota = _balanced_quota(by_kind, limit)
+            picked = [t for kind, items in buckets.items() for t in _evenly_sample(items, quota[kind])]
+            terms = sorted(picked, key=lambda item: (item["kind"], item["iri"]))
+
+        return {
+            "terms": terms,
+            "total": total,
+            "by_kind": by_kind,
+            "sampled": len(terms) < total,
+            "strategy": "balanced" if balanced else "kind_iri_order",
+        }
 
     def business_context(self) -> dict:
         models = []
@@ -802,6 +877,78 @@ class SemiKbAdapter:
             "axioms": axioms,
             "rules": rules,
             "semantic_triples": len(schema) + len(data),
+        }
+
+    # 12 个手工策展的专业领域模块 → 中文标签；common/generated 属基础设施(不计入领域)。
+    _DOMAIN_MODULE_LABELS = {
+        "risk-diagnosis": "风险诊断",
+        "equipment": "设备",
+        "quality-metrology": "质量量测",
+        "material-product": "物料产品",
+        "application-scenario": "应用场景",
+        "process-route": "工艺流程",
+        "business-simulation": "经营仿真",
+        "maintenance": "维护保养",
+        "capacity-performance": "产能绩效",
+        "facility": "厂务设施",
+        "organization": "组织",
+        "wip-production": "在制生产",
+    }
+    _INFRA_MODULES = {"common", "generated"}
+
+    def domain_coverage(self) -> dict:
+        """按本体模块聚合『领域覆盖』：每个专业领域的类数与落地实例数，供日报领域覆盖小节取数。
+
+        - 领域实例：current.ttl 中按 rdf:type 映射回『声明该类的模块』计数，已排除 prov:Entity /
+          rdf:Statement / owl:* 等溯源与结构噪声，故与全局 individuals 总量口径不同（后者含噪声）。
+        - generated 模块（LLM 逐轮自动扩展的类）单列为 auto_generated，不混入 12 个策展领域，避免
+          掩盖手工领域的真实分布。business_baselines 来自 business/models 下的 *-baseline.yaml。
+        纯只读、不触库；文件缺失时优雅降级为零。metrics() 不在热路径调用它，仅日报生成时取用。
+        """
+        self._ensure_root()
+        prov_entity = URIRef("http://www.w3.org/ns/prov#Entity")
+        noise = {OWL.Class, OWL.ObjectProperty, OWL.DatatypeProperty, RDF.Statement, prov_entity}
+        class_to_module: dict[URIRef, str] = {}
+        module_stats: dict[str, dict[str, int]] = {}
+        for path in sorted((self.root / "ontology" / "modules").glob("*.ttl")):
+            graph = Graph()
+            graph.parse(path, format="turtle")
+            classes = set(graph.subjects(RDF.type, OWL.Class))
+            props = set(graph.subjects(RDF.type, OWL.ObjectProperty)) | set(graph.subjects(RDF.type, OWL.DatatypeProperty))
+            module_stats[path.stem] = {"classes": len(classes), "properties": len(props), "instances": 0}
+            for cls in classes:
+                class_to_module[cls] = path.stem
+        semantic_path = self.root / "knowledge" / "semantic" / "current.ttl"
+        if semantic_path.is_file():
+            data = Graph()
+            data.parse(semantic_path, format="turtle")
+            for subject, _, obj in data.triples((None, RDF.type, None)):
+                if obj in noise:
+                    continue
+                module = class_to_module.get(obj)
+                if module and module in module_stats:
+                    module_stats[module]["instances"] += 1
+        domains = []
+        for module, label in self._DOMAIN_MODULE_LABELS.items():
+            stat = module_stats.get(module) or {"classes": 0, "properties": 0, "instances": 0}
+            domains.append({"module": module, "label": label, "classes": stat["classes"], "instances": stat["instances"]})
+        domains.sort(key=lambda item: (item["instances"], item["classes"]), reverse=True)
+        generated = module_stats.get("generated") or {"classes": 0, "instances": 0}
+        baselines = []
+        baseline_labels = {"ap-baseline": "应用场景", "eqp-baseline": "设备", "fab-baseline": "Fab产线", "fac-baseline": "厂务"}
+        for path in sorted((self.root / "business" / "models").glob("*-baseline.yaml")):
+            baselines.append(baseline_labels.get(path.stem, path.stem))
+        human_models = len(list((self.root / "business" / "models").glob("business.human.*.yaml")))
+        return {
+            "domains": domains,
+            "domain_total_classes": sum(item["classes"] for item in domains),
+            "domain_total_instances": sum(item["instances"] for item in domains),
+            "domains_with_instances": sum(1 for item in domains if item["instances"] > 0),
+            "empty_domains": [item["label"] for item in domains if item["instances"] == 0],
+            "auto_generated_classes": int(generated.get("classes", 0)),
+            "auto_generated_instances": int(generated.get("instances", 0)),
+            "business_baselines": baselines,
+            "business_human_models": human_models,
         }
 
     def artifact_counts(self) -> dict[str, int | str]:

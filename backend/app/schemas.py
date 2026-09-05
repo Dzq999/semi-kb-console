@@ -56,7 +56,7 @@ class DefaultModelUpdate(BaseModel):
 
 
 class CredentialUpdate(BaseModel):
-    kind: Literal["llm_api_key", "wecom_webhook_key", "qq_smtp_auth_code", "wechat_app_id", "wechat_app_secret"]
+    kind: Literal["llm_api_key", "wecom_webhook_key", "qq_smtp_auth_code", "wechat_app_id", "wechat_app_secret", "wecom_aibot_id", "wecom_aibot_secret"]
     value: str = Field(min_length=1, max_length=2000)
     masked_hint: str | None = Field(default=None, max_length=120)
 

@@ -314,8 +314,9 @@ code { color: #31557f; font-family: Consolas, monospace; font-size: 9px; }
 .qa-list-panel .qa-conv-list { list-style: none; margin: 0; padding: 8px; display: grid; gap: 4px; max-height: 520px; overflow: auto; }
 .qa-conv-item { display: flex; align-items: center; gap: 4px; border-radius: 8px; }
 .qa-conv-item.active { background: #eaf1ff; }
-.qa-conv-item > button:first-child { flex: 1; min-width: 0; padding: 8px 10px; border: 0; background: transparent; text-align: left; cursor: pointer; font-size: 11px; color: #3d4f66; }
+.qa-conv-item > button:first-child { flex: 1; min-width: 0; padding: 8px 10px; border: 0; background: transparent; text-align: left; cursor: pointer; font-size: 11px; color: #3d4f66; display: flex; align-items: center; gap: 5px; }
 .qa-conv-item > button:first-child span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.qa-conv-item > button:first-child .qa-conv-badge { flex: 0 0 auto; overflow: visible; padding: 1px 5px; border-radius: 5px; background: #e3f0e6; color: #2f7d47; font-size: 9px; font-weight: 700; line-height: 1.4; }
 .qa-conv-item.active > button:first-child { color: #1d4fa0; font-weight: 600; }
 .qa-conv-del { flex: 0 0 auto; display: grid; place-items: center; width: 26px; height: 26px; margin-right: 4px; border: 0; border-radius: 7px; background: transparent; color: #a8b4c4; cursor: pointer; }
 .qa-conv-del:hover { color: #a52d40; background: #ffedf0; }
