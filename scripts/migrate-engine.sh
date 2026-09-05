@@ -1,71 +1,52 @@
 #!/usr/bin/env bash
+# 把 engine-seed 的初始数据复制到 data/engine（首次部署用）
+#
+# 用法：
+#   ./scripts/migrate-engine.sh              # 复制所有目录
+#   ./scripts/migrate-engine.sh --skip-knowledge  # 跳过 knowledge 目录
+
 set -euo pipefail
 
-source=""
 skip_knowledge=false
 
 while [[ $# -gt 0 ]]; do
-  case "$1" in
-    --source)
-      source="$2"
-      shift 2
-      ;;
+  case $1 in
     --skip-knowledge)
       skip_knowledge=true
       shift
       ;;
     *)
-      echo "用法: $0 [--source <路径>] [--skip-knowledge]" >&2
+      echo "用法: $0 [--skip-knowledge]" >&2
       exit 1
       ;;
   esac
 done
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-destination="$root/data/engine"
 seed_path="$root/engine-seed"
-source_input="${source:-$seed_path}"
-source_path="$(cd "$source_input" && pwd)"
+data_engine="$root/data/engine"
 
-if [[ "$source_path" == "$(cd "$root" && pwd)" ]]; then
-  echo "迁移源不能是 semi-kb-console 自身。" >&2
+if [[ ! -d "$seed_path" ]]; then
+  echo "错误: engine-seed 目录不存在: $seed_path" >&2
   exit 1
 fi
 
-if [[ ! -f "$source_path/scripts/kb.py" ]]; then
-  echo "迁移源不是有效的引擎目录：$source_path" >&2
-  exit 1
-fi
+mkdir -p "$data_engine"
 
-mkdir -p "$destination"
-
-directories=(ontology business simulation kb mappings output-contracts references sources scripts build tests)
-if [[ "$skip_knowledge" == false ]]; then
-  directories+=(knowledge)
+directories=("ontology" "business" "simulation" "scripts" "sources")
+if [[ "$skip_knowledge" != "true" ]]; then
+  directories+=("knowledge")
 fi
 
 for dir in "${directories[@]}"; do
-  from="$source_path/$dir"
-  if [[ -d "$from" ]]; then
-    to="$destination/$dir"
-    mkdir -p "$to"
-    cp -rf "$from"/* "$to/" 2>/dev/null || true
+  src="$seed_path/$dir"
+  dst="$data_engine/$dir"
+  if [[ -d "$src" ]]; then
+    echo "复制 $dir ..."
+    cp -r "$src" "$dst"
+  else
+    echo "警告: 跳过不存在的目录: $dir" >&2
   fi
 done
 
-config="$source_path/config.yaml"
-if [[ -f "$config" ]]; then
-  cp -f "$config" "$destination/config.yaml"
-fi
-
-local_python="$root/.venv/bin/python"
-if [[ -f "$local_python" ]]; then
-  "$local_python" "$destination/scripts/migrate_semantic.py" || {
-    echo "本地引擎语义迁移失败。" >&2
-    exit 1
-  }
-fi
-
-source_label="${source:-内置 engine-seed}"
-echo "引擎数据已从 $source_label 迁移到：$destination"
-echo "运行时将只使用 data/engine，不再读取迁移源。"
+echo "引擎数据初始化完成: $data_engine"

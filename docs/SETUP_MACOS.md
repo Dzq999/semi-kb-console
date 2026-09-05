@@ -420,7 +420,7 @@ git pull origin main
 
 1. **HTTPS**：配置反向代理（Nginx）并启用 SSL 证书（Let's Encrypt）
 2. **进程管理**：使用 systemd 或 launchd 将后端注册为系统服务
-   - macOS launchd 示例：创建 `~/Library/LaunchAgents/com.semi-kb.backend.plist`
+   - macOS launchd 示例：创建 `~/Library/LaunchAgents/com.semi-kb-console.backend.plist`
 3. **数据库**：PostgreSQL 配置远程访问、备份策略（cron + pg_dump）、性能优化
 4. **密钥管理**：`.env` 和 `data/.master.key` 不得提交到版本控制
 5. **日志**：配置集中日志收集（如 ELK / Splunk）

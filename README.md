@@ -1,18 +1,19 @@
 # SEMI-KB Console
 
-企业级半导体本体、知识库、经营模型、仿真、场景知识产物和日报控制台。控制台自带本地语义引擎和数据目录 `data/engine`，运行时不依赖外部 `semi-kb` 项目。同一组 N 个 Agent 由 LangGraph 按轮持续执行，PostgreSQL 保存业务状态和 checkpoint，直到用户选择立即停止、本轮结束后停止或再运行一轮后停止。
+企业级半导体本体、知识库、经营模型、仿真、场景知识产物和日报控制台。控制台自带本地语义引擎和数据目录 `data/engine`，运行时完全独立。同一组 N 个 Agent 由 LangGraph 按轮持续执行，PostgreSQL 保存业务状态和 checkpoint，直到用户选择立即停止、本轮结束后停止或再运行一轮后停止。
 
-## 启动
+## 快速启动
 
 ```powershell
 Copy-Item .env.example .env
 .\scripts\migrate-engine.ps1
+.\scripts\migrate-postgres.ps1
 .\scripts\dev.ps1
 ```
 
-首次部署默认从随项目提供的 `engine-seed` 初始化本地引擎；如需从旧版 `semi-kb` 导入一次数据，可显式执行 `.\scripts\migrate-engine.ps1 -Source <旧项目路径>`，导入完成后运行时不再读取该路径。
+项目自带 `engine-seed` 初始数据（本体、经营模型、仿真场景、知识库）。首次部署执行 `migrate-engine.ps1` 会将其复制到本地引擎 `data/engine`。
 
-访问 `http://127.0.0.1:5173`，首次进入创建管理员，再到“系统设置”录入 API Key、企业微信 Key 和 QQ SMTP 授权码。凭据由后端加密保存，前端不回显明文。
+访问 `http://127.0.0.1:5173`，首次进入创建管理员账号，再到”系统设置”录入 Anthropic API Key、企业微信机器人凭据（可选）和 QQ 邮箱 SMTP 授权码（可选）。所有凭据由后端加密保存，前端不回显明文。
 
 停止前后端服务：
 
@@ -20,23 +21,25 @@ Copy-Item .env.example .env
 .\scripts\stop.ps1
 ```
 
-## PostgreSQL 与迁移
+## PostgreSQL 配置
 
-正式运行使用 `SEMI_KB_DB_PASSWORD` 用户环境变量，默认连接本机 `semi_kb_console` 数据库和同名用户。首次迁移执行：
+正式运行使用 PostgreSQL 数据库。首先设置环境变量 `SEMI_KB_DB_PASSWORD`（连接密码），然后执行：
 
 ```powershell
+# 创建数据库和用户（首次）
+psql -U postgres
+CREATE USER semi_kb_console WITH PASSWORD 'your_password';
+CREATE DATABASE semi_kb_console OWNER semi_kb_console;
+\q
+
+# 设置环境变量
+[Environment]::SetEnvironmentVariable('SEMI_KB_DB_PASSWORD', 'your_password', 'User')
+
+# 执行数据库迁移
 .\scripts\migrate-postgres.ps1
 ```
 
-Alembic 管理业务表结构；`langgraph-checkpoint-postgres` 管理图 checkpoint。SQLite 仍用于隔离的快速单元测试。
-
-仅在首次把旧 SQLite 数据导入空的 PostgreSQL 时使用：
-
-```powershell
-.\scripts\migrate-postgres.ps1 -MigrateSqlite -SqliteSource .\data\console.db
-```
-
-普通升级不要带 `-MigrateSqlite`；脚本会执行 Alembic 升级并验证 PostgreSQL 与 checkpoint，避免重复导入历史数据。
+Alembic 管理业务表结构，`langgraph-checkpoint-postgres` 管理 Agent 工作流 checkpoint。SQLite 仅用于单元测试隔离环境。
 
 ## 测试
 
