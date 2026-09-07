@@ -369,8 +369,8 @@ function MetricCard({
   );
 }
 
-// individuals 卡副标注：主数字 6648 含 prov/结构噪声；这里给出去噪领域实例的来源拆分。
-// 知识=agent 生成（model_prior/web），运行数据=真实产线/导入（当前为 0，即尚未接入实测）。
+// individuals 卡副标注：基于12个策展模块的实例统计（与工艺段拆分使用相同基数）。
+// 知识=agent 生成（model_prior/web/assumption），运行数据=真实产线/导入（当前为 0，即尚未接入实测）。
 function individualsSplitNote(totals: Record<string, number | string>): string | undefined {
   const domain = Number(totals["individuals_domain"] ?? 0);
   if (!domain) return undefined;
@@ -379,7 +379,7 @@ function individualsSplitNote(totals: Record<string, number | string>): string |
   const untagged = Number(totals["individuals_untagged"] ?? 0);
   const parts = [`知识 ${knowledge.toLocaleString()}`, `运行数据 ${operational.toLocaleString()}`];
   if (untagged > 0) parts.push(`未标注 ${untagged.toLocaleString()}`);
-  return `领域实例 ${domain.toLocaleString()}：${parts.join(" / ")}`;
+  return `策展模块实例 ${domain.toLocaleString()}：${parts.join(" / ")}`;
 }
 
 function MetricsOverview({

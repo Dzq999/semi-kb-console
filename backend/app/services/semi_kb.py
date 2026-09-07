@@ -1059,18 +1059,30 @@ class SemiKbAdapter:
     _SOURCE_TYPE_PRED = URIRef("urn:pxai:semi:sourceType")
 
     def _individual_source_split(self, data: Graph) -> dict[str, int]:
-        """把去噪后的领域个体按 sourceType 拆成 知识 / 运行数据 / 未标注 三类（纯只读、无副作用）。
+        """把策展模块个体按 sourceType 拆成 知识 / 运行数据 / 未标注 三类（纯只读、无副作用）。
 
-        去噪口径与 domain_coverage 对齐（排除 owl:*、rdf:Statement、prov:Entity 结构/溯源节点），
-        故与全局 individuals（含噪声）口径不同。sourceType 有两条到达路径：
+        统计基数与 _segment_split 对齐：只统计能映射到 12 个策展模块的实例，排除
+        业务推理层（BusinessVariable、SimulationScenario 等）与溯源/结构噪声。
+        sourceType 有两条到达路径：
         (1) 直接挂在个体上；(2) 经 prov:Entity --prov:specializationOf--> 个体 回指。两路合并取并集。
-        当前库内 sourceType 只有 model_prior/web（均属知识），故 operational 恒为 0，如实反映
-        "尚未接入真实运行数据"。传入已缓存的 data graph，避免二次解析。
+        当前库内 sourceType 只有 model_prior/web/assumption（均属知识），故 operational 恒为 0，
+        如实反映"尚未接入真实运行数据"。传入已缓存的 data graph，避免二次解析。
         """
         prov_spec = URIRef("http://www.w3.org/ns/prov#specializationOf")
         prov_entity = URIRef("http://www.w3.org/ns/prov#Entity")
         noise = {OWL.Class, OWL.ObjectProperty, OWL.DatatypeProperty, RDF.Statement, prov_entity}
-        denoise = {s for s, _, o in data.triples((None, RDF.type, None)) if o not in noise}
+
+        # 与 _segment_split 相同的过滤逻辑：只保留能映射到 12 个策展模块的个体
+        _, class_to_module, _ = self._load_schema_graph()
+        domain_individuals = []
+        for s, _, o in data.triples((None, RDF.type, None)):
+            if o in noise:
+                continue
+            module = class_to_module.get(o)
+            if module and module in self._DOMAIN_MODULE_LABELS:
+                domain_individuals.append(s)
+
+        # 在这些策展模块个体上统计 sourceType 分布
         direct: dict = {}
         for subj, _, obj in data.triples((None, self._SOURCE_TYPE_PRED, None)):
             direct.setdefault(subj, set()).add(str(obj))
@@ -1078,8 +1090,9 @@ class SemiKbAdapter:
         for ent, _, indiv in data.triples((None, prov_spec, None)):
             for val in direct.get(ent, ()):  # prov:Entity 携带的 sourceType 回指领域个体
                 chain.setdefault(indiv, set()).add(val)
+
         knowledge = operational = untagged = 0
-        for indiv in denoise:
+        for indiv in domain_individuals:
             vals = direct.get(indiv, set()) | chain.get(indiv, set())
             if not vals:
                 untagged += 1
@@ -1087,7 +1100,7 @@ class SemiKbAdapter:
                 operational += 1
             else:
                 knowledge += 1
-        return {"domain": len(denoise), "knowledge": knowledge, "operational": operational, "untagged": untagged}
+        return {"domain": len(domain_individuals), "knowledge": knowledge, "operational": operational, "untagged": untagged}
 
     _SEGMENT_PRED = URIRef("urn:pxai:semi:processSegment")
 

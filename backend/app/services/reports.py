@@ -289,12 +289,13 @@ def fixed_metrics_markdown(snapshot: dict) -> str:
     added = snapshot["today_added"]
     for key, label in METRIC_LABELS:
         lines.append(f"| {label} | {int(added.get(key, 0)):,} | {int(totals.get(key, 0)):,} |")
-    # individuals 来源拆分脚注：header 6648 含 prov/结构噪声，脚注给出去噪领域实例的拆分口径。
+    # individuals 来源拆分脚注：基于策展模块个体（与工艺段拆分使用相同基数）
     domain = int(totals.get("individuals_domain", 0))
     if domain:
         knowledge = int(totals.get("individuals_knowledge", 0))
         operational = int(totals.get("individuals_operational", 0))
-        lines.append(f"\n**注**：实例总量 {int(totals.get('individuals', 0)):,} 含溯源/结构节点，其中去噪领域实例 {domain:,}（知识实例 {knowledge:,}、运行数据实例 {operational:,}）。")
+        untagged = int(totals.get("individuals_untagged", 0))
+        lines.append(f"\n**注**：实例统计基于12个策展模块（{domain:,}个），按来源分类：知识实例 {knowledge:,}、运行数据 {operational:,}、未标注 {untagged:,}。")
     # 『质量与验证』小节已按需求移除：门禁与来源对齐信息统一在『交叉验证结果』小节呈现，不再重复。
     lines.extend(["", _cross_validation_section(snapshot)])
     # 『本体领域覆盖』紧随交叉验证之后、明日计划之前；无数据时 section 返回空串即跳过。
