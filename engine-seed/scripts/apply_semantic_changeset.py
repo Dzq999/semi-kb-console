@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -16,6 +17,8 @@ ROOT = Path(__file__).resolve().parent.parent
 PENDING = ROOT / "semantic_changesets" / "pending"
 SCHEMA_TARGET = ROOT / "ontology" / "modules" / "generated.ttl"
 DATA_TARGET = ROOT / "knowledge" / "semantic" / "current.ttl"
+# 溯源分离：prov:Entity / rdf:Statement 记账节点写这里，current.ttl 保持纯净（只留真实实例）。
+PROV_TARGET = ROOT / "knowledge" / "semantic" / "provenance.ttl"
 
 # Windows 上 os.replace 覆盖 current.ttl / generated.ttl 时，若后端仪表盘、问答接地或 _inventory()
 # 恰好正用 rdflib 解析目标文件，会瞬时报 WinError 5(拒绝访问)/32(占用)。这些读句柄生命周期极短，
@@ -77,8 +80,11 @@ def main() -> int:
         return 0
     contract = json.loads((ROOT / "output-contracts" / "semantic-changeset.schema.json").read_text(encoding="utf-8"))
     schema_graph, data_graph, full_schema = Graph(), Graph(), Graph()
+    provenance_graph = Graph()  # 溯源/具体化节点单独一图 → provenance.ttl，与 current.ttl 分离
     schema_graph.parse(SCHEMA_TARGET, format="turtle")
     data_graph.parse(DATA_TARGET, format="turtle")
+    if PROV_TARGET.is_file():
+        provenance_graph.parse(PROV_TARGET, format="turtle")
     for module in sorted((ROOT / "ontology" / "modules").glob("*.ttl")):
         full_schema.parse(module, format="turtle")
     seen = set(full_schema.subjects()) | set(data_graph.subjects())
@@ -126,18 +132,19 @@ def main() -> int:
         return required
 
     def purge_node(node) -> None:
-        """删除某节点在图中的一切痕迹：正反向三元组、指向它的 RDF 具体化语句、PROV 溯源节点。"""
+        """删除某节点在图中的一切痕迹：正反向三元组、指向它的 RDF 具体化语句、PROV 溯源节点。
+        溯源/具体化节点已分离到 provenance_graph（对应 provenance.ttl），故在该图中查删。"""
         aux = set()
-        for statement in data_graph.subjects(RDF.subject, node):
+        for statement in provenance_graph.subjects(RDF.subject, node):
             aux.add(statement)
-        for statement in data_graph.subjects(RDF.object, node):
+        for statement in provenance_graph.subjects(RDF.object, node):
             aux.add(statement)
-        for entity in data_graph.subjects(PROV.specializationOf, node):
+        for entity in provenance_graph.subjects(PROV.specializationOf, node):
             aux.add(entity)
         for bnode in aux:
-            for triple in list(data_graph.triples((bnode, None, None))):
-                data_graph.remove(triple)
-        for graph in (data_graph, schema_graph):
+            for triple in list(provenance_graph.triples((bnode, None, None))):
+                provenance_graph.remove(triple)
+        for graph in (data_graph, schema_graph, provenance_graph):
             for triple in list(graph.triples((node, None, None))):
                 graph.remove(triple)
             for triple in list(graph.triples((None, None, node))):
@@ -172,24 +179,29 @@ def main() -> int:
                         break
         return dropped
 
+    def _prov_node(kind: str, key: str) -> URIRef:
+        """确定性具名 URN（对齐 migrate_semantic 的 sha256[:24] 方案），替代匿名 BNode：
+        跨轮/重复断言可去重合并，且 migrate 读回 provenance.ttl 时不会因 BNode 重标号而漂移。"""
+        return URIRef(f"urn:pxai:semi:{kind}:{hashlib.sha256(key.encode('utf-8')).hexdigest()[:24]}")
+
     def add_provenance(subject, provenance: dict) -> None:
-        node = BNode()
-        data_graph.add((node, RDF.type, PROV.Entity))
-        data_graph.add((node, PROV.specializationOf, subject))
-        data_graph.add((node, URIRef("urn:pxai:semi:sourceType"), Literal(provenance["source_type"])))
-        data_graph.add((node, URIRef("urn:pxai:semi:confidence"), Literal(provenance["confidence"])))
-        data_graph.add((node, URIRef("urn:pxai:semi:sourceRef"), Literal(provenance["source_ref"])))
+        node = _prov_node("provenance", str(subject))
+        provenance_graph.add((node, RDF.type, PROV.Entity))
+        provenance_graph.add((node, PROV.specializationOf, subject))
+        provenance_graph.add((node, URIRef("urn:pxai:semi:sourceType"), Literal(provenance["source_type"])))
+        provenance_graph.add((node, URIRef("urn:pxai:semi:confidence"), Literal(provenance["confidence"])))
+        provenance_graph.add((node, URIRef("urn:pxai:semi:sourceRef"), Literal(provenance["source_ref"])))
 
     def add_assertion(triple: tuple, provenance: dict) -> None:
-        data_graph.add(triple)
-        statement = BNode()
-        data_graph.add((statement, RDF.type, RDF.Statement))
-        data_graph.add((statement, RDF.subject, triple[0]))
-        data_graph.add((statement, RDF.predicate, triple[1]))
-        data_graph.add((statement, RDF.object, triple[2]))
-        data_graph.add((statement, URIRef("urn:pxai:semi:sourceType"), Literal(provenance["source_type"])))
-        data_graph.add((statement, URIRef("urn:pxai:semi:confidence"), Literal(provenance["confidence"])))
-        data_graph.add((statement, URIRef("urn:pxai:semi:sourceRef"), Literal(provenance["source_ref"])))
+        data_graph.add(triple)  # 被断言的真实三元组留在实例图（current.ttl）
+        statement = _prov_node("assertion", f"{triple[0]}|{triple[1]}|{triple[2]}")
+        provenance_graph.add((statement, RDF.type, RDF.Statement))
+        provenance_graph.add((statement, RDF.subject, triple[0]))
+        provenance_graph.add((statement, RDF.predicate, triple[1]))
+        provenance_graph.add((statement, RDF.object, triple[2]))
+        provenance_graph.add((statement, URIRef("urn:pxai:semi:sourceType"), Literal(provenance["source_type"])))
+        provenance_graph.add((statement, URIRef("urn:pxai:semi:confidence"), Literal(provenance["confidence"])))
+        provenance_graph.add((statement, URIRef("urn:pxai:semi:sourceRef"), Literal(provenance["source_ref"])))
 
     def complete_deterministic_relations(subject, types, data_values, provenance) -> None:
         """Add only relations derivable from an existing model/scenario file.
@@ -519,6 +531,7 @@ def main() -> int:
     rollback_targets = [
         SCHEMA_TARGET,
         DATA_TARGET,
+        PROV_TARGET,
         ROOT / "knowledge" / "scenarios" / "current.json",
         ROOT / "knowledge" / "articles" / "current-scenarios.md",
         # 构建产物必须一起回滚：kb.py check 会重新生成它，若失败后只回滚源文件，
@@ -537,13 +550,17 @@ def main() -> int:
 
     temp_schema = SCHEMA_TARGET.with_suffix(".ttl.tmp")
     temp_data = DATA_TARGET.with_suffix(".ttl.tmp")
+    temp_prov = PROV_TARGET.with_suffix(".ttl.tmp")
     try:
         schema_graph.serialize(temp_schema, format="turtle", encoding="utf-8")
         data_graph.serialize(temp_data, format="turtle", encoding="utf-8")
+        provenance_graph.serialize(temp_prov, format="turtle", encoding="utf-8")
         Graph().parse(temp_schema, format="turtle")
         Graph().parse(temp_data, format="turtle")
+        Graph().parse(temp_prov, format="turtle")
         _atomic_replace(temp_schema, SCHEMA_TARGET)
         _atomic_replace(temp_data, DATA_TARGET)
+        _atomic_replace(temp_prov, PROV_TARGET)
         # 门禁子集链：跳过 build_index/scenario_mine（派生物，非一致性判定），regress /
         # semantic_validate / semantic_test / simulate_check 等判定环节一律保留。派生物
         # 在下方门禁通过后由 refresh-derived best-effort 补跑，绝不因其失败回滚已发布内容。
@@ -558,6 +575,7 @@ def main() -> int:
     finally:
         temp_schema.unlink(missing_ok=True)
         temp_data.unlink(missing_ok=True)
+        temp_prov.unlink(missing_ok=True)
     if result.returncode:
         restore_targets()
         print("合并后校验失败，已回滚语义与场景产物。", file=sys.stderr)

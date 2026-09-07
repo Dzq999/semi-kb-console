@@ -241,3 +241,91 @@ def test_business_domain_coverage_matches_feature_gap_unmapped():
     if cov["business_total"]:
         assert cov["domains"], "有业务特征则必列出业务域"
 
+
+# --- 头部计数：落纯实例（去记账）+ 排除引擎台账；领域归属经 subClassOf 祖先增强 -------------
+
+def test_headline_individuals_excludes_governance_and_accounting():
+    """头部 individuals 落到纯实例：先去 owl:*/owl:Ontology 与 prov:Entity/rdf:Statement 记账，
+    再剔除引擎自证台账（全部类型命中 governance 词表且无一归入领域）。用 adapter 自身辅助方法
+    独立重算，校验 semantic_counts 的组合逻辑；记账/台账节点仍在合并图（被排除、非缺失）。"""
+    from rdflib import RDF
+
+    adapter = SemiKbAdapter()
+    counts = adapter.semantic_counts()
+    data = adapter._load_data_graph()
+    _, class_to_module, _ = adapter._load_schema_graph()
+
+    subj_types: dict = {}
+    for s, _, o in data.triples((None, RDF.type, None)):
+        if o in adapter._INSTANCE_NOISE_TYPES:
+            continue
+        subj_types.setdefault(s, set()).add(o)
+    upper = len(subj_types)  # 仅去噪的上界（未剔台账）
+    governance = {
+        s for s, types in subj_types.items()
+        if not any(class_to_module.get(t) in adapter._DOMAIN_MODULE_LABELS for t in types)
+        and all(adapter._is_governance_type(t) for t in types)
+    }
+    assert counts["individuals"] == upper - len(governance)
+    assert len(governance) > 0            # 实库确有引擎台账被排除
+    assert counts["individuals"] < upper  # 故头部严格小于"仅去噪"口径
+
+    prov_entity = adapter._PROV_ENTITY
+    accounting = {s for s, _, o in data.triples((None, RDF.type, None))
+                  if o in {RDF.Statement, prov_entity}}
+    assert len(accounting) > 0  # 记账节点仍在合并图里（被排除、非缺失）
+
+
+def test_resolve_domain_modules_by_ancestry():
+    """generated 里声明、但沿 rdfs:subClassOf 上溯可达某策展领域根的类，被重归属到该领域模块
+    （一层/多层均可）；无领域祖先者保持声明模块；领域声明本身不动。纯结构推导、确定性。"""
+    from rdflib import Graph, RDF, RDFS, URIRef
+    from rdflib.namespace import OWL
+
+    adapter = SemiKbAdapter()
+    root = URIRef("urn:pxai:semi:EquipmentDowntimeAnomaly")    # 假装声明于 equipment 模块
+    mid = URIRef("urn:pxai:semi:DryPumpDowntimeAnomaly")       # generated，父=root
+    leaf = URIRef("urn:pxai:semi:DryPumpSealDowntimeAnomaly")  # generated，父=mid
+    gov = URIRef("urn:pxai:semi:SHACLNodeShape")               # generated，无领域祖先
+    g = Graph()
+    for c in (root, mid, leaf, gov):
+        g.add((c, RDF.type, OWL.Class))
+    g.add((mid, RDFS.subClassOf, root))
+    g.add((leaf, RDFS.subClassOf, mid))
+    declared = {root: "equipment", mid: "generated", leaf: "generated", gov: "generated"}
+
+    resolved = adapter._resolve_domain_modules(g, declared)
+    assert resolved[mid] == "equipment"    # 一层上溯
+    assert resolved[leaf] == "equipment"   # 多层上溯（自维持：领域根的深层子类自动计入）
+    assert resolved[gov] == "generated"    # 无领域祖先 → 保持
+    assert resolved[root] == "equipment"   # 领域声明不动
+    assert declared[mid] == "generated"    # 不改入参
+
+
+def test_is_governance_type_matches_engine_ledger_not_domain():
+    """governance 分类器只命中引擎自证台账类，不误伤领域类（防止把真实实例算进台账而漏计）。"""
+    from rdflib import URIRef
+
+    adapter = SemiKbAdapter()
+    for name in ("SHACLNodeShape", "OntologyValidationRun", "ReleaseGate",
+                 "FeatureMappingCoverageMetric", "GoldenMetricBaselineRecord", "MetricGroup"):
+        assert adapter._is_governance_type(URIRef(f"urn:pxai:semi:{name}")), name
+    for name in ("EquipmentDowntimeAnomaly", "BinClassification", "CatalogConcept",
+                 "DryPumpDegradationDowntimeAnomaly", "EquipmentFaultMode"):
+        assert not adapter._is_governance_type(URIRef(f"urn:pxai:semi:{name}")), name
+
+
+def test_source_split_survives_merged_load():
+    """合并加载 provenance.ttl 后，来源拆分链（prov:Entity→specializationOf→sourceType）仍可达：
+    knowledge 非零即证明溯源已被合并进 data 图（否则链断、三项塌成 0）。
+    并锁两条口径不变量：领域实例按唯一主语计（≤ 头部总数）、三类来源之和恰等于领域总数。"""
+    counts = SemiKbAdapter().semantic_counts()
+    assert counts["individuals_knowledge"] > 0
+    for key in ("individuals_knowledge", "individuals_operational", "individuals_untagged"):
+        assert counts[key] >= 0
+    # 领域实例是全部实例的子集（唯一主语计数，多类型主语不重复），故不得超过头部总数
+    assert counts["individuals_domain"] <= counts["individuals"]
+    # 三类来源互斥且穷尽领域实例
+    assert (counts["individuals_knowledge"] + counts["individuals_operational"]
+            + counts["individuals_untagged"]) == counts["individuals_domain"]
+

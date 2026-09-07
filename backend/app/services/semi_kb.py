@@ -118,31 +118,84 @@ class SemiKbAdapter:
         if self._schema_cache and self._schema_cache[0] == sig:
             return self._schema_cache[1], self._schema_cache[2], self._schema_cache[3]
         schema = Graph()
-        class_to_module: dict[URIRef, str] = {}
-        module_stats: dict[str, dict[str, int]] = {}
+        declared_module: dict[URIRef, str] = {}
+        prop_counts: dict[str, int] = {}
         for path in paths:
             module = Graph()
             module.parse(path, format="turtle")
             schema += module
             classes = set(module.subjects(RDF.type, OWL.Class))
             props = set(module.subjects(RDF.type, OWL.ObjectProperty)) | set(module.subjects(RDF.type, OWL.DatatypeProperty))
-            module_stats[path.stem] = {"classes": len(classes), "properties": len(props)}
+            prop_counts[path.stem] = len(props)
             for cls in classes:
-                class_to_module[cls] = path.stem
+                declared_module[cls] = path.stem
+        # 领域归属增强：generated/common 里声明、但沿 rdfs:subClassOf 上溯能抵达某策展领域模块根类的
+        # 类，重归属到该领域模块（读侧归属，不改本体文件、不碰门禁；自维持——新自动生成的领域子类会
+        # 自动计入其领域）。声明在领域模块的类保持不动。
+        class_to_module = self._resolve_domain_modules(schema, declared_module)
+        # module_stats 的 class 计数依"解析后归属"重算（properties 仍按声明文件计），使 domain_coverage
+        # 的 类/实例 两栏口径一致：领域模块吸收其派生类，generated/common 相应收缩。
+        class_counts: dict[str, int] = {}
+        for stem in class_to_module.values():
+            class_counts[stem] = class_counts.get(stem, 0) + 1
+        module_stats: dict[str, dict[str, int]] = {
+            stem: {"classes": class_counts.get(stem, 0), "properties": prop_counts.get(stem, 0)}
+            for stem in prop_counts
+        }
         self._schema_cache = (sig, schema, class_to_module, module_stats)
         return schema, class_to_module, module_stats
 
+    def _resolve_domain_modules(self, schema: Graph, declared_module: dict) -> dict:
+        """把非策展模块（generated/common）里声明、但经 rdfs:subClassOf 可上溯到某策展领域模块根类
+        的类，重归属到该领域模块；其余保持声明模块。返回新映射，不改入参。纯结构推导、无副作用。"""
+        labels = self._DOMAIN_MODULE_LABELS
+        resolved = dict(declared_module)
+        for cls, stem in declared_module.items():
+            if stem in labels:
+                continue
+            target = self._nearest_domain_module(cls, schema, declared_module)
+            if target:
+                resolved[cls] = target
+        return resolved
+
+    def _nearest_domain_module(self, cls, schema: Graph, declared_module: dict):
+        """沿 rdfs:subClassOf 逐层 BFS 上溯，返回最近祖先所在的策展领域模块 stem；无则 None。
+        父类归属以"声明文件"为准（领域根声明在领域模块）；同层命中多个领域根取字典序最小以保确定性；
+        seen 去环。"""
+        labels = self._DOMAIN_MODULE_LABELS
+        seen = {cls}
+        frontier = [cls]
+        while frontier:
+            hits, nxt = [], []
+            for node in frontier:
+                for parent in schema.objects(node, RDFS.subClassOf):
+                    if not isinstance(parent, URIRef) or parent in seen:
+                        continue
+                    seen.add(parent)
+                    if declared_module.get(parent) in labels:
+                        hits.append(declared_module[parent])
+                    nxt.append(parent)
+            if hits:
+                return sorted(hits)[0]
+            frontier = nxt
+        return None
+
     def _load_data_graph(self) -> Graph:
-        """解析 knowledge/semantic/current.ttl 一次并按 mtime 缓存。共享只读，调用方绝不可就地修改。"""
-        path = self.root / "knowledge" / "semantic" / "current.ttl"
-        if not path.is_file():
+        """解析 knowledge/semantic 下的 current.ttl（纯实例）+ provenance.ttl（溯源）并按 mtime 缓存。
+
+        两文件合并加载：溯源已从 current.ttl 物理分离，但来源拆分（sourceType 经
+        prov:Entity--specializationOf-->个体 回填）等指标仍需读到溯源节点，故此处再并回，
+        使各项指标口径与分离前逐条一致。共享只读，调用方绝不可就地修改。"""
+        base = self.root / "knowledge" / "semantic"
+        paths = [p for p in (base / "current.ttl", base / "provenance.ttl") if p.is_file()]
+        if not paths:
             return Graph()
-        stat = path.stat()
-        sig = (stat.st_mtime_ns, stat.st_size)
+        sig = self._graph_sig(paths)
         if self._data_cache and self._data_cache[0] == sig:
             return self._data_cache[1]
         data = Graph()
-        data.parse(path, format="turtle")
+        for path in paths:
+            data.parse(path, format="turtle")
         self._data_cache = (sig, data)
         return data
 
@@ -1016,12 +1069,26 @@ class SemiKbAdapter:
 
     def semantic_counts(self) -> dict[str, int]:
         self._ensure_root()
-        schema, _, _ = self._load_schema_graph()
+        schema, class_to_module, _ = self._load_schema_graph()
         data = self._load_data_graph()
         classes = set(schema.subjects(RDF.type, OWL.Class))
         object_properties = set(schema.subjects(RDF.type, OWL.ObjectProperty))
         datatype_properties = set(schema.subjects(RDF.type, OWL.DatatypeProperty))
-        individuals = {s for s, _, o in data.triples((None, RDF.type, None)) if o not in {OWL.Class, OWL.ObjectProperty, OWL.DatatypeProperty}}
+        # 顶部『实例 Individual』只数真实业务/领域实例，分两步剔除：
+        # (1) 按 rdf:type 去结构噪声(owl:*/owl:Ontology)与溯源/具体化记账(prov:Entity/rdf:Statement)；
+        # (2) 再剔除引擎自证台账——主语的全部类型都命中 governance 词表、且无一可归入策展领域模块。
+        # 台账/记账节点仍物理存在于图中，此处仅不计入头部（读侧口径，不改数据、完全可逆）。
+        subj_types: dict = {}
+        for s, _, o in data.triples((None, RDF.type, None)):
+            if o in self._INSTANCE_NOISE_TYPES:
+                continue
+            subj_types.setdefault(s, set()).add(o)
+        governance = {
+            s for s, types in subj_types.items()
+            if not any(class_to_module.get(t) in self._DOMAIN_MODULE_LABELS for t in types)
+            and all(self._is_governance_type(t) for t in types)
+        }
+        individuals = set(subj_types) - governance
         source_split = self._individual_source_split(data)
         segment_split = self._segment_split(data)
         relation_assertions = sum(1 for subject, predicate, obj in data if predicate in object_properties and subject != obj)
@@ -1054,33 +1121,32 @@ class SemiKbAdapter:
         return result
 
     # 溯源来源类型：model_prior/web/assumption 三值，均属"知识"来源（agent 先验 / web 检索 / 推定假设）。
-    # 未来接入真实产线/导入数据后，会出现这三值以外的 sourceType，届时归入"运行数据"。
+    # 未来接入真实产线/导入数据后，会出现这三值以外的 sourceType，届时归入"产线数据"。
     _KNOWLEDGE_SOURCE_TYPES = {"model_prior", "web", "assumption"}
     _SOURCE_TYPE_PRED = URIRef("urn:pxai:semi:sourceType")
 
     def _individual_source_split(self, data: Graph) -> dict[str, int]:
-        """把策展模块个体按 sourceType 拆成 知识 / 运行数据 / 未标注 三类（纯只读、无副作用）。
+        """把策展模块个体按 sourceType 拆成 知识 / 产线数据 / 未标注 三类（纯只读、无副作用）。
 
         统计基数与 _segment_split 对齐：只统计能映射到 12 个策展模块的实例，排除
         业务推理层（BusinessVariable、SimulationScenario 等）与溯源/结构噪声。
         sourceType 有两条到达路径：
         (1) 直接挂在个体上；(2) 经 prov:Entity --prov:specializationOf--> 个体 回指。两路合并取并集。
         当前库内 sourceType 只有 model_prior/web/assumption（均属知识），故 operational 恒为 0，
-        如实反映"尚未接入真实运行数据"。传入已缓存的 data graph，避免二次解析。
+        如实反映"尚未接入真实产线数据"。传入已缓存的 data graph，避免二次解析。
         """
         prov_spec = URIRef("http://www.w3.org/ns/prov#specializationOf")
-        prov_entity = URIRef("http://www.w3.org/ns/prov#Entity")
-        noise = {OWL.Class, OWL.ObjectProperty, OWL.DatatypeProperty, RDF.Statement, prov_entity}
+        noise = self._INSTANCE_NOISE_TYPES
 
         # 与 _segment_split 相同的过滤逻辑：只保留能映射到 12 个策展模块的个体
         _, class_to_module, _ = self._load_schema_graph()
-        domain_individuals = []
+        domain_individuals = set()
         for s, _, o in data.triples((None, RDF.type, None)):
             if o in noise:
                 continue
             module = class_to_module.get(o)
             if module and module in self._DOMAIN_MODULE_LABELS:
-                domain_individuals.append(s)
+                domain_individuals.add(s)
 
         # 在这些策展模块个体上统计 sourceType 分布
         direct: dict = {}
@@ -1096,7 +1162,7 @@ class SemiKbAdapter:
             vals = direct.get(indiv, set()) | chain.get(indiv, set())
             if not vals:
                 untagged += 1
-            elif vals - self._KNOWLEDGE_SOURCE_TYPES:  # 出现任何非知识来源即计运行数据
+            elif vals - self._KNOWLEDGE_SOURCE_TYPES:  # 出现任何非知识来源即计产线数据
                 operational += 1
             else:
                 knowledge += 1
@@ -1114,17 +1180,16 @@ class SemiKbAdapter:
 
         返回 {"domain": 总数, "by_segment": {"fab": n, "ap": m, ...}, "cross": 无标注个体数}。
         """
-        prov_entity = URIRef("http://www.w3.org/ns/prov#Entity")
-        noise = {OWL.Class, OWL.ObjectProperty, OWL.DatatypeProperty, RDF.Statement, prov_entity}
+        noise = self._INSTANCE_NOISE_TYPES
         _, class_to_module, _ = self._load_schema_graph()
         # 只统计能映射到 12 个策展模块的实例（与 domain_coverage 逻辑对齐）
-        domain_individuals = []
+        domain_individuals = set()
         for s, _, o in data.triples((None, RDF.type, None)):
             if o in noise:
                 continue
             module = class_to_module.get(o)
             if module and module in self._DOMAIN_MODULE_LABELS:
-                domain_individuals.append(s)
+                domain_individuals.add(s)
         by_segment: dict[str, int] = {}
         cross = 0
         for indiv in domain_individuals:
@@ -1135,6 +1200,40 @@ class SemiKbAdapter:
             else:
                 cross += 1
         return {"domain": len(domain_individuals), "by_segment": by_segment, "cross": cross}
+
+    # 顶部『实例』计数与三处领域拆分共用的"非实例类型"噪声集：结构公理(owl:Class/*Property)、
+    # 本体头节点(owl:Ontology)、溯源/具体化记账(prov:Entity / rdf:Statement)。四处口径统一到此常量，
+    # 避免逐处内联漂移。（owl:Ontology 是唯一的本体声明头节点，非业务实例。）
+    _PROV_ENTITY = URIRef("http://www.w3.org/ns/prov#Entity")
+    _INSTANCE_NOISE_TYPES = frozenset({
+        OWL.Class, OWL.ObjectProperty, OWL.DatatypeProperty, OWL.Ontology,
+        RDF.Statement, _PROV_ENTITY,
+    })
+
+    # 引擎自证/治理台账类（SHACL 形状、本体校验运行/报告、发布门禁、覆盖度与映射缺口发现、
+    # 黄金基线记录、各类结构约束与校验发现等）——由管线自动断言进 current.ttl，是"引擎给自己记的账"、
+    # 非业务/领域实例。顶部『实例』计数在此剔除：仅当某主语的全部 rdf:type 都命中此词表（按类
+    # local name 子串匹配）、且无任一类型可归入策展领域模块时，整体判为台账并排除（读侧、不改数据、
+    # 完全可逆）。边界故意从严对齐引擎内部产物；未来新增引擎产物类型时在此扩充。
+    _GOVERNANCE_CLASS_KEYWORDS = (
+        "SHACL", "Shape", "OntologyValidation", "OntologyIntegrity",
+        "ValidationFinding", "ValidationResult", "ValidationRun", "ValidationReport",
+        "ValidationProfile", "ValidationSuite", "ValidationCheck", "Constraint",
+        "ReleaseGate", "ReleaseReadiness", "CoverageGate", "CoverageMetric",
+        "FeatureMappingGap", "FeatureMappingCoverage", "FeatureMappingBacklog",
+        "MetricGroup", "Golden", "ReasoningConsistency", "AsymmetricRelation",
+        "MissingInverse", "InverseAsymmetry", "EvidenceCompleteness", "EvidenceCoverage",
+        "Scorecard", "ScoreCardRecord", "Backlog", "IncompletenessFinding",
+        "UncoveredAnomaly",
+    )
+
+    @staticmethod
+    def _local_name(term) -> str:
+        return str(term).split(":")[-1].split("#")[-1].split("/")[-1]
+
+    def _is_governance_type(self, cls) -> bool:
+        name = self._local_name(cls)
+        return any(kw in name for kw in self._GOVERNANCE_CLASS_KEYWORDS)
 
     # 12 个手工策展的专业领域模块 → 中文标签；common/generated 属基础设施(不计入领域)。
     _DOMAIN_MODULE_LABELS = {
@@ -1156,15 +1255,16 @@ class SemiKbAdapter:
     def domain_coverage(self) -> dict:
         """按本体模块聚合『领域覆盖』：每个专业领域的类数与落地实例数，供日报领域覆盖小节取数。
 
-        - 领域实例：current.ttl 中按 rdf:type 映射回『声明该类的模块』计数，已排除 prov:Entity /
-          rdf:Statement / owl:* 等溯源与结构噪声，故与全局 individuals 总量口径不同（后者含噪声）。
-        - generated 模块（LLM 逐轮自动扩展的类）单列为 auto_generated，不混入 12 个策展领域，避免
-          掩盖手工领域的真实分布。business_baselines 来自 business/models 下的 *-baseline.yaml。
+        - 领域实例：current.ttl 中按 rdf:type 映射回『该类归属的模块』计数（归属经 subClassOf 祖先
+          增强：generated/common 里声明、但上溯可达某策展领域根的类，计入该领域），已排除 prov:Entity /
+          rdf:Statement / owl:* 等溯源与结构噪声，故与全局 individuals 总量口径不同。
+        - auto_generated 现仅剩"未能归入任一策展领域"的自动生成类残余（引擎治理台账 + 仅挂通用根
+          common:Entity/skos:Concept 的记录），不混入 12 个策展领域，避免掩盖手工领域的真实分布。
+          business_baselines 来自 business/models 下的 *-baseline.yaml。
         纯只读、不触库；文件缺失时优雅降级为零。metrics() 不在热路径调用它，仅日报生成时取用。
         """
         self._ensure_root()
-        prov_entity = URIRef("http://www.w3.org/ns/prov#Entity")
-        noise = {OWL.Class, OWL.ObjectProperty, OWL.DatatypeProperty, RDF.Statement, prov_entity}
+        noise = self._INSTANCE_NOISE_TYPES
         _, class_to_module, cached_stats = self._load_schema_graph()
         # 复制一份带 instances 计数器的本地统计，绝不就地改动共享缓存里的 module_stats。
         module_stats: dict[str, dict[str, int]] = {

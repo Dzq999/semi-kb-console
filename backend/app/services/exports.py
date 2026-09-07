@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
 
-from rdflib import RDF, OWL, Graph, URIRef
+from rdflib import RDF, Graph
 from sqlalchemy.orm import Session
 
 from ..config import settings
@@ -37,10 +37,11 @@ def _files(kind: str) -> list[Path]:
 def _filter_semantic_ttl(source_path: Path, filtered: bool) -> bytes:
     """过滤语义 TTL 文件，只保留有用的个体。
 
-    filtered=True: 只保留策展模块的2436个体，删除噪声（RDF.Statement、prov:Entity）和非策展模块个体
+    filtered=True: 只保留策展领域模块的个体，删除噪声（owl:*、RDF.Statement、prov:Entity）和非策展模块个体
     filtered=False: 返回原始内容
 
-    策展模块个体：能映射到12个专业领域模块的实例（EQP、FAC、MAT等），排除业务推理层和系统元数据。
+    策展模块个体：rdf:type 能归属到 12 个专业领域模块的实例（EQP、FAC、MAT 等）——归属经 subClassOf
+    祖先增强（generated/common 里声明、但上溯可达某策展领域根的类亦计入），排除业务推理层和系统元数据。
     """
     if not filtered or not source_path.name.endswith('.ttl'):
         return source_path.read_bytes()
@@ -50,13 +51,12 @@ def _filter_semantic_ttl(source_path: Path, filtered: bool) -> bytes:
         data = Graph()
         data.parse(source_path, format="turtle")
 
-        # 加载本体 schema，获取 class -> module 映射
+        # 加载本体 schema，获取 class -> module 映射（含 subClassOf 祖先归属增强）
         from .semi_kb import semi_kb
         _, class_to_module, _ = semi_kb._load_schema_graph()
 
-        # 定义噪声类型
-        prov_entity = URIRef("http://www.w3.org/ns/prov#Entity")
-        noise_types = {OWL.Class, OWL.ObjectProperty, OWL.DatatypeProperty, RDF.Statement, prov_entity}
+        # 噪声类型：与 semi_kb 头部计数/领域拆分共用同一口径
+        noise_types = semi_kb._INSTANCE_NOISE_TYPES
 
         # 找出策展模块个体
         curated_individuals = set()
@@ -108,6 +108,10 @@ async def create_export(db: Session, job: ExportJob) -> None:
     try:
         files = _files(job.kind)
         entries = [(path, path.relative_to(settings.engine_root).as_posix()) for path in files]
+        if filtered:
+            # 精简导出=纯策展实例：剔除溯源文件（provenance.ttl 已从 current.ttl 物理分离）。
+            # 完整导出(unfiltered)则经 L137 原样整份纳入，不做过滤/碎片化。
+            entries = [(p, name) for p, name in entries if name != "knowledge/semantic/provenance.ttl"]
         if job.kind == "complete":
             run_root = settings.data_dir / "runs"
             entries.extend((path, "console-runs/" + path.relative_to(run_root).as_posix()) for path in run_root.rglob("*") if path.is_file())

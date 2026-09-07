@@ -303,6 +303,13 @@ def prompt_contract() -> dict:
             "被 hasDiagnosticAction 指向的个体 types 必须包含 urn:pxai:semi:Action；"
             "被 diagnosesAnomaly 指向的个体 types 必须包含 urn:pxai:semi:Anomaly。"
             "这些目标个体要在同一份 additions.individuals 里一并定义，不能只写 IRI。",
+            "新建类的 subclass_of 必须让它归入某个专业领域：至少有一个父类是 known_ontology 里的"
+            "领域类（如 Equipment 设备、Anomaly 异常、DiagnosticPlaybook 诊断手册、Material 物料、"
+            "ProcessStep 工艺步骤，以及质量量测/维护保养/在制生产/厂务设施/产能绩效等领域下的具体类），"
+            "或本次一并新建、且其父链已挂在这类领域类之下的类，形成『领域类 ← 新类』的 subClassOf 链。"
+            "不要只把新类挂到 InformationEntity / CatalogConcept / State / Observation / Evidence 这类"
+            "通用顶层基类——那样新类会漂在通用层、不计入任何专业领域。只有当概念确属跨域通用"
+            "（纯枚举值、编目项、状态值、证据容器、无领域归属的记录壳）时，才可只挂通用基类。",
             "新建 object_properties 必须给出非空 domain 与 range；新建 datatype_properties 必须给出非空 domain。"
             "domain/range 只能引用已存在的类，或本次 additions.classes 里新定义的类 IRI，指向语义上最贴切的类即可"
             "（可以指向 Equipment、ProcessingEvent、DiagnosticPlaybook 等约束类：校验已按显式声明类型治理，"
@@ -334,7 +341,7 @@ def prompt_contract() -> dict:
         "semantic_changesets": [{
             "provenance": {"source_type": "web|model_prior", "confidence": "high|medium|low", "source_ref": "URL or model reference"},
             "additions": {
-                "classes": [{"iri": "urn:pxai:semi:...", "label_zh": "...", "subclass_of": ["existing/new class IRI"], "equivalent_to": ["可选：语义等价的既有类 IRI，没有就省略"]}],
+                "classes": [{"iri": "urn:pxai:semi:...", "label_zh": "...", "subclass_of": ["父类 IRI：至少一个为领域类，使新类归入专业领域；跨域通用概念才挂通用基类"], "equivalent_to": ["可选：语义等价的既有类 IRI，没有就省略"]}],
                 "object_properties": [{"iri": "urn:pxai:semi:...", "label_zh": "...", "domain": ["class IRI"], "range": ["class IRI"], "inverse_of": "可选：本属性天然反向的对象属性 IRI（既有或本次新建），没有就省略"}],
                 "datatype_properties": [{"iri": "urn:pxai:semi:...", "label_zh": "...", "domain": ["class IRI"], "datatype": "http://www.w3.org/2001/XMLSchema#string"}],
                 "individuals": [{"iri": "urn:pxai:semi:...", "types": ["class IRI"], "label_zh": "...", "objects": {"object property IRI": ["individual IRI"]}, "data": {"datatype property IRI": ["value"]}}],

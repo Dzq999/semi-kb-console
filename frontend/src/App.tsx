@@ -370,14 +370,14 @@ function MetricCard({
 }
 
 // individuals 卡副标注：基于12个策展模块的实例统计（与工艺段拆分使用相同基数）。
-// 知识=agent 生成（model_prior/web/assumption），运行数据=真实产线/导入（当前为 0，即尚未接入实测）。
+// 知识=agent 生成（model_prior/web/assumption），产线数据=真实产线/导入（当前为 0，即尚未接入实测）。
 function individualsSplitNote(totals: Record<string, number | string>): string | undefined {
   const domain = Number(totals["individuals_domain"] ?? 0);
   if (!domain) return undefined;
   const knowledge = Number(totals["individuals_knowledge"] ?? 0);
   const operational = Number(totals["individuals_operational"] ?? 0);
   const untagged = Number(totals["individuals_untagged"] ?? 0);
-  const parts = [`知识 ${knowledge.toLocaleString()}`, `运行数据 ${operational.toLocaleString()}`];
+  const parts = [`知识 ${knowledge.toLocaleString()}`, `产线数据 ${operational.toLocaleString()}`];
   if (untagged > 0) parts.push(`未标注 ${untagged.toLocaleString()}`);
   return `策展模块实例 ${domain.toLocaleString()}：${parts.join(" / ")}`;
 }
@@ -395,7 +395,7 @@ function MetricsOverview({
     <div className={`metrics-grid ${className}`.trim()}>
       {keys.map((key) => {
         const definition = metricDefinitions.find((item) => item.key === key)!;
-        // 只有 individuals 卡片显示来源拆分注释（知识/运行数据），工艺段卡片不显示
+        // 只有 individuals 卡片显示来源拆分注释（知识/产线数据），工艺段卡片不显示
         const note = key === "individuals" ? individualsSplitNote(metrics.totals) : undefined;
         return (
           <MetricCard
