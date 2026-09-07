@@ -1023,6 +1023,7 @@ class SemiKbAdapter:
         datatype_properties = set(schema.subjects(RDF.type, OWL.DatatypeProperty))
         individuals = {s for s, _, o in data.triples((None, RDF.type, None)) if o not in {OWL.Class, OWL.ObjectProperty, OWL.DatatypeProperty}}
         source_split = self._individual_source_split(data)
+        segment_split = self._segment_split(data)
         relation_assertions = sum(1 for subject, predicate, obj in data if predicate in object_properties and subject != obj)
         axiom_predicates = {OWL.equivalentClass, OWL.disjointWith, OWL.inverseOf, OWL.onProperty, OWL.cardinality, OWL.qualifiedCardinality, OWL.minQualifiedCardinality, OWL.maxQualifiedCardinality}
         axioms = sum(1 for _, predicate, _ in schema if predicate in axiom_predicates)
@@ -1031,7 +1032,7 @@ class SemiKbAdapter:
         if rules_path.is_file():
             doc = json.loads(rules_path.read_text(encoding="utf-8"))
             rules = len(doc if isinstance(doc, list) else (doc.get("rules") or []))
-        return {
+        result = {
             "classes": len(classes),
             "properties": len(object_properties) + len(datatype_properties),
             "object_properties": len(object_properties),
@@ -1046,10 +1047,15 @@ class SemiKbAdapter:
             "rules": rules,
             "semantic_triples": len(schema) + len(data),
         }
+        # processSegment 拆分：动态展开 by_segment 字典为 segment_<seg>: count 平铺键值对，便于前端/日报取数
+        for seg, count in segment_split["by_segment"].items():
+            result[f"segment_{seg}"] = count
+        result["segment_cross"] = segment_split["cross"]
+        return result
 
-    # 溯源来源类型：仅 model_prior/web 两值，均属"知识"来源（agent 先验 / web 检索）。
-    # 未来接入真实产线/导入数据后，会出现这两值以外的 sourceType，届时归入"运行数据"。
-    _KNOWLEDGE_SOURCE_TYPES = {"model_prior", "web"}
+    # 溯源来源类型：model_prior/web/assumption 三值，均属"知识"来源（agent 先验 / web 检索 / 推定假设）。
+    # 未来接入真实产线/导入数据后，会出现这三值以外的 sourceType，届时归入"运行数据"。
+    _KNOWLEDGE_SOURCE_TYPES = {"model_prior", "web", "assumption"}
     _SOURCE_TYPE_PRED = URIRef("urn:pxai:semi:sourceType")
 
     def _individual_source_split(self, data: Graph) -> dict[str, int]:
@@ -1082,6 +1088,40 @@ class SemiKbAdapter:
             else:
                 knowledge += 1
         return {"domain": len(denoise), "knowledge": knowledge, "operational": operational, "untagged": untagged}
+
+    _SEGMENT_PRED = URIRef("urn:pxai:semi:processSegment")
+
+    def _segment_split(self, data: Graph) -> dict:
+        """把去噪后的领域个体按 processSegment 动态拆分（值开放、可扩展）。
+
+        processSegment 直接挂在个体上（YAML default_attributes 编译生成），当前有 fab/ap 两值，
+        未来可能新增 test/packaging 等。无此属性的个体属跨段通用（如设备域、厂务域）。
+        去噪口径与 domain_coverage 对齐：只统计能映射到 12 个策展模块的实例，排除
+        业务推理层（BusinessVariable、SimulationScenario 等）与溯源/结构噪声。
+
+        返回 {"domain": 总数, "by_segment": {"fab": n, "ap": m, ...}, "cross": 无标注个体数}。
+        """
+        prov_entity = URIRef("http://www.w3.org/ns/prov#Entity")
+        noise = {OWL.Class, OWL.ObjectProperty, OWL.DatatypeProperty, RDF.Statement, prov_entity}
+        _, class_to_module, _ = self._load_schema_graph()
+        # 只统计能映射到 12 个策展模块的实例（与 domain_coverage 逻辑对齐）
+        domain_individuals = []
+        for s, _, o in data.triples((None, RDF.type, None)):
+            if o in noise:
+                continue
+            module = class_to_module.get(o)
+            if module and module in self._DOMAIN_MODULE_LABELS:
+                domain_individuals.append(s)
+        by_segment: dict[str, int] = {}
+        cross = 0
+        for indiv in domain_individuals:
+            seg_vals = {str(o) for _, _, o in data.triples((indiv, self._SEGMENT_PRED, None))}
+            if seg_vals:
+                seg = next(iter(seg_vals))  # 理论上单值；多值取首个
+                by_segment[seg] = by_segment.get(seg, 0) + 1
+            else:
+                cross += 1
+        return {"domain": len(domain_individuals), "by_segment": by_segment, "cross": cross}
 
     # 12 个手工策展的专业领域模块 → 中文标签；common/generated 属基础设施(不计入领域)。
     _DOMAIN_MODULE_LABELS = {

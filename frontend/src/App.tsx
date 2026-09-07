@@ -96,13 +96,19 @@ type MetricKey =
   | "knowledge_entries"
   | "business_relations"
   | "simulation_scenarios"
-  | "scenario_articles";
+  | "scenario_articles"
+  | "segment_fab"
+  | "segment_ap"
+  | "segment_cross";
 
 const metricDefinitions: Array<{ key: MetricKey; label: string }> = [
   { key: "classes", label: "类 Class" },
   { key: "properties", label: "属性 Property" },
   { key: "relations", label: "关系 Relation" },
   { key: "individuals", label: "实例 Individual" },
+  { key: "segment_fab", label: "实例 · 前段厂 (fab)" },
+  { key: "segment_ap", label: "实例 · 后段厂 (ap)" },
+  { key: "segment_cross", label: "实例 · 跨段通用" },
   { key: "axioms", label: "公理 Axiom" },
   { key: "rules", label: "推理规则 Rule" },
   { key: "knowledge_entries", label: "知识条目" },
@@ -389,13 +395,15 @@ function MetricsOverview({
     <div className={`metrics-grid ${className}`.trim()}>
       {keys.map((key) => {
         const definition = metricDefinitions.find((item) => item.key === key)!;
+        // 只有 individuals 卡片显示来源拆分注释（知识/运行数据），工艺段卡片不显示
+        const note = key === "individuals" ? individualsSplitNote(metrics.totals) : undefined;
         return (
           <MetricCard
             key={key}
             label={definition.label}
             value={metrics.totals[key] ?? 0}
             delta={metrics.today_added[key] ?? 0}
-            note={key === "individuals" ? individualsSplitNote(metrics.totals) : undefined}
+            note={note}
           />
         );
       })}
