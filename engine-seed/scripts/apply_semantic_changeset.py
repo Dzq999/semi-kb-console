@@ -93,6 +93,85 @@ def main() -> int:
     addition_count = 0
     duplicate_iris: list[str] = []
 
+    _SH = "http://www.w3.org/ns/shacl#"
+    _SH_TARGET_CLASS = URIRef(_SH + "targetClass")
+    _SH_PROPERTY = URIRef(_SH + "property")
+    _SH_PATH = URIRef(_SH + "path")
+    _SH_MIN_COUNT = URIRef(_SH + "minCount")
+
+    def required_min_paths() -> dict:
+        """从 SHACL 形状抽取每个 targetClass 的『必填直连边』(minCount>=1)。
+
+        仅取形状顶层 sh:property 且 sh:path 为具名 IRI、sh:minCount>=1 的约束；
+        sh:or / sh:and 等条件分支不在此列——其取舍留给权威 SHACL 门禁，避免预筛
+        误判条件性约束。语义与 semantic_validate.py 的 targetClass 改写一致：只约束
+        显式直接声明该类型的节点（此处按声明类型查表，不含推理派生类型）。
+        """
+        shapes = Graph()
+        for shp in sorted((ROOT / "ontology" / "shapes").glob("*.ttl")):
+            shapes.parse(shp, format="turtle")
+        required: dict = {}
+        for shape, _, cls in shapes.triples((None, _SH_TARGET_CLASS, None)):
+            for prop in shapes.objects(shape, _SH_PROPERTY):
+                path = shapes.value(prop, _SH_PATH)
+                minc = shapes.value(prop, _SH_MIN_COUNT)
+                if not isinstance(path, URIRef) or minc is None:
+                    continue
+                try:
+                    minimum = int(minc)
+                except (TypeError, ValueError):
+                    continue
+                if minimum >= 1:
+                    required.setdefault(cls, []).append((path, minimum))
+        return required
+
+    def purge_node(node) -> None:
+        """删除某节点在图中的一切痕迹：正反向三元组、指向它的 RDF 具体化语句、PROV 溯源节点。"""
+        aux = set()
+        for statement in data_graph.subjects(RDF.subject, node):
+            aux.add(statement)
+        for statement in data_graph.subjects(RDF.object, node):
+            aux.add(statement)
+        for entity in data_graph.subjects(PROV.specializationOf, node):
+            aux.add(entity)
+        for bnode in aux:
+            for triple in list(data_graph.triples((bnode, None, None))):
+                data_graph.remove(triple)
+        for graph in (data_graph, schema_graph):
+            for triple in list(graph.triples((node, None, None))):
+                graph.remove(triple)
+            for triple in list(graph.triples((None, None, node))):
+                graph.remove(triple)
+
+    def prune_incomplete_individuals() -> list:
+        """剔除本轮新增中未满足『必填直连边 minCount』的个体（如三件套皆缺的诊断手册）。
+
+        只在『整批候选 + 基线』全部合并、确定性补边(complete_deterministic_relations)
+        都已就绪后才判定——此时不会误伤边落在同批他处的节点，保证 sound。剔除会连带
+        清掉其正反向断言，可能令依赖它的个体转为不完整，故迭代至不动点。这是对『未证明
+        的不完整候选』做保守丢弃：不发明事实、不改写已发布内容；只剔节点、保留同批其余
+        合规断言。通过预筛的节点仍走下方权威 SHACL 门禁，判定口径不放水。
+        """
+        required = required_min_paths()
+        if not required:
+            return []
+        dropped: list = []
+        changed = True
+        while changed:
+            changed = False
+            for subject in list(new_individuals):
+                requirements: list = []
+                for cls in set(data_graph.objects(subject, RDF.type)):
+                    requirements.extend(required.get(cls, []))
+                for path, minimum in requirements:
+                    if len(set(data_graph.objects(subject, path))) < minimum:
+                        purge_node(subject)
+                        new_individuals.discard(subject)
+                        dropped.append((str(subject), str(path)))
+                        changed = True
+                        break
+        return dropped
+
     def add_provenance(subject, provenance: dict) -> None:
         node = BNode()
         data_graph.add((node, RDF.type, PROV.Entity))
@@ -431,6 +510,12 @@ def main() -> int:
         else:
             print(f"语义变更集预检通过：{len(files)} 个提案")
         return 0
+    # 合并后、门禁前：剔除未满足必填直连边 minCount 的新增个体（保守丢弃未证明的不完整
+    # 候选；只剔节点、保留同批其余合规断言）。放在 --check 早返回之后，保持结构预检语义纯净。
+    dropped_incomplete = prune_incomplete_individuals()
+    if dropped_incomplete:
+        preview = "、".join(sorted({iri for iri, _ in dropped_incomplete})[:20])
+        print(f"已剔除 {len(dropped_incomplete)} 个不完整个体（缺必填直连边，其余合规断言保留）：{preview}")
     rollback_targets = [
         SCHEMA_TARGET,
         DATA_TARGET,
@@ -459,9 +544,12 @@ def main() -> int:
         Graph().parse(temp_data, format="turtle")
         _atomic_replace(temp_schema, SCHEMA_TARGET)
         _atomic_replace(temp_data, DATA_TARGET)
+        # 门禁子集链：跳过 build_index/scenario_mine（派生物，非一致性判定），regress /
+        # semantic_validate / semantic_test / simulate_check 等判定环节一律保留。派生物
+        # 在下方门禁通过后由 refresh-derived best-effort 补跑，绝不因其失败回滚已发布内容。
         command = ([sys.executable, str(ROOT / "scripts" / "semantic_validate.py")]
                    if args.semantic_only else
-                   [sys.executable, str(ROOT / "scripts" / "kb.py"), "check", "--no-precheck"])
+                   [sys.executable, str(ROOT / "scripts" / "kb.py"), "check", "--no-precheck", "--defer-derived"])
         result = subprocess.run(command, cwd=ROOT)
     except Exception as exc:  # noqa: BLE001
         restore_targets()
@@ -474,6 +562,15 @@ def main() -> int:
         restore_targets()
         print("合并后校验失败，已回滚语义与场景产物。", file=sys.stderr)
         return 1
+    # 门禁已通过。派生物（检索索引/场景卡）此前被移出门禁关键路径，此处 best-effort
+    # 补跑一次刷新——失败只告警、绝不回滚已通过发布的内容（与门禁 PASS/FAIL 解耦）。
+    # semantic_only 路径本就不含 build_index/scenario_mine，无需补跑。
+    if not args.semantic_only:
+        try:
+            subprocess.run([sys.executable, str(ROOT / "scripts" / "kb.py"), "refresh-derived"],
+                           cwd=ROOT, timeout=1800)
+        except Exception as exc:  # noqa: BLE001
+            print(f"派生物刷新失败（不影响已发布内容）：{exc}", file=sys.stderr)
     if args.defer_archive:
         print(f"语义变更集合并通过：{len(files)} 个提案；等待全链通过后归档")
     else:

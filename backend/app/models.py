@@ -168,6 +168,7 @@ class ReportSetting(Base):
     reminder_timeout_minutes: Mapped[int] = mapped_column(Integer, default=10)
     email_sender: Mapped[str | None] = mapped_column(String(200), nullable=True)
     email_recipient: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    email_reminder_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     last_trigger_key: Mapped[str | None] = mapped_column(String(32), nullable=True)
 
 

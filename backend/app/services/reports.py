@@ -244,18 +244,64 @@ def _domain_coverage_section(snapshot: dict) -> str:
     return "\n".join(lines)
 
 
+def _business_domain_section(snapshot: dict) -> str:
+    """『业务领域覆盖』小节：从业务视角（源特征业务主题）呈现每个业务域的映射进度。
+
+    与『本体领域覆盖』（本体模块/建库视角）互补，回答领导视角的『业务上覆盖了哪些领域、
+    各差多少』。数据取自 snapshot['business_domain_coverage']（generate_report 挂载）。
+    表按业务特征总数降序（取数侧已排好）。覆盖率是『去噪后业务 feature_code 的映射占比』，
+    与交叉验证小节里那个『全特征行数覆盖率』口径不同，故此处显式标注避免误读。
+    缺失时返回空串（调用方跳过整节），绝不伪造。
+    """
+    cov = snapshot.get("business_domain_coverage") or {}
+    domains = cov.get("domains") or []
+    if not domains:
+        return ""
+    total = int(cov.get("business_total") or 0)
+    mapped = int(cov.get("business_mapped") or 0)
+    unmapped = int(cov.get("business_unmapped") or 0)
+    pct = cov.get("coverage_percent")
+    pct_text = f"{pct}%" if isinstance(pct, (int, float)) else "—"
+    lines = [
+        "## 业务领域覆盖",
+        f"源特征按业务域归类，共 {total} 项业务特征，已映射入本体 {mapped} 项、"
+        f"待映射 {unmapped} 项（业务特征映射率 {pct_text}，按去噪后特征项计）。",
+        "",
+        "| 业务域 | 业务特征 | 已映射 | 待映射 | 映射率 |",
+        "|---|---:|---:|---:|---|",
+    ]
+    for item in domains:
+        cp = item.get("coverage_percent")
+        cp_text = f"{cp}%" if isinstance(cp, (int, float)) else "—"
+        lines.append(
+            f"| {item['theme']} | {int(item.get('total') or 0)} | {int(item.get('mapped') or 0)} "
+            f"| {int(item.get('unmapped') or 0)} | {cp_text} |"
+        )
+    return "\n".join(lines)
+
+
 def fixed_metrics_markdown(snapshot: dict) -> str:
     lines = ["## 今日结果", "", "| 指标 | 今日新增 | 当前总量 |", "|---|---:|---:|"]
     totals = snapshot["totals"]
     added = snapshot["today_added"]
     for key, label in METRIC_LABELS:
         lines.append(f"| {label} | {int(added.get(key, 0)):,} | {int(totals.get(key, 0)):,} |")
+    # individuals 来源拆分脚注：header 6648 含 prov/结构噪声，脚注给出去噪领域实例的拆分口径。
+    domain = int(totals.get("individuals_domain", 0))
+    if domain:
+        knowledge = int(totals.get("individuals_knowledge", 0))
+        operational = int(totals.get("individuals_operational", 0))
+        lines.append(f"\n**注**：实例总量 {int(totals.get('individuals', 0)):,} 含溯源/结构节点，其中去噪领域实例 {domain:,}（知识实例 {knowledge:,}、运行数据实例 {operational:,}）。")
     # 『质量与验证』小节已按需求移除：门禁与来源对齐信息统一在『交叉验证结果』小节呈现，不再重复。
     lines.extend(["", _cross_validation_section(snapshot)])
     # 『本体领域覆盖』紧随交叉验证之后、明日计划之前；无数据时 section 返回空串即跳过。
     domain_section = _domain_coverage_section(snapshot)
     if domain_section:
         lines.extend(["", domain_section])
+    # 『业务领域覆盖』（业务视角）紧随本体领域覆盖之后：回答『业务上覆盖哪些领域、各差多少』。
+    business_domain_section = _business_domain_section(snapshot)
+    if business_domain_section:
+        lines.extend(["", business_domain_section])
     lines.extend(["", "## 明日计划", _optimization_direction(snapshot)])
     return "\n".join(lines)
 
@@ -322,6 +368,11 @@ async def generate_report(db: Session, user_id: int, report_date: str, model_id:
         snapshot["domain_coverage"] = semi_kb.domain_coverage()
     except Exception:
         snapshot["domain_coverage"] = {}
+    # 『业务领域覆盖』取数（业务视角，与上面本体视角互补）：读源特征目录+对齐报告，失败降级空。
+    try:
+        snapshot["business_domain_coverage"] = semi_kb.business_domain_coverage()
+    except Exception:
+        snapshot["business_domain_coverage"] = {}
     api_key = user_api_key(db, user_id)
     if not api_key:
         report.status = "send_blocked"

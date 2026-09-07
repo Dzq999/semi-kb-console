@@ -83,12 +83,68 @@ class SemiKbError(RuntimeError):
 
 class SemiKbAdapter:
     _candidate_lock = asyncio.Lock()
+    # metrics 累计量(totals/status)缓存窗口。取 20s 是安全的：累计量只随发布变化、
+    # 发布会主动 invalidate_cache()，故不会读到陈旧累计；而"今日新增"(today_added)不在
+    # 此缓存内、每次都重查 DB，拉长窗口不影响其刷新灵敏度。配合前端 metrics 15s 轮询，
+    # 稳态下几乎每次命中缓存(0.007s)。
+    _BASE_METRICS_TTL_SECONDS = 20
     def __init__(self, root: Path | None = None):
         self.root = root or settings.engine_root
         self._base_metrics_cache: tuple[float, dict] | None = None
+        # 按文件 mtime 失效的图缓存：解析 1.4MB current.ttl 约 1s、modules 约 0.3s，
+        # 是指标热路径最贵的一步。缓存解析后的 Graph，semantic_counts / domain_coverage
+        # 共用同一份，文件没变就零解析（读路径优化，绝不参与写入/门禁）。
+        self._schema_cache: tuple | None = None  # (sig, merged_schema, class_to_module, module_stats)
+        self._data_cache: tuple | None = None    # (sig, data_graph)
 
     def invalidate_cache(self) -> None:
         self._base_metrics_cache = None
+        # 发布会重写 current.ttl，其 mtime 变化本就会自动刷新；此处一并清空，确保发布后立即读到新图。
+        self._schema_cache = None
+        self._data_cache = None
+
+    @staticmethod
+    def _graph_sig(paths: list[Path]) -> tuple:
+        return tuple((p.name, p.stat().st_mtime_ns, p.stat().st_size) for p in paths)
+
+    def _load_schema_graph(self) -> tuple[Graph, dict, dict]:
+        """解析 ontology/modules/*.ttl 一次并按 mtime 缓存。
+
+        返回 (合并后的 schema 图, class→模块 stem 映射, 每模块 class/property 计数)。
+        返回的图是**共享只读**对象，调用方绝不可就地修改（下次刷新会整体重建并换引用，
+        老读者仍持旧图，天然线程安全）。"""
+        paths = sorted((self.root / "ontology" / "modules").glob("*.ttl"))
+        sig = self._graph_sig(paths)
+        if self._schema_cache and self._schema_cache[0] == sig:
+            return self._schema_cache[1], self._schema_cache[2], self._schema_cache[3]
+        schema = Graph()
+        class_to_module: dict[URIRef, str] = {}
+        module_stats: dict[str, dict[str, int]] = {}
+        for path in paths:
+            module = Graph()
+            module.parse(path, format="turtle")
+            schema += module
+            classes = set(module.subjects(RDF.type, OWL.Class))
+            props = set(module.subjects(RDF.type, OWL.ObjectProperty)) | set(module.subjects(RDF.type, OWL.DatatypeProperty))
+            module_stats[path.stem] = {"classes": len(classes), "properties": len(props)}
+            for cls in classes:
+                class_to_module[cls] = path.stem
+        self._schema_cache = (sig, schema, class_to_module, module_stats)
+        return schema, class_to_module, module_stats
+
+    def _load_data_graph(self) -> Graph:
+        """解析 knowledge/semantic/current.ttl 一次并按 mtime 缓存。共享只读，调用方绝不可就地修改。"""
+        path = self.root / "knowledge" / "semantic" / "current.ttl"
+        if not path.is_file():
+            return Graph()
+        stat = path.stat()
+        sig = (stat.st_mtime_ns, stat.st_size)
+        if self._data_cache and self._data_cache[0] == sig:
+            return self._data_cache[1]
+        data = Graph()
+        data.parse(path, format="turtle")
+        self._data_cache = (sig, data)
+        return data
 
     def _ensure_root(self) -> None:
         if not (self.root / "scripts" / "kb.py").is_file():
@@ -156,11 +212,46 @@ class SemiKbAdapter:
         except json.JSONDecodeError as exc:
             raise SemiKbError("semi-kb 状态不是合法 JSON") from exc
 
-    async def validate(self, full: bool = True) -> dict:
-        args = ["kb.py", "check"] if full else ["kb.py", "check", "--quick"]
+    async def validate(self, full: bool = True, defer_derived: bool = False) -> dict:
+        # full=False → --quick（基线/非发布快检，本就跳派生物）。
+        # full=True + defer_derived=True → --defer-derived：发布门禁子集，跳 build_index/
+        # scenario_mine（派生物），regress 等一致性判定环节全保留；派生物发布后另行补跑。
+        if not full:
+            args = ["kb.py", "check", "--quick"]
+        elif defer_derived:
+            args = ["kb.py", "check", "--defer-derived"]
+        else:
+            args = ["kb.py", "check"]
         result = await self.command(*args)
         result["passed"] = result["exit_code"] == 0
         return result
+
+    async def refresh_derived(self) -> dict:
+        """发布成功后 best-effort 刷新派生物（检索索引/场景卡）并并回 current.trig。
+
+        这三步（build_index/scenario_mine/migrate_semantic）不参与发布 PASS/FAIL，已从
+        每轮门禁关键路径移出。此处失败只记录、返回 passed=False，绝不回滚已发布内容、
+        也绝不把成功的发布翻成失败。受 settings.refresh_derived_after_publish 控制。
+        """
+        try:
+            result = await self.command("kb.py", "refresh-derived", timeout=1800)
+        except SemiKbError as exc:
+            return {"passed": False, "exit_code": None, "output": str(exc), "duration_seconds": None}
+        result["passed"] = result["exit_code"] == 0
+        return result
+
+    async def _refresh_derived_after_publish(self, result: dict) -> None:
+        """发布成功后按 settings.refresh_derived_after_publish best-effort 补跑派生物刷新，
+        把结果记进 result["checks"]["refresh_derived"]；绝不抛异常、绝不影响已发布内容。"""
+        if not settings.refresh_derived_after_publish:
+            result["checks"]["refresh_derived"] = {"passed": True, "skipped": True, "output": "refresh_derived_after_publish=off"}
+            return
+        refreshed = await self.refresh_derived()
+        result["checks"]["refresh_derived"] = {
+            "passed": refreshed["passed"],
+            "duration_seconds": refreshed.get("duration_seconds"),
+            "output": (refreshed.get("output") or "")[-4000:],
+        }
 
     def ontology_context(self, limit: int = 500, *, balanced: bool = False) -> dict:
         """本体术语上下文。
@@ -219,6 +310,45 @@ class SemiKbAdapter:
                 continue
             scenarios.append({"path": path.relative_to(self.root).as_posix(), "document": document})
         return {"models": models, "existing_scenario_examples": scenarios[:6]}
+
+    def existing_candidate_ids(self, limit: int = 1500) -> dict:
+        """已入库的知识条目 ID 与自动规则 ID 清单，供 Agent 去重规避。
+
+        知识条目 ID 是内容派生的语义 slug（非 run 作用域），自动规则 ID 亦为内容派生，
+        两者都会与历史轮次的库存相撞——Agent 若无既有清单便无从查重，只能反复重提同名
+        概念，触发服务端隔离。这里把清单注入 prompt，让 Agent 主动改用更具体命名或不提出。
+        与 ontology_context 同构：排序后按 limit 截断并附全量计数/截断标记，便于据实说明。
+        """
+        knowledge_dir = self.root / "knowledge" / "entries"
+        knowledge_ids = sorted(p.stem for p in knowledge_dir.glob("*.json")) if knowledge_dir.is_dir() else []
+        rules_path = self.root / "ontology" / "rules" / "registry.json"
+        rule_ids: list[str] = []
+        if rules_path.is_file():
+            try:
+                registry = json.loads(rules_path.read_text(encoding="utf-8"))
+                rules = registry.get("rules", []) if isinstance(registry, dict) else registry
+                rule_ids = sorted(str(item.get("rule_id")) for item in (rules or []) if isinstance(item, dict) and item.get("rule_id"))
+            except (OSError, json.JSONDecodeError):
+                rule_ids = []
+        # 名额在两类间按占比分配，避免一类挤占另一类；各自内部等距采样保持覆盖面。
+        k_total, r_total = len(knowledge_ids), len(rule_ids)
+        grand = k_total + r_total
+        if grand <= limit:
+            picked_k, picked_r = knowledge_ids, rule_ids
+        else:
+            k_quota = max(1, round(limit * k_total / grand)) if k_total else 0
+            r_quota = max(0, limit - k_quota)
+            picked_k = _evenly_sample([{"id": i} for i in knowledge_ids], k_quota)
+            picked_r = _evenly_sample([{"id": i} for i in rule_ids], r_quota)
+            picked_k = [d["id"] for d in picked_k]
+            picked_r = [d["id"] for d in picked_r]
+        return {
+            "knowledge_ids": picked_k,
+            "rule_ids": picked_r,
+            "knowledge_total": k_total,
+            "rule_total": r_total,
+            "truncated": grand > limit,
+        }
 
     def vfab_knowledge_context(self, samples_per_family: int = 12) -> dict:
         """把 knowledge/vfab/entries 的散文知识整理成可引用的检索上下文。
@@ -555,7 +685,7 @@ class SemiKbAdapter:
             result["rejected_candidates"] = 0
             result["checks"] = await self.cross_validate()
             result["checks"]["candidate_precheck"] = {"passed": True, "output": "本轮没有非空语义或仿真候选"}
-            baseline = await self.validate(full=publish)
+            baseline = await self.validate(full=publish, defer_derived=publish)
             result["checks"]["full_publish_gate" if publish else "baseline_gate"] = {"passed": baseline["passed"], "duration_seconds": baseline["duration_seconds"], "output": baseline["output"][-8000:]}
             if not baseline["passed"]:
                 raise SemiKbError("现有知识工程全链门禁失败")
@@ -571,6 +701,7 @@ class SemiKbAdapter:
                 result["published"] = True
                 result["published_articles"] = published_articles
                 self.invalidate_cache()
+                await self._refresh_derived_after_publish(result)
             return result
         async with self._candidate_lock:
             pending = self.root / "semantic_changesets" / "pending"
@@ -648,11 +779,19 @@ class SemiKbAdapter:
                                 target.unlink(missing_ok=True)
                             else:
                                 staged_semantic.append(target)
+                # 经营模型/仿真候选的 ID 撞车不再中止整批（旧行为一撞就 raise，让本轮
+                # 其余合规产物一起被回滚）。改为与 knowledge/rules 一致的幂等策略：
+                #   目标已存在且内容字节一致 → 静默跳过（重复去重，非覆盖，不越『不改写已入库』红线）；
+                #   目标已存在但内容不同     → 隔离该候选（绝不覆盖已发布内容），不中止其余候选。
+                # 跳过/隔离都不得把目标计入 staged_*，否则回滚会误删属于上一次发布的文件。
                 for index, source in enumerate(business_sources, 1):
                     doc = yaml.safe_load(source.read_text(encoding="utf-8")) or {}
                     model_id = str((doc.get("model") or {}).get("id") or f"candidate-{index}")
                     target = business_dir / f"{self._safe_stem(model_id)}.yaml"
-                    if target.exists(): raise SemiKbError(f"经营模型候选 ID 已存在：{model_id}")
+                    if target.exists():
+                        if source.read_bytes() != target.read_bytes():
+                            result["quarantined_candidates"].append({"path": str(source), "category": "business", "reason": f"经营模型候选 ID 已存在且内容不同：{model_id}"})
+                        continue
                     await asyncio.to_thread(shutil.copy2, source, target)
                     staged_business.append(target)
                 for index, source in enumerate(simulation_sources, 1):
@@ -660,7 +799,9 @@ class SemiKbAdapter:
                     scenario_id = str((doc.get("scenario") or {}).get("id") or f"candidate-{index}")
                     target = simulation_dir / f"{self._safe_stem(scenario_id)}.yaml"
                     if target.exists():
-                        raise SemiKbError(f"仿真候选 ID 已存在：{scenario_id}")
+                        if source.read_bytes() != target.read_bytes():
+                            result["quarantined_candidates"].append({"path": str(source), "category": "simulation", "reason": f"仿真候选 ID 已存在且内容不同：{scenario_id}"})
+                        continue
                     await asyncio.to_thread(shutil.copy2, source, target)
                     staged_simulation.append(target)
 
@@ -672,7 +813,11 @@ class SemiKbAdapter:
                             raise ValueError("知识条目缺少合法 id 或 content 少于 40 字")
                         target = knowledge_dir / f"{self._safe_stem(entry_id)}.json"
                         if target.exists():
-                            raise ValueError(f"知识条目 ID 已存在：{entry_id}")
+                            # 内容派生 slug 与历史库存相撞：字节一致则静默去重跳过，
+                            # 不同则隔离（不覆盖已入库条目）。旧行为对一切撞车一律隔离，噪声大。
+                            if source.read_bytes() != target.read_bytes():
+                                raise ValueError(f"知识条目 ID 已存在且内容不同：{entry_id}")
+                            continue
                         staged_knowledge.append((source, target))
                     except (OSError, ValueError, json.JSONDecodeError) as exc:
                         result["quarantined_candidates"].append({"path": str(source), "category": "knowledge", "reason": str(exc)})
@@ -749,13 +894,32 @@ class SemiKbAdapter:
                 if simulation["exit_code"]:
                     raise SemiKbError("经营模型或仿真候选校验失败：" + simulation["output"][-3000:])
 
+                # 逐候选跑只读 simulate.py（不带 --output：各自读候选、结果打 stdout、无共享写）→ 有界并行。
+                # 批语义保持「任一失败即整批失败」，并确定性报告最小 index 的失败（等价原「首失即停」）。
+                sem = asyncio.Semaphore(max(1, settings.simulate_concurrency))
+
+                async def _run_sim(path: Path) -> dict:
+                    async with sem:
+                        run = await self.command("simulate.py", str(path.relative_to(self.root)), timeout=300)
+                    return {"path": path.relative_to(self.root).as_posix(), "passed": run["exit_code"] == 0, "output": run["output"][-8000:]}
+
+                sim_results = await asyncio.gather(*(_run_sim(path) for path in staged_simulation), return_exceptions=True)
                 simulation_runs = []
-                for path in staged_simulation:
-                    run = await self.command("simulate.py", str(path.relative_to(self.root)), timeout=300)
-                    simulation_runs.append({"path": path.relative_to(self.root).as_posix(), "passed": run["exit_code"] == 0, "output": run["output"][-8000:]})
-                    if run["exit_code"]:
-                        raise SemiKbError(f"仿真执行失败：{path.name}")
+                failure_message = None
+                for path, outcome in zip(staged_simulation, sim_results):
+                    if isinstance(outcome, asyncio.CancelledError):
+                        raise outcome
+                    if isinstance(outcome, BaseException):
+                        simulation_runs.append({"path": path.relative_to(self.root).as_posix(), "passed": False, "output": str(outcome)[-8000:]})
+                        if failure_message is None:
+                            failure_message = f"仿真执行异常：{path.name}：{outcome}"
+                        continue
+                    simulation_runs.append(outcome)
+                    if not outcome["passed"] and failure_message is None:
+                        failure_message = f"仿真执行失败：{path.name}"
                 result["simulation_runs"] = simulation_runs
+                if failure_message is not None:
+                    raise SemiKbError(failure_message)
 
                 if publish:
                     if staged_rules:
@@ -783,7 +947,7 @@ class SemiKbAdapter:
                             raise SemiKbError("全链发布门禁失败，语义数据已由引擎回滚：" + applied["output"][-5000:])
                         semantic_applied = True
                     else:
-                        full = await self.validate(full=True)
+                        full = await self.validate(full=True, defer_derived=True)
                         result["checks"]["full_publish_gate"] = {"passed": full["passed"], "duration_seconds": full["duration_seconds"], "output": full["output"][-8000:]}
                         if not full["passed"]:
                             raise SemiKbError("仿真发布全链门禁失败：" + full["output"][-5000:])
@@ -806,6 +970,10 @@ class SemiKbAdapter:
                     result["published_rules"] = [str(rule.get("rule_id")) for rule in staged_rules]
                     result["published_mappings"] = accepted_mappings
                     self.invalidate_cache()
+                    # 语义路径（:834）已由 apply_semantic_changeset.py 在引擎内跑过 refresh-derived，
+                    # 此处只为无语义发布路径（仿真/规则）补跑，避免重复刷新。
+                    if not semantic_applied:
+                        await self._refresh_derived_after_publish(result)
                 else:
                     result["checks"]["publish_policy"] = {"passed": True, "output": "用户未开启自动发布；候选仅保存在控制台产物目录"}
                 return result
@@ -848,17 +1016,13 @@ class SemiKbAdapter:
 
     def semantic_counts(self) -> dict[str, int]:
         self._ensure_root()
-        schema = Graph()
-        data = Graph()
-        for path in sorted((self.root / "ontology" / "modules").glob("*.ttl")):
-            schema.parse(path, format="turtle")
-        semantic_path = self.root / "knowledge" / "semantic" / "current.ttl"
-        if semantic_path.is_file():
-            data.parse(semantic_path, format="turtle")
+        schema, _, _ = self._load_schema_graph()
+        data = self._load_data_graph()
         classes = set(schema.subjects(RDF.type, OWL.Class))
         object_properties = set(schema.subjects(RDF.type, OWL.ObjectProperty))
         datatype_properties = set(schema.subjects(RDF.type, OWL.DatatypeProperty))
         individuals = {s for s, _, o in data.triples((None, RDF.type, None)) if o not in {OWL.Class, OWL.ObjectProperty, OWL.DatatypeProperty}}
+        source_split = self._individual_source_split(data)
         relation_assertions = sum(1 for subject, predicate, obj in data if predicate in object_properties and subject != obj)
         axiom_predicates = {OWL.equivalentClass, OWL.disjointWith, OWL.inverseOf, OWL.onProperty, OWL.cardinality, OWL.qualifiedCardinality, OWL.minQualifiedCardinality, OWL.maxQualifiedCardinality}
         axioms = sum(1 for _, predicate, _ in schema if predicate in axiom_predicates)
@@ -873,11 +1037,51 @@ class SemiKbAdapter:
             "object_properties": len(object_properties),
             "datatype_properties": len(datatype_properties),
             "individuals": len(individuals),
+            "individuals_domain": source_split["domain"],
+            "individuals_knowledge": source_split["knowledge"],
+            "individuals_operational": source_split["operational"],
+            "individuals_untagged": source_split["untagged"],
             "relation_assertions": relation_assertions,
             "axioms": axioms,
             "rules": rules,
             "semantic_triples": len(schema) + len(data),
         }
+
+    # 溯源来源类型：仅 model_prior/web 两值，均属"知识"来源（agent 先验 / web 检索）。
+    # 未来接入真实产线/导入数据后，会出现这两值以外的 sourceType，届时归入"运行数据"。
+    _KNOWLEDGE_SOURCE_TYPES = {"model_prior", "web"}
+    _SOURCE_TYPE_PRED = URIRef("urn:pxai:semi:sourceType")
+
+    def _individual_source_split(self, data: Graph) -> dict[str, int]:
+        """把去噪后的领域个体按 sourceType 拆成 知识 / 运行数据 / 未标注 三类（纯只读、无副作用）。
+
+        去噪口径与 domain_coverage 对齐（排除 owl:*、rdf:Statement、prov:Entity 结构/溯源节点），
+        故与全局 individuals（含噪声）口径不同。sourceType 有两条到达路径：
+        (1) 直接挂在个体上；(2) 经 prov:Entity --prov:specializationOf--> 个体 回指。两路合并取并集。
+        当前库内 sourceType 只有 model_prior/web（均属知识），故 operational 恒为 0，如实反映
+        "尚未接入真实运行数据"。传入已缓存的 data graph，避免二次解析。
+        """
+        prov_spec = URIRef("http://www.w3.org/ns/prov#specializationOf")
+        prov_entity = URIRef("http://www.w3.org/ns/prov#Entity")
+        noise = {OWL.Class, OWL.ObjectProperty, OWL.DatatypeProperty, RDF.Statement, prov_entity}
+        denoise = {s for s, _, o in data.triples((None, RDF.type, None)) if o not in noise}
+        direct: dict = {}
+        for subj, _, obj in data.triples((None, self._SOURCE_TYPE_PRED, None)):
+            direct.setdefault(subj, set()).add(str(obj))
+        chain: dict = {}
+        for ent, _, indiv in data.triples((None, prov_spec, None)):
+            for val in direct.get(ent, ()):  # prov:Entity 携带的 sourceType 回指领域个体
+                chain.setdefault(indiv, set()).add(val)
+        knowledge = operational = untagged = 0
+        for indiv in denoise:
+            vals = direct.get(indiv, set()) | chain.get(indiv, set())
+            if not vals:
+                untagged += 1
+            elif vals - self._KNOWLEDGE_SOURCE_TYPES:  # 出现任何非知识来源即计运行数据
+                operational += 1
+            else:
+                knowledge += 1
+        return {"domain": len(denoise), "knowledge": knowledge, "operational": operational, "untagged": untagged}
 
     # 12 个手工策展的专业领域模块 → 中文标签；common/generated 属基础设施(不计入领域)。
     _DOMAIN_MODULE_LABELS = {
@@ -908,26 +1112,18 @@ class SemiKbAdapter:
         self._ensure_root()
         prov_entity = URIRef("http://www.w3.org/ns/prov#Entity")
         noise = {OWL.Class, OWL.ObjectProperty, OWL.DatatypeProperty, RDF.Statement, prov_entity}
-        class_to_module: dict[URIRef, str] = {}
-        module_stats: dict[str, dict[str, int]] = {}
-        for path in sorted((self.root / "ontology" / "modules").glob("*.ttl")):
-            graph = Graph()
-            graph.parse(path, format="turtle")
-            classes = set(graph.subjects(RDF.type, OWL.Class))
-            props = set(graph.subjects(RDF.type, OWL.ObjectProperty)) | set(graph.subjects(RDF.type, OWL.DatatypeProperty))
-            module_stats[path.stem] = {"classes": len(classes), "properties": len(props), "instances": 0}
-            for cls in classes:
-                class_to_module[cls] = path.stem
-        semantic_path = self.root / "knowledge" / "semantic" / "current.ttl"
-        if semantic_path.is_file():
-            data = Graph()
-            data.parse(semantic_path, format="turtle")
-            for subject, _, obj in data.triples((None, RDF.type, None)):
-                if obj in noise:
-                    continue
-                module = class_to_module.get(obj)
-                if module and module in module_stats:
-                    module_stats[module]["instances"] += 1
+        _, class_to_module, cached_stats = self._load_schema_graph()
+        # 复制一份带 instances 计数器的本地统计，绝不就地改动共享缓存里的 module_stats。
+        module_stats: dict[str, dict[str, int]] = {
+            stem: {"classes": stat["classes"], "properties": stat["properties"], "instances": 0}
+            for stem, stat in cached_stats.items()
+        }
+        for subject, _, obj in self._load_data_graph().triples((None, RDF.type, None)):
+            if obj in noise:
+                continue
+            module = class_to_module.get(obj)
+            if module and module in module_stats:
+                module_stats[module]["instances"] += 1
         domains = []
         for module, label in self._DOMAIN_MODULE_LABELS.items():
             stat = module_stats.get(module) or {"classes": 0, "properties": 0, "instances": 0}
@@ -1037,6 +1233,93 @@ class SemiKbAdapter:
             return True
         return bool(_NOISE_FEATURE_RE.search(code))
 
+    def _source_theme_resolver(self, catalog: dict):
+        """构造 sheet 名 → 业务主题名 的解析器（feature_gap 与 business_domain_coverage 共用）。
+
+        catalog.themes 给出 code→中文名；catalog.entities 的 code/name → theme code；再叠加
+        mappings/feature-model/entity-map.json 的 sheet_aliases（异名 sheet → entity code）。
+        解析不到时归入『其他』。返回 (theme_of 函数, theme_name 字典)，供调用方复用同一套归类口径。
+        """
+        theme_name = {str(t.get("code") or "").lower(): str(t.get("name") or t.get("code") or "") for t in catalog.get("themes") or []}
+        entity_theme: dict[str, str] = {}
+        for entity in catalog.get("entities") or []:
+            theme = str(entity.get("theme") or "").lower()
+            for raw in (entity.get("code"), entity.get("name")):
+                key = " ".join(str(raw or "").strip().lower().split())
+                if key and theme:
+                    entity_theme[key] = theme
+        sheet_alias_to_code: dict[str, str] = {}
+        entity_map_path = self.root / "mappings" / "feature-model" / "entity-map.json"
+        if entity_map_path.is_file():
+            try:
+                for raw, code in ((json.loads(entity_map_path.read_text(encoding="utf-8")) or {}).get("sheet_aliases") or {}).items():
+                    sheet_alias_to_code[" ".join(str(raw).strip().lower().split())] = str(code or "").lower()
+            except (OSError, json.JSONDecodeError):
+                pass
+
+        def theme_of(sheet_name: str | None) -> str:
+            key = " ".join(str(sheet_name or "").strip().lower().split())
+            code = entity_theme.get(key) or entity_theme.get(sheet_alias_to_code.get(key, ""), "")
+            return theme_name.get(code, "其他")
+
+        return theme_of, theme_name
+
+    def business_domain_coverage(self) -> dict:
+        """按『源特征业务主题』聚合领域覆盖：每个业务域的业务特征总数/已映射/未映射/覆盖率。
+
+        与 domain_coverage()（本体模块视角）互补——这里是业务视角：源特征目录里每个业务域
+        （设备/质量/生产/原料/运维/组织/地理域）里去噪后的业务 feature_code，有多少已映射到本体属性。
+        口径与 feature_gap 完全一致：同一套 theme 归类 + 同一 _is_noise_feature 去噪，故本表的
+        『未映射合计』必然等于 feature_gap.business_relevant。覆盖率=已映射/业务特征总数（按去噪后的
+        distinct feature_code 计，非行数——与 44.5% 那个『全特征行数覆盖率』是不同口径，日报会分别标注）。
+        纯只读、文件缺失优雅降级为空；仅日报生成时取用，不进 metrics() 热路径。
+        """
+        report_path = self.root / "build" / "reports" / "source-alignment.json"
+        catalog_path = self.root / "build" / "source" / "feature-model-catalog.json"
+        if not report_path.is_file() or not catalog_path.is_file():
+            return {"domains": [], "business_total": 0, "business_mapped": 0, "business_unmapped": 0, "coverage_percent": None}
+        try:
+            report = json.loads(report_path.read_text(encoding="utf-8"))
+            catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return {"domains": [], "business_total": 0, "business_mapped": 0, "business_unmapped": 0, "coverage_percent": None}
+        unmapped = {str(item.get("feature_code") or "").strip().lower()
+                    for item in (report.get("issues") or {}).get("unmapped_source_features") or [] if item.get("feature_code")}
+        theme_of, _ = self._source_theme_resolver(catalog)
+        seen: dict[str, str] = {}  # feature_code → theme（首个 sheet 胜，与 feature_gap 去重口径一致）
+        for sheet in catalog.get("sheets") or []:
+            theme = theme_of(sheet.get("name"))
+            for feature in sheet.get("features") or []:
+                code = str(feature.get("feature_code") or "").strip().lower()
+                if code and code not in seen:
+                    seen[code] = theme
+        agg: dict[str, dict[str, int]] = {}
+        for code, theme in seen.items():
+            if self._is_noise_feature(code):
+                continue
+            bucket = agg.setdefault(theme, {"total": 0, "unmapped": 0})
+            bucket["total"] += 1
+            if code in unmapped:
+                bucket["unmapped"] += 1
+        domains = []
+        for theme, bucket in agg.items():
+            total = bucket["total"]
+            mapped = total - bucket["unmapped"]
+            domains.append({
+                "theme": theme, "total": total, "mapped": mapped, "unmapped": bucket["unmapped"],
+                "coverage_percent": round(mapped / total * 100, 1) if total else None,
+            })
+        domains.sort(key=lambda item: (item["total"], item["mapped"]), reverse=True)
+        business_total = sum(item["total"] for item in domains)
+        business_mapped = sum(item["mapped"] for item in domains)
+        return {
+            "domains": domains,
+            "business_total": business_total,
+            "business_mapped": business_mapped,
+            "business_unmapped": sum(item["unmapped"] for item in domains),
+            "coverage_percent": round(business_mapped / business_total * 100, 1) if business_total else None,
+        }
+
     def feature_gap(self) -> dict:
         """反向缺口：源特征目录里存在、但 property-map.json 还没映射到本体的 feature_code。
 
@@ -1060,28 +1343,7 @@ class SemiKbAdapter:
         if not unmapped:
             return empty
         report_metrics = report.get("internal_feature_model") or report.get("metrics") or {}
-        theme_name = {str(t.get("code") or "").lower(): str(t.get("name") or t.get("code") or "") for t in catalog.get("themes") or []}
-        # 实体 code/name → theme code（sheet 名多与实体 code/name 一致）
-        entity_theme: dict[str, str] = {}
-        for entity in catalog.get("entities") or []:
-            theme = str(entity.get("theme") or "").lower()
-            for raw in (entity.get("code"), entity.get("name")):
-                key = " ".join(str(raw or "").strip().lower().split())
-                if key and theme:
-                    entity_theme[key] = theme
-        sheet_alias_to_code: dict[str, str] = {}
-        entity_map_path = self.root / "mappings" / "feature-model" / "entity-map.json"
-        if entity_map_path.is_file():
-            try:
-                for raw, code in ((json.loads(entity_map_path.read_text(encoding="utf-8")) or {}).get("sheet_aliases") or {}).items():
-                    sheet_alias_to_code[" ".join(str(raw).strip().lower().split())] = str(code or "").lower()
-            except (OSError, json.JSONDecodeError):
-                pass
-
-        def theme_of(sheet_name: str | None) -> str:
-            key = " ".join(str(sheet_name or "").strip().lower().split())
-            code = entity_theme.get(key) or entity_theme.get(sheet_alias_to_code.get(key, ""), "")
-            return theme_name.get(code, "其他")
+        theme_of, _ = self._source_theme_resolver(catalog)
 
         seen: dict[str, dict] = {}
         for sheet in catalog.get("sheets") or []:
@@ -1187,12 +1449,14 @@ class SemiKbAdapter:
         return document, accepted, quarantine
 
     async def metrics(self, db: Session | None = None, user_id: int | None = None) -> dict:
-        if self._base_metrics_cache and time.monotonic() - self._base_metrics_cache[0] < 5:
+        if self._base_metrics_cache and time.monotonic() - self._base_metrics_cache[0] < self._BASE_METRICS_TTL_SECONDS:
             cached = self._base_metrics_cache[1]
             legacy, totals = cached["legacy"], dict(cached["totals"])
         else:
             legacy = await self.status()
-            totals = {**self.semantic_counts(), **self.artifact_counts()}
+            # semantic_counts/artifact_counts 是纯 CPU 的图计数，即便命中图缓存也在事件循环上跑。
+            # 丢到线程池，避免任何一次冷计算（尤其图缓存 mtime 失效时的重解析）冻结全站其它接口。
+            totals = await asyncio.to_thread(lambda: {**self.semantic_counts(), **self.artifact_counts()})
             totals.update({"legacy_entities": legacy.get("entities", 0), "knowledge_entries": int(legacy.get("kb_cases", 0)) + int(totals.get("knowledge_entries", 0)), "relations": int(legacy.get("edges", 0)) + int(totals.get("relation_assertions", 0)), "anomaly_total": legacy.get("anomaly_total", 0), "anomaly_covered": legacy.get("anomaly_covered", 0)})
             self._base_metrics_cache = (time.monotonic(), {"legacy": legacy, "totals": dict(totals)})
         totals["coverage_percent"] = round(100 * totals["anomaly_covered"] / totals["anomaly_total"], 1) if totals["anomaly_total"] else 0
@@ -1210,7 +1474,8 @@ class SemiKbAdapter:
                     after = json.loads(item.metrics_after_json or "{}")
                     for key in today:
                         today[key] += max(0, int(after.get(key, 0)) - int(before.get(key, 0)))
-        return {"totals": totals, "today_added": today, "source_distribution": legacy.get("source_type", {}), "confidence_distribution": legacy.get("confidence", {}), "uncovered": legacy.get("uncovered", []), "feature_gap": self.feature_gap()}
+        feature_gap = await asyncio.to_thread(self.feature_gap)
+        return {"totals": totals, "today_added": today, "source_distribution": legacy.get("source_type", {}), "confidence_distribution": legacy.get("confidence", {}), "uncovered": legacy.get("uncovered", []), "feature_gap": feature_gap}
 
     def article_text(self) -> str:
         path = self.root / "knowledge" / "articles" / "current-scenarios.md"

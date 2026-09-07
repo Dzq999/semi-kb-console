@@ -392,6 +392,8 @@ async def scheduler_tick() -> None:
             setting = db.get(ReportSetting, report.user_id)
             if not setting or not report.generated_at:
                 continue
+            if not setting.email_reminder_enabled:
+                continue
             deadline = report.generated_at + timedelta(minutes=setting.reminder_timeout_minutes)
             sent = db.scalar(select(func.count(NotificationRecord.id)).where(NotificationRecord.report_id == report.id, NotificationRecord.channel == "email", NotificationRecord.status == "sent"))
             if datetime.now(timezone.utc) >= deadline and not sent:
@@ -1656,7 +1658,7 @@ def get_report_settings(user: User = Depends(current_user), db: Session = Depend
     row = db.get(ReportSetting, user.id) or ReportSetting(user_id=user.id)
     if db.get(ReportSetting, user.id) is None:
         db.add(row); db.commit()
-    return {"enabled": row.enabled, "generate_time": row.generate_time, "approval_required": row.approval_required, "reminder_timeout_minutes": row.reminder_timeout_minutes, "email_sender": row.email_sender, "email_recipient": row.email_recipient, "last_trigger_key": row.last_trigger_key}
+    return {"enabled": row.enabled, "generate_time": row.generate_time, "approval_required": row.approval_required, "reminder_timeout_minutes": row.reminder_timeout_minutes, "email_sender": row.email_sender, "email_recipient": row.email_recipient, "email_reminder_enabled": row.email_reminder_enabled, "last_trigger_key": row.last_trigger_key}
 
 
 @app.put("/api/report-settings")

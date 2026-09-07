@@ -35,6 +35,7 @@ class RoundGraphState(TypedDict, total=False):
     repair_attempt: int
     repair_successes: int
     repair_failures: int
+    repair_made_progress: bool
     quarantined_files: list[str]
     success: bool
 
@@ -62,11 +63,20 @@ class RoundGraphEngine:
 
         Only semantic completeness failures are sent back to the model.  Safety,
         provenance and executable-query violations are isolated immediately.
+        Ontology reasoning / structural conflicts that an LLM cannot repair are
+        classified ``isolate`` so they skip the futile repair loop and go
+        straight to ``partial_publish``'s surgical quarantine.
         """
         text = str(error or "").casefold()
         hard = ("sensitive", "敏感", "凭据", "bearer", "危险", "只读", "insert", "delete", "非法 iri", "悬空引用", "来源伪造", "source_ref 伪造")
         if any(token in text for token in hard):
             return "hard"
+        # 结构/推理不可满足类失败——LLM 修不了。高精度、避免误伤 repairable：
+        # 这些串来自外部 apply_semantic_changeset.py 的 reasoner stdout，token 应以
+        # 一次真实推理失败的 backend.log/事件输出为准做校准（见 robust-waddling-church.md 2a）。
+        isolate_tokens = ("推理", "reasoning", "不一致", "inconsisten", "unsatisf", "不可满足", "disjoint", "互斥", "clash", "本体冲突", "结构不兼容", "incompatible", "cycle", "循环依赖", "成环")
+        if any(token in text for token in isolate_tokens):
+            return "isolate"
         repairable = ("缺少", "不完整", "引用", "restriction", "diagnostic", "possiblecause", "possible cause", "hasdiagnosticaction", "haspossiblecause", "门禁失败", "校验失败", "candidate", "候选")
         if any(token in text for token in repairable):
             return "repairable"
@@ -264,14 +274,26 @@ class RoundGraphEngine:
     def route_validation(self, state: RoundGraphState) -> str:
         if not state.get("gate_error"):
             return "owl_shacl_reasoning"
+        cls = state.get("gate_error_class")
+        if cls == "hard":
+            return "fail_gate"
+        # 结构/推理类失败 LLM 修不了：跳过「repair→重跑整图门禁」的约 10 分钟空耗，
+        # 直接进 partial_publish，由 isolate() 外科式隔离坏候选（好候选照常发布）。
+        if cls == "isolate":
+            return "partial_publish"
         config = state.get("config") or {}
         auto_repair = bool(config.get("auto_repair", True))
         limit = int(config.get("max_auto_repair_attempts", settings.graph_repair_attempts))
         if bool(config.get("repair_follow_failure_threshold", True)):
             limit = int(config.get("max_consecutive_round_failures", limit))
-        if auto_repair and state.get("gate_error_class") == "repairable" and int(state.get("repair_attempt", 0)) < max(0, min(10, limit)):
+        if auto_repair and cls == "repairable" and int(state.get("repair_attempt", 0)) < max(0, min(10, limit)):
             return "repair_candidates"
-        return "partial_publish" if state.get("gate_error_class") == "repairable" else "fail_gate"
+        return "partial_publish" if cls in ("repairable", "isolate") else "fail_gate"
+
+    def route_after_repair(self, state: RoundGraphState) -> str:
+        # repair 有成功产出才值得重跑整图门禁；0 成功时输入未变，重跑必然再失败——
+        # 直接进 partial_publish，省下约 10 分钟的重复整图门禁。
+        return "cross_validation" if state.get("repair_made_progress") else "partial_publish"
 
     async def repair_candidates(self, state: RoundGraphState) -> dict:
         await self._control(state, "candidate_repair", 55)
@@ -367,7 +389,7 @@ class RoundGraphEngine:
         else:
             with SessionLocal() as db:
                 self.controller.emit(db, state["run_id"], "repair_failed", f"第 {state['round_number']} 轮第 {attempt} 次自动返修未产生可用结果", {"round": state["round_number"], "attempt": attempt}, "warning")
-        return {"outputs": outputs or state.get("outputs") or [], "repair_attempt": attempt, "repair_successes": int(state.get("repair_successes", 0)) + successes, "repair_failures": int(state.get("repair_failures", 0)) + (len(selected_indexes) - successes), "gate_error": error, "gate_error_class": state.get("gate_error_class")}
+        return {"outputs": outputs or state.get("outputs") or [], "repair_attempt": attempt, "repair_successes": int(state.get("repair_successes", 0)) + successes, "repair_failures": int(state.get("repair_failures", 0)) + (len(selected_indexes) - successes), "repair_made_progress": successes > 0, "gate_error": error, "gate_error_class": state.get("gate_error_class")}
 
     async def fail_gate(self, state: RoundGraphState) -> dict:
         raise SemiKbError(state.get("gate_error") or "候选门禁失败")
@@ -384,6 +406,9 @@ class RoundGraphEngine:
         quarantined = list(state.get("quarantined_files") or [])
         rejected_semantic: list[Path] = []
         rejected_reasons: dict[str, str] = {}
+        # 因预算耗尽而被隔离的候选：它们从未单独预检过，不能在下面的兜底里逐个再跑
+        # process_candidates（那会重新引入被封顶的昂贵逐文件门禁）——直接隔离。
+        budget_exhausted_paths: set[str] = set()
         outputs = state.get("outputs") or []
         all_files = round_candidate_files(outputs)
         semantic = list(all_files["semantic"])
@@ -393,10 +418,34 @@ class RoundGraphEngine:
         # semantic_batch_prechecked 才严格等价于「这一整批刚通过整图 --check」,可安全跳过
         # 下游重复预检；否则退回让下游自己再检一遍。
         top_batch_ok = {"value": False}
+        # 隔离预检预算：每次 semantic_precheck_sources = 一次约 10 分钟的整图 --check。
+        # 无封顶时递归二分最坏 ~2N−1 次。用「次数 + 墙钟」双闸把最坏扇出关住；
+        # 预算耗尽即把未证明的候选保守隔离（quarantine，永不发布）——不削弱发布门禁。
+        cfg = state.get("config") or {}
+        budget = {
+            "used": 0,
+            "max": int(cfg.get("partial_isolate_max_prechecks", settings.partial_isolate_max_prechecks)),
+            "deadline": time.monotonic() + int(cfg.get("partial_isolate_deadline_seconds", settings.partial_isolate_deadline_seconds)),
+            "exhausted": False,
+        }
 
         async def isolate(group: list[Path], top: bool = False) -> list[Path]:
             if not group:
                 return []
+            # 预算闸门：放在预检之前，证明不了就一个都不发（保守隔离），确保封住调用次数与墙钟。
+            if budget["exhausted"] or budget["used"] >= budget["max"] or time.monotonic() >= budget["deadline"]:
+                first = not budget["exhausted"]
+                deadline_hit = time.monotonic() >= budget["deadline"]
+                budget["exhausted"] = True
+                for path in group:
+                    rejected_semantic.append(path)
+                    rejected_reasons[str(path)] = "隔离预检预算耗尽，未证明的候选按保守策略隔离"
+                    budget_exhausted_paths.add(str(path))
+                if first:
+                    with SessionLocal() as db:
+                        self.controller.emit(db, state["run_id"], "isolate_budget_exhausted", f"第 {state['round_number']} 轮隔离预检预算耗尽，剩余未证明候选按保守策略隔离", {"round": state["round_number"], "checks_used": budget["used"], "max": budget["max"], "deadline_hit": deadline_hit}, "warning")
+                return []
+            budget["used"] += 1
             check = await semi_kb.semantic_precheck_sources(group)
             if check.get("exit_code", 0) == 0 or check.get("passed", False):
                 if top:
@@ -407,8 +456,11 @@ class RoundGraphEngine:
                 rejected_semantic.append(path)
                 rejected_reasons[str(path)] = str(check.get("output") or "")
                 return []
+            # 顺序执行：_candidate_lock 本就串行化每次预检，asyncio.gather 零 wall-clock 收益；
+            # 顺序化让预算确定，右子树在预算耗尽后能立即短路。
             midpoint = max(1, len(group) // 2)
-            left, right = await asyncio.gather(isolate(group[:midpoint]), isolate(group[midpoint:]))
+            left = await isolate(group[:midpoint])
+            right = await isolate(group[midpoint:])
             return left + right
 
         gate_text = str(state.get("gate_error") or "")
@@ -476,13 +528,14 @@ class RoundGraphEngine:
             for path in rejected_semantic:
                 if not path.is_file():
                     continue
-                if baseline_failure:
-                    single_exc = "现有基线全链门禁失败，跳过重复发布尝试"
+                exhausted_reject = str(path) in budget_exhausted_paths
+                if baseline_failure or exhausted_reject:
+                    single_exc = "隔离预检预算耗尽，未证明的候选按保守策略隔离" if exhausted_reject else "现有基线全链门禁失败，跳过重复发布尝试"
                     quarantine = path.parent / "quarantine"; quarantine.mkdir(exist_ok=True); target = quarantine / path.name
                     try: shutil.move(str(path), str(target)); quarantined.append(str(target))
                     except OSError: pass
                     with SessionLocal() as db:
-                        self.controller.emit(db, state["run_id"], "candidate_quarantined", f"候选已隔离：{path.name}；{single_exc}", {"round": state["round_number"], "path": str(target), "error": rejected_reasons.get(str(path), "")[-3000:]}, "warning")
+                        self.controller.emit(db, state["run_id"], "candidate_quarantined", f"候选已隔离：{path.name}；{single_exc}", {"round": state["round_number"], "path": str(target), "error": rejected_reasons.get(str(path), single_exc)[-3000:]}, "warning")
                     continue
                 single = {"semantic": [path], "business": [], "simulation": [], "knowledge": [], "rules": [], "articles": []}
                 try:
@@ -616,7 +669,9 @@ class RoundGraphEngine:
         graph.add_conditional_edges("cross_validation", self.route_validation, {
             "repair_candidates": "repair_candidates", "fail_gate": "fail_gate", "partial_publish": "partial_publish", "owl_shacl_reasoning": "owl_shacl_reasoning",
         })
-        graph.add_edge("repair_candidates", "cross_validation")
+        graph.add_conditional_edges("repair_candidates", self.route_after_repair, {
+            "cross_validation": "cross_validation", "partial_publish": "partial_publish",
+        })
         graph.add_edge("partial_publish", "finalize")
         graph.add_edge("owl_shacl_reasoning", "business_simulation")
         graph.add_edge("business_simulation", "scenario_article")
@@ -642,7 +697,7 @@ class RoundGraphEngine:
         graph_config = checkpoint_runtime.config(run_id, round_number)
         initial: RoundGraphState | None = None if resume else {
             "run_id": run_id, "round_number": round_number, "config": config, "gap": {}, "outputs": [],
-            "validation": {}, "artifacts": {}, "gate_error": None, "gate_error_class": None, "repair_attempt": 0, "repair_successes": 0, "repair_failures": 0,
+            "validation": {}, "artifacts": {}, "gate_error": None, "gate_error_class": None, "repair_attempt": 0, "repair_successes": 0, "repair_failures": 0, "repair_made_progress": False,
             "quarantined_files": [], "success": False,
         }
         try:

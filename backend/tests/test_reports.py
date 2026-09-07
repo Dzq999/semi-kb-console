@@ -322,6 +322,49 @@ def test_domain_coverage_section_keeps_report_within_length_gate():
     assert len(content) <= 4000
 
 
+def _business_domain_snapshot():
+    snap = snapshot()
+    snap["business_domain_coverage"] = {
+        "domains": [
+            {"theme": "质量域", "total": 237, "mapped": 88, "unmapped": 149, "coverage_percent": 37.1},
+            {"theme": "生产域", "total": 194, "mapped": 54, "unmapped": 140, "coverage_percent": 27.8},
+            {"theme": "设备域", "total": 191, "mapped": 70, "unmapped": 121, "coverage_percent": 36.6},
+            {"theme": "运维域", "total": 7, "mapped": 0, "unmapped": 7, "coverage_percent": 0.0},
+        ],
+        "business_total": 629,
+        "business_mapped": 212,
+        "business_unmapped": 417,
+        "coverage_percent": 33.7,
+    }
+    return snap
+
+
+def test_business_domain_section_renders_table():
+    # 业务视角小节：总览 + 逐业务域明细表（业务特征/已映射/待映射/映射率）。
+    content = fixed_metrics_markdown(_business_domain_snapshot())
+    assert "## 业务领域覆盖" in content
+    assert "共 629 项业务特征，已映射入本体 212 项、待映射 417 项" in content
+    assert "业务特征映射率 33.7%" in content
+    assert "| 业务域 | 业务特征 | 已映射 | 待映射 | 映射率 |" in content
+    assert "| 质量域 | 237 | 88 | 149 | 37.1% |" in content
+    assert "| 运维域 | 7 | 0 | 7 | 0.0% |" in content
+    # 顺序：业务领域覆盖在明日计划之前。
+    assert content.index("## 业务领域覆盖") < content.index("## 明日计划")
+
+
+def test_business_domain_section_absent_without_data():
+    # 无 business_domain_coverage 时整节跳过，绝不伪造，且不影响合法性。
+    content = fixed_metrics_markdown(snapshot())
+    assert "## 业务领域覆盖" not in content
+    assert validate_report(content, snapshot())["passed"]
+
+
+def test_business_domain_section_keeps_report_within_length_gate():
+    content = fixed_metrics_markdown(_business_domain_snapshot())
+    assert validate_report(content, _business_domain_snapshot())["passed"]
+    assert len(content) <= 4000
+
+
 @pytest.mark.asyncio
 async def test_generate_report_strips_round_words(clean_db, monkeypatch):
     # narrative 兜底：模型漏出「本轮/这一轮」等轮次口径 → 正文统一改写为「今日」。

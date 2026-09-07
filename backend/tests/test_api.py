@@ -200,6 +200,27 @@ def _seed_run(db, user_id: int, status: str) -> str:
     return run.id
 
 
+def test_report_settings_default_email_reminder_enabled(authenticated: TestClient):
+    body = authenticated.get("/api/report-settings").json()
+    assert body["email_reminder_enabled"] is True
+
+
+def test_report_settings_email_reminder_can_be_disabled(authenticated: TestClient):
+    payload = {
+        "enabled": True,
+        "generate_time": "18:00",
+        "approval_required": True,
+        "reminder_timeout_minutes": 10,
+        "email_sender": "sender@qq.com",
+        "email_recipient": "ops@qq.com",
+        "email_reminder_enabled": False,
+    }
+    assert authenticated.put("/api/report-settings", json=payload).status_code == 200
+    body = authenticated.get("/api/report-settings").json()
+    assert body["email_reminder_enabled"] is False
+    assert body["email_recipient"] == "ops@qq.com"
+
+
 def test_delete_run_purges_all_children(authenticated: TestClient):
     with SessionLocal() as db:
         user = db.query(User).filter_by(username="admin").one()

@@ -340,10 +340,12 @@ function MetricCard({
   label,
   value,
   delta,
+  note,
 }: {
   label: string;
   value: number | string;
   delta?: number;
+  note?: string;
 }) {
   return (
     <div className="metric-card">
@@ -356,8 +358,22 @@ function MetricCard({
           ? `今日新增 +${delta.toLocaleString()}`
           : "质量指标 · 百分比"}
       </small>
+      {note ? <small className="metric-note">{note}</small> : null}
     </div>
   );
+}
+
+// individuals 卡副标注：主数字 6648 含 prov/结构噪声；这里给出去噪领域实例的来源拆分。
+// 知识=agent 生成（model_prior/web），运行数据=真实产线/导入（当前为 0，即尚未接入实测）。
+function individualsSplitNote(totals: Record<string, number | string>): string | undefined {
+  const domain = Number(totals["individuals_domain"] ?? 0);
+  if (!domain) return undefined;
+  const knowledge = Number(totals["individuals_knowledge"] ?? 0);
+  const operational = Number(totals["individuals_operational"] ?? 0);
+  const untagged = Number(totals["individuals_untagged"] ?? 0);
+  const parts = [`知识 ${knowledge.toLocaleString()}`, `运行数据 ${operational.toLocaleString()}`];
+  if (untagged > 0) parts.push(`未标注 ${untagged.toLocaleString()}`);
+  return `领域实例 ${domain.toLocaleString()}：${parts.join(" / ")}`;
 }
 
 function MetricsOverview({
@@ -379,6 +395,7 @@ function MetricsOverview({
             label={definition.label}
             value={metrics.totals[key] ?? 0}
             delta={metrics.today_added[key] ?? 0}
+            note={key === "individuals" ? individualsSplitNote(metrics.totals) : undefined}
           />
         );
       })}
@@ -501,7 +518,8 @@ function Dashboard() {
   const { data, error, isLoading } = useQuery<DashboardData>({
     queryKey: ["dashboard"],
     queryFn: () => api("/api/dashboard"),
-    refetchInterval: 3000,
+    // 知识库累计指标慢变，10s 轮询足够；后端 metrics 缓存 20s，稳态下多数命中缓存。
+    refetchInterval: 10000,
   });
   const [events, setEvents] = useState<
     Array<{ message: string; level: string; created_at: string }>
@@ -2687,7 +2705,7 @@ function CatalogPage({
   const metrics = useQuery<DashboardData["metrics"]>({
     queryKey: ["ontology-metrics"],
     queryFn: () => api("/api/ontology/metrics"),
-    refetchInterval: 5000,
+    refetchInterval: 15000,
   });
   return (
     <div className="page">
@@ -2906,7 +2924,7 @@ function Scenarios() {
   const metrics = useQuery<DashboardData["metrics"]>({
     queryKey: ["ontology-metrics"],
     queryFn: () => api("/api/ontology/metrics"),
-    refetchInterval: 5000,
+    refetchInterval: 15000,
   });
   const settingsQuery = useQuery<ArticleSettings>({
     queryKey: ["article-settings"],
@@ -3461,6 +3479,7 @@ function Reports({ user }: { user: User }) {
     reminder_timeout_minutes: number;
     email_sender?: string;
     email_recipient?: string;
+    email_reminder_enabled: boolean;
   }>({
     queryKey: ["report-settings"],
     queryFn: () => api("/api/report-settings"),
@@ -3651,6 +3670,24 @@ function Reports({ user }: { user: User }) {
                 {!settingsState.approval_required && (
                   <div className="warning-box">
                     关闭后，模型写完并通过自动校验会直接发送企业微信，无需再次点击。
+                  </div>
+                )}
+                <label className="switch-line">
+                  <span>发送邮箱提醒（默认开启）</span>
+                  <input
+                    type="checkbox"
+                    checked={settingsState.email_reminder_enabled}
+                    onChange={(e) =>
+                      setSettingsState({
+                        ...settingsState,
+                        email_reminder_enabled: e.target.checked,
+                      })
+                    }
+                  />
+                </label>
+                {!settingsState.email_reminder_enabled && (
+                  <div className="warning-box">
+                    关闭后，日报超时待审核不再发送邮件提醒；企业微信发送与审核流程不受影响。
                   </div>
                 )}
                 <label>

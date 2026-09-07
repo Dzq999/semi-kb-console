@@ -44,9 +44,26 @@ class Settings:
     timezone: str = os.getenv("SEMI_KB_TIMEZONE", "Asia/Shanghai")
     frontend_origin: str = os.getenv("FRONTEND_ORIGIN", "http://127.0.0.1:5173")
     orchestrator_engine: str = os.getenv("ORCHESTRATOR_ENGINE", "langgraph").casefold()
+    # 语义发布门禁用哪套 OWL RL 推理器：native（默认，引擎内 scripts/native_reasoner.py 的最小
+    # semi-naive 物化器，约 190× 快、仅覆盖本体现用 profile，靠依赖护栏保 sound；2026-09-06 Cert A
+    # 真实基线对拍通过后切为默认）或 owlrl（纯 Python 全量闭包，kill-switch）。引擎子进程直接读
+    # SEMANTIC_REASONER env（此处仅为可发现性，不注入子进程）；kill-switch=SEMANTIC_REASONER=owlrl 秒回退。
+    semantic_reasoner: str = "owlrl" if os.getenv("SEMANTIC_REASONER", "native").casefold() == "owlrl" else "native"
     auto_resume_runs: bool = os.getenv("AUTO_RESUME_RUNS", "true").casefold() in {"1", "true", "yes", "on"}
     graph_repair_attempts: int = min(10, max(0, int(os.getenv("GRAPH_REPAIR_ATTEMPTS", "1"))))
     article_repair_attempts: int = min(3, max(0, int(os.getenv("ARTICLE_REPAIR_ATTEMPTS", "3"))))
+    # partial_publish 的 isolate() 隔离预检预算：每次预检=一次整图 --check。
+    # 注：native 推理器换装后单次预检约 16.5s（owlrl 旧成本约 104s），故 2026-09-07 把 max 从 6 提到 32——
+    # 6 是旧成本模型下的过度保守值（会让 ≤10 候选里没轮到单独验的一律保守隔离，误伤良性候选）；
+    # 32 足以让二分扇出（最坏 ~2N−1）真正跑完定位坏点，32×16.5s≈9min 仍远在 deadline 内。
+    # deadline 是真正墙钟上限（单次预检 timeout 600s，最坏超出一个在飞预检）。均可被 run 配置覆盖。
+    partial_isolate_max_prechecks: int = min(64, max(1, int(os.getenv("PARTIAL_ISOLATE_MAX_PRECHECKS", "32"))))
+    partial_isolate_deadline_seconds: int = min(7200, max(60, int(os.getenv("PARTIAL_ISOLATE_DEADLINE_SECONDS", "1800"))))
+    # process_candidates 里逐候选跑只读 simulate.py 的并发上限（子进程各写各的 stdout，无共享写→并行安全）。
+    simulate_concurrency: int = min(8, max(1, int(os.getenv("SIMULATE_CONCURRENCY", "4"))))
+    # 发布门禁已把 build_index/scenario_mine（派生物，非一致性判定）移出关键路径。
+    # 发布成功后是否 best-effort 补跑 kb.py refresh-derived 刷新检索索引/场景卡（不参与 PASS/FAIL）。
+    refresh_derived_after_publish: bool = os.getenv("REFRESH_DERIVED_AFTER_PUBLISH", "true").casefold() in {"1", "true", "yes", "on"}
     worker_heartbeat_seconds: int = min(300, max(5, int(os.getenv("WORKER_HEARTBEAT_SECONDS", "15"))))
 
     def _postgres_url(self, name_override: str | None = None) -> str | None:

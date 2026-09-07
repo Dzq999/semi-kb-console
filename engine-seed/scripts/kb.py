@@ -1,11 +1,14 @@
 """库的日常入口：查状态、跑全链。
 
-    python scripts/kb.py check          # precheck -> validate -> build_index -> regress
-    python scripts/kb.py check --quick   # 跳过 build_index
-    python scripts/kb.py status          # 规模、provenance 分布、选题缺口
+    python scripts/kb.py check              # precheck -> validate -> build_index -> regress
+    python scripts/kb.py check --quick       # 跳过 build_index/scenario_mine
+    python scripts/kb.py check --defer-derived  # 发布门禁：跳派生物、保 regress 等判定
+    python scripts/kb.py refresh-derived     # 发布后补跑 build_index/scenario_mine/migrate
+    python scripts/kb.py status              # 规模、provenance 分布、选题缺口
     python scripts/kb.py status --json
 
-退出码：check 全过 0、有环节失败 1；status 恒 0（查询工具不是校验器）。
+退出码：check 全过 0、有环节失败 1；refresh-derived 全过 0、有失败 1（调用方按
+best-effort 处理，不因此回滚已发布内容）；status 恒 0（查询工具不是校验器）。
 
 一个脚本管两面：跑之前想知道该补什么（status），跑之后想知道有没有跑坏
 （check）。
@@ -168,6 +171,31 @@ def run_step(name: str, timeout: int = 1800) -> tuple[bool, float, str]:
     return r.returncode == 0, time.monotonic() - t0, (r.stdout or "") + (r.stderr or "")
 
 
+# build_index / scenario_mine 是"派生物"步骤：只重建检索索引与场景卡，不参与
+# 一致性 PASS/FAIL 判定（build_index 唯一的非零退出=重复实体 ID，已被链内更前
+# 的 validate.py R001 覆盖；scenario_mine 不校验任何图内容，且没有任何 shape 针
+# 对场景卡类）。发布门禁把它们移出关键路径、发布成功后由 refresh-derived 补跑。
+DERIVED_STEPS = ["build_index.py", "scenario_mine.py"]
+
+
+def build_check_chain(has_pending: bool, skip_derived: bool) -> list[str]:
+    """构造 check 链。skip_derived=True 时跳过 build_index/scenario_mine（派生物，
+    非一致性判定步骤），其余环节——含 semantic_validate/semantic_test/simulate_check/
+    regress——一律保留。抽成纯函数便于单测门禁子集不含派生物、仍含 regress。"""
+    chain = (["precheck.py"] if has_pending else []) + [
+        "source_ingest.py",
+        "vfab_ingest.py",
+        "align_sources.py",
+        "capability_validate.py",
+        "validate.py",
+    ]
+    if not skip_derived:
+        chain.extend(DERIVED_STEPS)
+    chain.extend(["migrate_semantic.py", "semantic_validate.py", "semantic_test.py"])
+    chain.extend(["simulate_check.py", "regress.py"])
+    return chain
+
+
 def cmd_check(a) -> int:
     """--no-precheck 用于只判断"已落库的库好不好"，不看 pending 里的提案。
 
@@ -179,17 +207,8 @@ def cmd_check(a) -> int:
     """
     pending = ([] if a.no_precheck
                else list((C.ROOT / "changesets" / "pending").glob("*.yaml")))
-    chain = (["precheck.py"] if pending else []) + [
-        "source_ingest.py",
-        "vfab_ingest.py",
-        "align_sources.py",
-        "capability_validate.py",
-        "validate.py",
-    ]
-    if not a.quick:
-        chain.extend(["build_index.py", "scenario_mine.py"])
-    chain.extend(["migrate_semantic.py", "semantic_validate.py", "semantic_test.py"])
-    chain.extend(["simulate_check.py", "regress.py"])
+    skip_derived = bool(a.quick or getattr(a, "defer_derived", False))
+    chain = build_check_chain(bool(pending), skip_derived)
     if a.no_precheck:
         print("（--no-precheck：只查已落库内容，不看 pending/）")
     elif not pending:
@@ -215,18 +234,50 @@ def cmd_check(a) -> int:
     return 0
 
 
+def cmd_refresh_derived(a) -> int:
+    """发布后 best-effort 刷新"派生物"：build_index → scenario_mine → migrate_semantic。
+
+    这三步不参与发布 PASS/FAIL 判定，已从每轮发布关键路径移出（见 build_check_chain
+    的 skip_derived）。发布门禁通过后由本命令补跑，把最新检索索引/场景卡刷出来，并
+    经 migrate_semantic 把刷新后的场景卡重新并入 build/semantic/current.trig 供查询层。
+    失败只告警、返回非零，调用方（发布路径）按 best-effort 处理，绝不因此回滚已发布内容。
+    """
+    total = 0.0
+    ok_all = True
+    for name in [*DERIVED_STEPS, "migrate_semantic.py"]:
+        ok, dt, out = run_step(name)
+        total += dt
+        print(f"[{'OK  ' if ok else 'FAIL'}] {name:<18} {dt:>5.2f}s")
+        if not ok:
+            ok_all = False
+            lines = [l for l in out.strip().splitlines() if l.strip()]
+            for l in lines[-12:]:
+                print("    " + l)
+    print(f"\n派生物刷新{'完成' if ok_all else '有失败（不影响已发布内容）'}，总耗时 {total:.2f}s")
+    return 0 if ok_all else 1
+
+
 def main() -> int:
     C.setup_console()
     ap = argparse.ArgumentParser(description="库的日常入口")
     sub = ap.add_subparsers(dest="cmd", required=True)
     c = sub.add_parser("check", help="跑完整检查链")
-    c.add_argument("--quick", action="store_true", help="跳过 build_index")
+    c.add_argument("--quick", action="store_true", help="跳过 build_index/scenario_mine")
+    c.add_argument("--defer-derived", action="store_true", dest="defer_derived",
+                   help="发布门禁用：跳过 build_index/scenario_mine（派生物，发布后由 "
+                        "refresh-derived 补跑），regress 等一致性判定环节一律保留")
     c.add_argument("--no-precheck", action="store_true", dest="no_precheck",
                    help="不检查 pending/ 里的提案，只判断已落库内容")
+    sub.add_parser("refresh-derived",
+                   help="发布后 best-effort 刷新检索索引/场景卡并并回 current.trig")
     st = sub.add_parser("status", help="规模与选题缺口")
     st.add_argument("--json", action="store_true", dest="as_json")
     a = ap.parse_args()
-    return cmd_check(a) if a.cmd == "check" else cmd_status(a)
+    if a.cmd == "check":
+        return cmd_check(a)
+    if a.cmd == "refresh-derived":
+        return cmd_refresh_derived(a)
+    return cmd_status(a)
 
 
 if __name__ == "__main__":

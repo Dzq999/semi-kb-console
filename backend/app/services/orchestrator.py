@@ -4,6 +4,7 @@ import asyncio
 import hashlib
 import json
 import os
+import random
 import re
 import socket
 import time
@@ -201,6 +202,7 @@ class RunOrchestrator:
                 ontology = semi_kb.ontology_context(limit=350)
                 business = semi_kb.business_context()
                 vfab_knowledge = semi_kb.vfab_knowledge_context()
+                existing_ids = semi_kb.existing_candidate_ids()
                 previous = _compact_previous_output(json.loads(agent.output_json or "{}"))
                 source_rules = {
                     "web": "所有新增事实必须由给出的网页正文支持；每个web变更集的source_ref必须使用证据URL。",
@@ -212,8 +214,10 @@ class RunOrchestrator:
                     "扩充本体广度和深度，但已有IRI不得重复；多个Agent并行时也不得提出相同IRI，若概念已被其他Agent覆盖则改用更具体的命名或不提出变更，证据不足时允许不提出变更。"
                     "类、对象属性、数据属性、实例、关系断言、公理限制必须遵守提供的结构。"
                     "每轮应优先补齐合法关系断言（object_assertions/data_assertions）和可证据支持的OWL限制；关系的subject/predicate/object必须分别是已知或本轮同一输出中实际保留的IRI。"
+                    "凡声明为 DiagnosticPlaybook 的实例，必须在同一输出里同时给出三条必填直连边：diagnosesAnomaly（恰好1条，对象为 Anomaly）、hasPossibleCause（至少1条）、hasDiagnosticAction（至少1条，对象为 Action）；三者但凡有一条缺失就不要声明该诊断手册（缺边的手册会在门禁前被整体剔除，白白浪费本轮产出）。"
                     "请同时输出至少1条结构化knowledge_entries（若有摘要或痛点，系统会保存为知识条目），并在资料支持新推理模式时输出rule_candidates；自动规则必须是可解释、可执行的只读SPARQL CONSTRUCT，不得输出更新型SPARQL。"
                     "knowledge_entries必须包含可核查source_refs和不少于40字content；rule_candidates不得把普通描述冒充规则。"
+                    "existing_candidate_ids 列出了已入库的知识条目ID与自动规则ID（内容派生的slug）；不要重复提出这些ID对应的同名条目，若确有新增请改用更具体、更细分的命名，否则将被系统按重复隔离、无法入库。"
                     "vfab_knowledge_sources列出了已入库的SEMI标准与设备手册来源族；引用它们时source_refs须用其ref句柄，勿编造。标注restricted的来源（设备手册/NDA）只可引用其标题与来源标识，禁止在content中复制其正文。"
                     "所有复数结构以及实例objects/data映射中的每个值都必须使用JSON数组，即使只有一个值。"
                     "仿真只能引用已有经营模型和示例中的合法变量；不得编造现场实测数值。"
@@ -237,6 +241,7 @@ class RunOrchestrator:
                     "known_ontology": ontology,
                     "business_simulation_context": business,
                     "vfab_knowledge_sources": vfab_knowledge,
+                    "existing_candidate_ids": existing_ids,
                     "evidence": [{**item, "excerpt": str(item.get("excerpt") or "")[:3000]} for item in evidence[:4]],
                     "previous_round_output": previous,
                     "repair_context": repair_context,
@@ -272,6 +277,9 @@ class RunOrchestrator:
                         # 前者不应把纠错提示塞进 prompt（越塞越长越容易再次被掐断），标签也要如实。
                         is_network = isinstance(exc, (ExternalServiceError, OSError))
                         if is_network:
+                            # 有界退避：避免对抖动代理热重连放大等待。上限取小，因为 llm.complete
+                            # 内部对瞬时 HTTP 错误已有指数退避+jitter，这里只挡住紧接着的热重连。
+                            await asyncio.sleep(min(4.0, 0.5 * (2 ** attempt)) + random.uniform(0, 0.4))
                             self.emit(db, run_id, "agent_retry", f"{agent.name} 模型网络调用失败，重试 {attempt + 1}/{max_retries}", {"agent_id": agent.id, "round": round_number, "error": str(exc), "kind": "network"}, "warning")
                         else:
                             prompt += f"\n\n上一次输出未通过机器校验：{type(exc).__name__}: {exc}。请完整重写合法JSON，不要解释。"

@@ -68,6 +68,7 @@ class ReportSettingsUpdate(BaseModel):
     reminder_timeout_minutes: int = Field(default=10, ge=1, le=1440)
     email_sender: str | None = None
     email_recipient: str | None = None
+    email_reminder_enabled: bool = True
 
     @field_validator("generate_time")
     @classmethod

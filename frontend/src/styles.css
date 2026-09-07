@@ -75,6 +75,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .metric-card > span { display: block; color: #708097; font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .metric-card strong { display: block; margin-top: 6px; font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .metric-card small { display: block; margin-top: 4px; color: #15956a; font-size: 9px; font-variant-numeric: tabular-nums; }
+.metric-card .metric-note { color: #708097; font-size: 8px; margin-top: 6px; line-height: 1.4; }
 .metric-support-row { display: flex; align-items: center; gap: 10px; }
 .metric-support-row .metric-card { flex: 0 0 190px; }
 .metric-support-row > span { color: #708097; font-size: 10px; }
