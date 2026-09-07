@@ -284,6 +284,7 @@ class ExportJob(Base):
     id: Mapped[str] = mapped_column(String(40), primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     kind: Mapped[str] = mapped_column(String(40))
+    filtered: Mapped[bool] = mapped_column(Boolean, default=True)  # 默认精简导出
     status: Mapped[str] = mapped_column(String(24), default="queued")
     progress: Mapped[float] = mapped_column(Float, default=0)
     total_files: Mapped[int] = mapped_column(Integer, default=0)

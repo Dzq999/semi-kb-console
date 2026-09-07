@@ -1756,10 +1756,10 @@ async def test_email(user: User = Depends(current_user), db: Session = Depends(g
 
 @app.post("/api/exports", status_code=202)
 async def start_export(payload: ExportCreate, user: User = Depends(current_user), db: Session = Depends(get_db)) -> dict:
-    job = ExportJob(id="export-" + uuid.uuid4().hex[:16], user_id=user.id, kind=payload.kind)
+    job = ExportJob(id="export-" + uuid.uuid4().hex[:16], user_id=user.id, kind=payload.kind, filtered=payload.filtered)
     db.add(job); db.commit()
     asyncio.create_task(export_job_task(job.id))
-    return {"id": job.id, "status": job.status, "kind": job.kind}
+    return {"id": job.id, "status": job.status, "kind": job.kind, "filtered": job.filtered}
 
 
 async def export_job_task(job_id: str) -> None:
@@ -1774,13 +1774,13 @@ def get_export(job_id: str, user: User = Depends(current_user), db: Session = De
     job = db.get(ExportJob, job_id)
     if not job or job.user_id != user.id:
         raise HTTPException(status_code=404, detail="导出任务不存在")
-    return {"id": job.id, "kind": job.kind, "status": job.status, "progress": job.progress, "total_files": job.total_files, "processed_files": job.processed_files, "error": job.error, "created_at": job.created_at, "started_at": job.started_at, "completed_at": job.completed_at, "attempt_count": job.attempt_count, "download_url": f"/api/exports/{job.id}/download" if job.status == "completed" else None}
+    return {"id": job.id, "kind": job.kind, "filtered": getattr(job, 'filtered', True), "status": job.status, "progress": job.progress, "total_files": job.total_files, "processed_files": job.processed_files, "error": job.error, "created_at": job.created_at, "started_at": job.started_at, "completed_at": job.completed_at, "attempt_count": job.attempt_count, "download_url": f"/api/exports/{job.id}/download" if job.status == "completed" else None}
 
 
 @app.get("/api/exports")
 def list_exports(limit: int = Query(50, ge=1, le=200), user: User = Depends(current_user), db: Session = Depends(get_db)) -> dict:
     jobs = db.scalars(select(ExportJob).where(ExportJob.user_id == user.id).order_by(ExportJob.created_at.desc()).limit(limit)).all()
-    return {"items": [{"id": j.id, "kind": j.kind, "status": j.status, "progress": j.progress, "total_files": j.total_files, "processed_files": j.processed_files, "error": j.error, "created_at": j.created_at, "started_at": j.started_at, "completed_at": j.completed_at, "attempt_count": j.attempt_count, "download_url": f"/api/exports/{j.id}/download" if j.status == "completed" else None} for j in jobs]}
+    return {"items": [{"id": j.id, "kind": j.kind, "filtered": getattr(j, 'filtered', True), "status": j.status, "progress": j.progress, "total_files": j.total_files, "processed_files": j.processed_files, "error": j.error, "created_at": j.created_at, "started_at": j.started_at, "completed_at": j.completed_at, "attempt_count": j.attempt_count, "download_url": f"/api/exports/{j.id}/download" if j.status == "completed" else None} for j in jobs]}
 
 
 @app.post("/api/exports/{job_id}/retry", status_code=202)
