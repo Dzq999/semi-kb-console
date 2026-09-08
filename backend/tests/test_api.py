@@ -247,6 +247,52 @@ def test_report_settings_email_reminder_can_be_disabled(authenticated: TestClien
     assert body["email_recipient"] == "ops@qq.com"
 
 
+def test_report_settings_default_template_present(authenticated: TestClient):
+    # 从未存过模版时，report_template 回填默认，且附带内置默认供“恢复默认”。
+    body = authenticated.get("/api/report-settings").json()
+    assert body["report_template"]["title_prefix"] == "SEMI-KB 日报"
+    assert body["report_template"] == body["report_template_default"]
+
+
+def test_report_settings_custom_template_round_trip(authenticated: TestClient):
+    payload = {
+        "enabled": True, "generate_time": "18:00", "approval_required": True,
+        "reminder_timeout_minutes": 10, "email_reminder_enabled": True,
+        "report_template": {"title_prefix": "朋熙日报", "note_tpl": "共 $domain 个。", "criteria_tpl": "口径说明。"},
+    }
+    assert authenticated.put("/api/report-settings", json=payload).status_code == 200
+    body = authenticated.get("/api/report-settings").json()
+    assert body["report_template"]["title_prefix"] == "朋熙日报"
+    assert body["report_template"]["note_tpl"] == "共 $domain 个。"
+    # 恢复默认：显式清空 → GET 回默认。
+    payload["report_template"] = None
+    assert authenticated.put("/api/report-settings", json=payload).status_code == 200
+    body = authenticated.get("/api/report-settings").json()
+    assert body["report_template"] == body["report_template_default"]
+
+
+def test_report_settings_template_blank_field_falls_back(authenticated: TestClient):
+    # 单字段留空：保留非空字段，空字段回落默认。
+    payload = {
+        "enabled": True, "generate_time": "18:00", "approval_required": True,
+        "reminder_timeout_minutes": 10, "email_reminder_enabled": True,
+        "report_template": {"title_prefix": "只改标题", "note_tpl": "", "criteria_tpl": ""},
+    }
+    assert authenticated.put("/api/report-settings", json=payload).status_code == 200
+    body = authenticated.get("/api/report-settings").json()
+    assert body["report_template"]["title_prefix"] == "只改标题"
+    assert body["report_template"]["note_tpl"] == body["report_template_default"]["note_tpl"]
+
+
+def test_report_settings_template_rejects_banned_word(authenticated: TestClient):
+    payload = {
+        "enabled": True, "generate_time": "18:00", "approval_required": True,
+        "reminder_timeout_minutes": 10, "email_reminder_enabled": True,
+        "report_template": {"title_prefix": "业务进展摘要", "note_tpl": "", "criteria_tpl": ""},
+    }
+    assert authenticated.put("/api/report-settings", json=payload).status_code == 422
+
+
 def test_delete_run_purges_all_children(authenticated: TestClient):
     with SessionLocal() as db:
         user = db.query(User).filter_by(username="admin").one()

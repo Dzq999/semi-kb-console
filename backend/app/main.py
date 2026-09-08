@@ -37,7 +37,7 @@ from .services.notifications import NotificationError, send_email_reminder, send
 from .services.wechat_publisher import WechatPublisherError, wechat_publisher
 from .services.orchestrator import orchestrator
 from .services.checkpoints import checkpoint_runtime
-from .services.reports import generate_report, send_report, validate_report
+from .services.reports import DEFAULT_REPORT_TEMPLATE, generate_report, normalize_report_template, send_report, validate_report
 from .services.articles import _markdown_to_wechat_html, discover_topics, generate_article, generate_daily_batch, validate_article
 from .services.business_assistant import discard_draft_files, draft_business_baseline, draft_dir_path, generate_baseline_batch, load_draft_documents
 from .services import imports as imports_service
@@ -1664,16 +1664,28 @@ def get_report_settings(user: User = Depends(current_user), db: Session = Depend
     row = db.get(ReportSetting, user.id) or ReportSetting(user_id=user.id)
     if db.get(ReportSetting, user.id) is None:
         db.add(row); db.commit()
-    return {"enabled": row.enabled, "generate_time": row.generate_time, "approval_required": row.approval_required, "reminder_timeout_minutes": row.reminder_timeout_minutes, "email_sender": row.email_sender, "email_recipient": row.email_recipient, "email_reminder_enabled": row.email_reminder_enabled, "last_trigger_key": row.last_trigger_key}
+    # report_template：用户存的（NULL 时回填默认）；report_template_default：内置默认，供前端“恢复默认”。
+    effective_template = normalize_report_template(json_load(row.report_template_json, None) if row.report_template_json else None)
+    return {"enabled": row.enabled, "generate_time": row.generate_time, "approval_required": row.approval_required, "reminder_timeout_minutes": row.reminder_timeout_minutes, "email_sender": row.email_sender, "email_recipient": row.email_recipient, "email_reminder_enabled": row.email_reminder_enabled, "last_trigger_key": row.last_trigger_key, "report_template": effective_template, "report_template_default": dict(DEFAULT_REPORT_TEMPLATE)}
 
 
 @app.put("/api/report-settings")
 def update_report_settings(payload: ReportSettingsUpdate, user: User = Depends(current_user), db: Session = Depends(get_db)) -> dict:
     row = db.get(ReportSetting, user.id) or ReportSetting(user_id=user.id)
-    for key, value in payload.model_dump().items():
+    data = payload.model_dump()
+    # report_template 存到独立 JSON 列，不进通用 setattr 循环（列名不匹配）。None=清空回默认。
+    template = data.pop("report_template", None)
+    if template is None:
+        row.report_template_json = None
+        effective_template = dict(DEFAULT_REPORT_TEMPLATE)
+    else:
+        normalized = normalize_report_template(template)  # 空字段回落默认后再存，读侧无需再补
+        row.report_template_json = json.dumps(normalized, ensure_ascii=False)
+        effective_template = normalized
+    for key, value in data.items():
         setattr(row, key, value)
     db.add(row); db.commit()
-    return payload.model_dump()
+    return {**data, "report_template": effective_template, "report_template_default": dict(DEFAULT_REPORT_TEMPLATE)}
 
 
 @app.get("/api/reports/daily/{report_date}")

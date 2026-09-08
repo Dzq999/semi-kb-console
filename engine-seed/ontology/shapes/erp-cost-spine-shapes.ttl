@@ -1,0 +1,92 @@
+@prefix semi: <urn:pxai:semi:> .
+@prefix sh:   <http://www.w3.org/ns/shacl#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+
+# ============================================================================
+# 成本脊椎三域（erp-controlling / erp-asset-accounting / erp-inventory-valuation）
+# 的 SHACL 约束 —— L1 结构层。
+#
+# 【分期纪律，务必看】本文件【只放 native 推理器 profile 安全的结构约束】：
+#   sh:targetClass / sh:property / sh:path / sh:minCount / sh:maxCount /
+#   sh:class / sh:datatype / sh:or / sh:node。
+# 【绝不在此加】 sh:sparql / sh:not / sh:xone / sh:closed / sh:disjoint /
+#   sh:qualifiedValueShape —— 它们会命中 native_reasoner.equivalence_precondition
+#   的 _RISKY_SHACL_LOCAL，令【全项目每轮门禁】被迫回退 owlrl（约 190× 慢）。
+#   L2 数值守恒公理（成本守恒 / Σ分摊比例=1 / 良率调整 / 折旧上限 / 成本流转守恒 /
+#   跌价转回上限）本质是实例级 SPARQL 聚合校验，本阶段零实例时对空集真空通过、
+#   无对象可校，故【推迟到 P2 真实实例/​fixtures 落地时】再以 sh:sparql 接入
+#   （见桌面《成本脊椎三域_本体交接文档.md》三层门禁章 + 记忆 semi-kb-cost-spine-handoff）。
+#
+# 零实例阶段：targetClass→targetNode 改写（semantic_validate.py）令这些 NodeShape
+# 命中空集、真空通过；真实实例落地即自动生效。Event 类要求其"定义性参与边"存在
+# （无来源/去向的分摊、无对象的折旧计提本就无意义）；实体类的数值属性只约束"若出现
+# 则类型须为 decimal/string"（不设 minCount，避免过约束首批落地）。
+# ============================================================================
+
+# ---- 域① 成本核算 / CO ------------------------------------------------------
+semi:CostAllocationShape a sh:NodeShape ;
+  sh:targetClass semi:CostAllocation ;
+  sh:property [ sh:path semi:allocationFrom ; sh:minCount 1 ; sh:class semi:CostCenter ;
+                sh:message "成本分摊必须有来源成本中心（分摊守恒律的左端）。"@zh ] ;
+  sh:property [ sh:path semi:allocationTo ; sh:minCount 1 ; sh:class semi:CostObject ;
+                sh:message "成本分摊必须有目标成本对象。"@zh ] ;
+  sh:property [ sh:path semi:allocatedVia ; sh:minCount 1 ; sh:class semi:CostDriver ;
+                sh:message "成本分摊必须经由成本动因。"@zh ] ;
+  sh:property [ sh:path semi:allocationRatio ; sh:datatype xsd:decimal ;
+                sh:message "分摊比例须为 decimal（Σ=1 的守恒律在 P2 由 sh:sparql 校验）。"@zh ] .
+
+semi:CostObjectShape a sh:NodeShape ;
+  sh:targetClass semi:CostObject ;
+  sh:property [ sh:path semi:costObjectOf ; sh:minCount 1 ;
+                sh:message "成本对象必须归属一个实体（Lot/Wafer/Product/Step），无悬空成本。"@zh ] ;
+  sh:property [ sh:path semi:rawUnitCost ; sh:datatype xsd:decimal ] ;
+  sh:property [ sh:path semi:yieldRate ; sh:datatype xsd:decimal ] ;
+  sh:property [ sh:path semi:yieldAdjustedCost ; sh:datatype xsd:decimal ] .
+
+semi:CostVarianceShape a sh:NodeShape ;
+  sh:targetClass semi:CostVariance ;
+  sh:property [ sh:path semi:explainsObject ; sh:minCount 1 ; sh:class semi:CostObject ;
+                sh:message "成本差异必须可归因到成本对象（标准-实际差异律）。"@zh ] ;
+  sh:property [ sh:path semi:varianceType ; sh:datatype xsd:string ] .
+
+# ---- 域② 固定资产折旧 / FI-AA ----------------------------------------------
+semi:DepreciationRunShape a sh:NodeShape ;
+  sh:targetClass semi:DepreciationRun ;
+  sh:property [ sh:path semi:runsOnAsset ; sh:minCount 1 ; sh:class semi:FixedAsset ;
+                sh:message "折旧计提必须针对一项固定资产。"@zh ] ;
+  sh:property [ sh:path semi:producesEntry ; sh:minCount 1 ; sh:class semi:DepreciationEntry ;
+                sh:message "折旧计提必须产生折旧分录。"@zh ] .
+
+semi:DepreciationEntryShape a sh:NodeShape ;
+  sh:targetClass semi:DepreciationEntry ;
+  sh:property [ sh:path semi:entryAmount ; sh:minCount 1 ; sh:datatype xsd:decimal ;
+                sh:message "折旧分录必须有本期折旧额。"@zh ] ;
+  sh:property [ sh:path semi:entryAccumulatesInto ; sh:minCount 1 ; sh:class semi:AccumulatedDepreciation ;
+                sh:message "折旧分录必须累计入累计折旧（折旧上限律在此闭合）。"@zh ] .
+
+semi:AccumulatedDepreciationShape a sh:NodeShape ;
+  sh:targetClass semi:AccumulatedDepreciation ;
+  sh:property [ sh:path semi:accumulatedAmount ; sh:datatype xsd:decimal ] .
+
+# ---- 域③ 存货计价 / MM-IM ---------------------------------------------------
+semi:InventoryBalanceShape a sh:NodeShape ;
+  sh:targetClass semi:InventoryBalance ;
+  sh:property [ sh:path semi:usesValuationMethod ; sh:minCount 1 ; sh:class semi:ValuationMethod ;
+                sh:message "存货余额必须声明计价方法（一物一法一期律）。"@zh ] ;
+  sh:property [ sh:path semi:openingQty ; sh:datatype xsd:decimal ] ;
+  sh:property [ sh:path semi:receivedQty ; sh:datatype xsd:decimal ] ;
+  sh:property [ sh:path semi:issuedQty ; sh:datatype xsd:decimal ] ;
+  sh:property [ sh:path semi:closingQty ; sh:datatype xsd:decimal ] ;
+  sh:property [ sh:path semi:historicalCost ; sh:datatype xsd:decimal ] .
+
+semi:WriteDownProvisionShape a sh:NodeShape ;
+  sh:targetClass semi:WriteDownProvision ;
+  sh:property [ sh:path semi:againstNRV ; sh:minCount 1 ; sh:class semi:NetRealizableValue ;
+                sh:message "跌价准备必须对照可变现净值（成本与 NRV 孰低）。"@zh ] ;
+  sh:property [ sh:path semi:provisionBalance ; sh:datatype xsd:decimal ] .
+
+semi:WriteDownEventShape a sh:NodeShape ;
+  sh:targetClass semi:WriteDownEvent ;
+  sh:property [ sh:path semi:adjustsProvision ; sh:minCount 1 ; sh:class semi:WriteDownProvision ;
+                sh:message "计提/转回事件必须指向一笔跌价准备（转回上限律在此闭合）。"@zh ] ;
+  sh:property [ sh:path semi:writeDownAmount ; sh:datatype xsd:decimal ] .

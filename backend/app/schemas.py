@@ -2,10 +2,31 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 SourceMode = Literal["web", "model_prior", "hybrid"]
+
+
+class SystemFocus(BaseModel):
+    """本次循环对两个源系统(sourceSystem)的产出侧重比例（百分比，和须为 100）。
+
+    manufacturing/erp 之和恒为 100；某侧为 0 表示本轮不刻意产该侧。两侧都 >0 时，
+    编排会要求两侧的类/属性/关系都要有产出（后置平衡反馈，非硬门禁）。默认偏 ERP。
+    """
+
+    manufacturing: int = Field(default=40, ge=0, le=100)
+    erp: int = Field(default=60, ge=0, le=100)
+
+    @model_validator(mode="after")
+    def _sum_to_100(self) -> "SystemFocus":
+        if self.manufacturing + self.erp != 100:
+            raise ValueError("system_focus.manufacturing 与 erp 之和必须为 100")
+        return self
+
+    @property
+    def both_required(self) -> bool:
+        return self.manufacturing > 0 and self.erp > 0
 
 
 class SetupRequest(BaseModel):
@@ -42,6 +63,8 @@ class RunCreate(BaseModel):
     # 一次修复不成就走部分发布，把能发的发出去，而不是把整轮拖死在重试上。
     max_auto_repair_attempts: int = Field(default=1, ge=0, le=10)
     repair_follow_failure_threshold: bool = True
+    # 源系统侧重比例（默认偏 ERP 60%）；驱动 prompt 目标指令 + agent 配额倾斜 + 两侧平衡反馈。
+    system_focus: SystemFocus = Field(default_factory=SystemFocus)
 
 
 class RunResumeRequest(BaseModel):
@@ -61,6 +84,22 @@ class CredentialUpdate(BaseModel):
     masked_hint: str | None = Field(default=None, max_length=120)
 
 
+class ReportTemplate(BaseModel):
+    """日报固定版式文案模版（仅纯文案，不含指标标签/锚点）。字段留空则按默认回落。"""
+    title_prefix: str = Field(default="", max_length=200)
+    note_tpl: str = Field(default="", max_length=2000)
+    criteria_tpl: str = Field(default="", max_length=2000)
+
+    @field_validator("title_prefix", "note_tpl", "criteria_tpl")
+    @classmethod
+    def _no_banned(cls, value: str) -> str:
+        # 与 reports.validate_report 的禁用词一致：存模版时前置拦截，避免存进去后日报永远校验失败。
+        for banned in ("业务进展摘要", "场景文章"):
+            if banned in value:
+                raise ValueError(f"模版不得包含禁用词『{banned}』")
+        return value
+
+
 class ReportSettingsUpdate(BaseModel):
     enabled: bool = True
     generate_time: str = "18:00"
@@ -69,6 +108,8 @@ class ReportSettingsUpdate(BaseModel):
     email_sender: str | None = None
     email_recipient: str | None = None
     email_reminder_enabled: bool = True
+    # None = 恢复/沿用内置默认模版；给出对象则按字段覆盖（空字段仍回落默认）。
+    report_template: ReportTemplate | None = None
 
     @field_validator("generate_time")
     @classmethod

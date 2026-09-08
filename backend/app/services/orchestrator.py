@@ -29,6 +29,41 @@ STAGES = [
 ]
 
 
+def _system_focus_directive(gap: dict, domain: str) -> str:
+    """依据本轮 system_focus 与本 agent 的源系统侧归属，生成一句定向产出指令。
+
+    目标：多产可映射到源系统的指标、按侧重比例倾斜、两侧都>0 时要求两侧都有产出。
+    缺 system_focus 时返回通用「尽量可映射」指令，绝不影响主流程。
+    """
+    from .reports import _agent_system_side
+
+    base = (
+        "【源系统归属】新建类应尽量 rdfs:subClassOf 某领域根（制造/MES 或 ERP/SAP 的领域类），"
+        "避免落进 generated/common 而成为未映射；新增属性/关系尽量挂到有源系统归属的类上。"
+    )
+    focus = gap.get("system_focus") if isinstance(gap, dict) else None
+    if not isinstance(focus, dict):
+        return base
+    mfg = int(focus.get("manufacturing", 40))
+    erp = int(focus.get("erp", 60))
+    both = bool(focus.get("both_required"))
+    lead = "ERP/SAP" if erp >= mfg else "制造/MES"
+    side = _agent_system_side(domain)
+    if side == "erp":
+        aim = (f"本轮 ERP/SAP 侧重 {erp}%：请最大化 ERP(SAP FI+SD、O2C 交付/财务结转) 相关的类、属性、关系产出。"
+               if erp > 0 else "本轮 ERP/SAP 侧重为 0：不刻意新增 ERP 内部结构，仅在确有跨系统联动时产出关系。")
+    elif side == "manufacturing":
+        aim = (f"本轮 制造/MES 侧重 {mfg}%：产出制造/MES 相关的类、属性、关系。"
+               if mfg > 0 else "本轮 制造/MES 侧重为 0：控制制造侧新增产量，仅补跨系统联动关系。")
+        if 0 < mfg < erp:
+            aim += "当前制造侧权重较低，请控制产量、优先补与 ERP 的跨系统联动关系。"
+    else:  # cross
+        aim = f"本轮主导侧为 {lead}（制造 {mfg}% / ERP {erp}%）：跨系统建模请向主导侧倾斜，新建类务必可归属到该侧领域根。"
+    if both:
+        aim += "两侧侧重均>0：本轮制造/MES 与 ERP/SAP 的类、属性、关系都应各有产出，任一侧任一维度为空都会被记入下一轮优先补齐项。"
+    return base + aim
+
+
 def _json_object(text: str) -> dict:
     stripped = re.sub(r"^```(?:json)?\s*|\s*```$", "", text.strip(), flags=re.I)
     start = stripped.find("{")
@@ -227,6 +262,7 @@ class RunOrchestrator:
                     "只能体现在 semantic_changesets/feature_mapping_candidates 里；summary、customer_pains 与 scenario_article_markdown "
                     "必须面向半导体产线现场的真实客户业务问题（停机、良率、工艺偏移、周期、追溯、排障工时等），"
                     "绝不能把“映射覆盖率卡在N%”“逐字重映射已发布属性”“缺乏本体属性承载”这类建库口径写成客户痛点或经营影响。" + source_rules
+                    + _system_focus_directive(gap, agent.domain)
                 )
                 repair_context = agent_config.get("repair_context") or {}
                 if repair_context:

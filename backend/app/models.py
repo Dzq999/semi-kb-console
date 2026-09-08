@@ -170,6 +170,9 @@ class ReportSetting(Base):
     email_recipient: Mapped[str | None] = mapped_column(String(200), nullable=True)
     email_reminder_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     last_trigger_key: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    # 用户自定义的日报固定版式文案模版（JSON: {title_prefix, note_tpl, criteria_tpl}）。
+    # NULL = 用 reports.DEFAULT_REPORT_TEMPLATE。仅存不参与校验/不当锚点的纯文案，可一键恢复默认。
+    report_template_json: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 class DailyReport(Base):

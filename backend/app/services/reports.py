@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import re
 from datetime import datetime, timezone
+from string import Template
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
@@ -28,6 +29,52 @@ METRIC_LABELS = [
     ("simulation_scenarios", "仿真场景"),
     ("scenario_articles", "场景知识产物"),
 ]
+
+
+# 日报可编辑的「固定版式文案」默认模版。仅含不参与校验、不当渲染锚点的纯文字：
+#   title_prefix —— 主标题前缀（渲染为 "# {prefix}｜{date}"）
+#   note_tpl     —— 实例统计脚注（string.Template 占位符，safe_substitute 注入数值，缺占位符不炸）
+#   criteria_tpl —— 拆分口径脚注（纯说明文字，无占位符）
+# 用户可在设置页改写并保存到 ReportSetting.report_template_json（NULL=用此默认），也可一键恢复默认。
+# 占位符：$domain 领域实例总数、$knowledge 知识实例、$operational 产线数据、$untagged 未标注、
+#         $manufacturing 制造/MES 实例、$erp ERP 实例；$system_line 为“按源系统”整句（无数据时自动为空）。
+DEFAULT_REPORT_TEMPLATE = {
+    "title_prefix": "SEMI-KB 日报",
+    "note_tpl": "实例统计基于 14 个策展模块（$domain 个）——知识实例 $knowledge、产线数据 $operational、未标注 $untagged$system_line。",
+    "criteria_tpl": "类/属性/关系/实例按「今日新增 = 制造/MES + ERP/SAP + 未映射」拆分，其余指标（公理/规则/知识/经营/仿真/场景）为跨源共享的骨架或全局产物，列「—」。未映射＝尚未接入领域根的自动生成类及公共骨架；因跨源属性两侧各计、关系仅计有归属断言，拆分列之和可能略小于今日新增。",
+}
+# 「按源系统」子句模版：仅当有制造/ERP 实例时拼进 note，之前是硬编码在 note 里的一段。
+_SYSTEM_LINE_TPL = "；按源系统：制造/MES $manufacturing、ERP(SAP FI+SD) $erp（制造侧再分前段/后段工艺段）"
+# 模版文案禁用词（与 validate_report 的禁用词一致，存模版时前置拦截，避免存进去后日报永远校验失败）。
+_TEMPLATE_BANNED = ("业务进展摘要", "场景文章")
+_TEMPLATE_FIELD_MAXLEN = 2000
+
+
+def normalize_report_template(raw) -> dict:
+    """把用户模版补齐为完整三字段（缺字段回落默认），非 dict 时整体回落默认。只读、纯函数。"""
+    base = dict(DEFAULT_REPORT_TEMPLATE)
+    if isinstance(raw, dict):
+        for key in base:
+            value = raw.get(key)
+            if isinstance(value, str) and value.strip():
+                base[key] = value
+    return base
+
+
+# agent 的 problem-domain → 源系统侧归属（制造/erp/cross）。纯函数，供 augment_gap 与
+# orchestrator.execute_agent 共用，确保「按侧配额」的读/写边界一致。
+_MANUFACTURING_SIDE_DOMAINS = {"fab", "ap", "fac", "eqp", "manufacturing", "mes", "wip", "capacity", "process"}
+_ERP_SIDE_DOMAINS = {"erp", "sap", "fi", "sd", "o2c", "finance", "sales"}
+
+
+def _agent_system_side(domain: str) -> str:
+    """把 agent.domain 归到 'manufacturing' / 'erp' / 'cross' 三侧之一。"""
+    stem = str(domain or "").strip().casefold()
+    if stem in _ERP_SIDE_DOMAINS:
+        return "erp"
+    if stem in _MANUFACTURING_SIDE_DOMAINS:
+        return "manufacturing"
+    return "cross"
 
 
 def _load_prior_report_plan(db: Session, user_id: int) -> str:
@@ -60,6 +107,19 @@ def augment_gap(gap: dict, run_id: str) -> dict:
                 plan = _load_prior_report_plan(db, run.user_id)
                 if plan:
                     gap["prior_report_plan"] = plan
+                # 源系统侧重比例：进每个子 Agent 的 prompt，驱动「按侧配额」定向产出。
+                # 解析失败或缺字段一律降级为默认(制造40/ERP60)，绝不影响主流程。
+                try:
+                    from ..schemas import RunCreate
+
+                    focus = RunCreate.model_validate(json.loads(run.config_json or "{}")).system_focus
+                    gap["system_focus"] = {
+                        "manufacturing": focus.manufacturing,
+                        "erp": focus.erp,
+                        "both_required": focus.both_required,
+                    }
+                except Exception:
+                    gap["system_focus"] = {"manufacturing": 40, "erp": 60, "both_required": True}
             # 上一轮成功收尾写下的结构化优化方向：只有 completed* 轮次才有非空 next_direction_json，
             # 当前 running 轮仍是默认 "{}"，故按 round_number 倒序取到的即上一轮方向，形成显式闭环。
             prior = db.scalar(
@@ -81,10 +141,17 @@ def augment_gap(gap: dict, run_id: str) -> dict:
     return gap
 
 
-def compute_round_direction(gap: dict, validation: dict | None = None, delta: dict | None = None) -> dict:
+def compute_round_direction(
+    gap: dict,
+    validation: dict | None = None,
+    delta: dict | None = None,
+    balance_shortfall: list[dict] | None = None,
+    system_focus: dict | None = None,
+) -> dict:
     """一轮成功收尾 → 产出面向下一轮的结构化优化方向（确定性启发式，非 LLM 反思）。
 
-    输入：本轮的 feature_gap（缺口/热点）、validation.checks（哪些门禁未通过）、指标增量 delta。
+    输入：本轮的 feature_gap（缺口/热点）、validation.checks（哪些门禁未通过）、指标增量 delta、
+    以及两侧平衡缺口 balance_shortfall（权重>0 却本轮该维度未产出的 侧×维度）。
     输出：结构化 dict（含人类可读 text），写入 RunRound.next_direction_json，
     由下一轮 augment_gap 读回注入 gap["prior_round_direction"]，进入每个子 Agent 的 prompt。
     纯函数、不触库、不抛异常——坏输入一律降级为通用方向。
@@ -92,6 +159,7 @@ def compute_round_direction(gap: dict, validation: dict | None = None, delta: di
     gap = gap or {}
     validation = validation or {}
     delta = delta or {}
+    balance_shortfall = balance_shortfall or []
     total = int(gap.get("unmapped_total") or 0)
     business = int(gap.get("business_relevant") or 0)
     themes = [str(item.get("theme")) for item in (gap.get("by_theme") or [])[:3] if item.get("theme")]
@@ -108,6 +176,15 @@ def compute_round_direction(gap: dict, validation: dict | None = None, delta: di
         bits.append("优先补齐热点主题「" + "、".join(themes) + "」")
     if unpassed:
         bits.append("下一轮需复跑未通过门禁：" + "、".join(unpassed))
+    # 两侧平衡缺口：某侧权重>0 却本轮未产出某维度 → 显式要求下一轮优先补齐（后置平衡反馈闭环）。
+    _SIDE_CN = {"manufacturing": "制造/MES", "erp": "ERP/SAP"}
+    _DIM_CN = {"class": "类", "property": "属性", "relation": "关系"}
+    if balance_shortfall:
+        gaps_cn = "、".join(
+            f"{_SIDE_CN.get(item.get('side'), item.get('side'))}的{_DIM_CN.get(item.get('dimension'), item.get('dimension'))}"
+            for item in balance_shortfall
+        )
+        bits.append(f"本轮以下侧×维度未产出，下一轮须优先补齐：{gaps_cn}")
     text = "；".join(bits) if bits else "本体缺口已收敛，下一轮维持既有映射并扩充经营基线覆盖。"
     return {
         "unmapped_total": total,
@@ -115,6 +192,8 @@ def compute_round_direction(gap: dict, validation: dict | None = None, delta: di
         "focus_themes": themes,
         "unpassed_gates": unpassed,
         "grew": grew,
+        "balance_shortfall": balance_shortfall,
+        "system_focus": system_focus or {},
         "text": text,
     }
 
@@ -280,18 +359,20 @@ def _business_domain_section(snapshot: dict) -> str:
     return "\n".join(lines)
 
 
-def fixed_metrics_markdown(snapshot: dict) -> str:
-    lines = ["## 今日结果", "", "| 指标 | 今日新增 | 当前总量 | 制造/MES 新增 | ERP/SAP 新增 |", "|---|---:|---:|---:|---:|"]
+def fixed_metrics_markdown(snapshot: dict, template: dict | None = None) -> str:
+    tpl = normalize_report_template(template)  # None/缺字段 → 回落默认
+    lines = ["## 今日结果", "", "| 指标 | 今日新增 | 当前总量 | 制造/MES 新增 | ERP/SAP 新增 | 未映射 新增 |", "|---|---:|---:|---:|---:|---:|"]
     totals = snapshot["totals"]
     added = snapshot["today_added"]
 
-    # 有源系统(sourceSystem)归属维度的四项 → 其今日新增拆分键前缀（制造键, ERP键）。
+    # 有源系统(sourceSystem)归属维度的四项 → 其今日新增拆分键前缀（制造键, ERP键, 未映射键）。
     # 个体维沿用无前缀 system_*（向后兼容）；类/属性/关系维带 <dim>_ 前缀。其余指标无此维度，显示"—"。
+    # 恒等式：今日新增 = 制造/MES + ERP/SAP + 未映射（跨源系统属性两侧各计、关系仅计有归属断言，故仍以脚注说明例外）。
     SYSTEM_SPLIT_KEYS = {
-        "classes": ("class_system_manufacturing", "class_system_erp"),
-        "properties": ("property_system_manufacturing", "property_system_erp"),
-        "relations": ("relation_system_manufacturing", "relation_system_erp"),
-        "individuals": ("system_manufacturing", "system_erp"),
+        "classes": ("class_system_manufacturing", "class_system_erp", "class_system_unmapped"),
+        "properties": ("property_system_manufacturing", "property_system_erp", "property_system_unmapped"),
+        "relations": ("relation_system_manufacturing", "relation_system_erp", "relation_system_unmapped"),
+        "individuals": ("system_manufacturing", "system_erp", "system_unmapped"),
     }
 
     for key, label in METRIC_LABELS:
@@ -301,25 +382,35 @@ def fixed_metrics_markdown(snapshot: dict) -> str:
         if split:
             mfg = int(added.get(split[0], 0))
             erp = int(added.get(split[1], 0))
-            lines.append(f"| {label} | {today_added:,} | {current_total:,} | {mfg:,} | {erp:,} |")
+            unmapped = int(added.get(split[2], 0))
+            lines.append(f"| {label} | {today_added:,} | {current_total:,} | {mfg:,} | {erp:,} | {unmapped:,} |")
         else:
             # 公理/规则/知识/经营/仿真/场景：跨源系统共享或全局产物，无 sourceSystem 归属
-            lines.append(f"| {label} | {today_added:,} | {current_total:,} | — | — |")
+            lines.append(f"| {label} | {today_added:,} | {current_total:,} | — | — | — |")
 
-    # individuals 来源拆分脚注：基于策展模块个体（与工艺段拆分使用相同基数）
+    # individuals 来源拆分脚注：基于策展模块个体（与工艺段拆分使用相同基数）。
+    # 方案 A：把原「注」（来源分类）与「级联」（源系统一级维度）合并为一段「注」——
+    # 二者同基数、同依赖实例数据，合并后更紧凑；制造侧再分前段/后段工艺段收在括号里。
     domain = int(totals.get("individuals_domain", 0))
     if domain:
         knowledge = int(totals.get("individuals_knowledge", 0))
         operational = int(totals.get("individuals_operational", 0))
         untagged = int(totals.get("individuals_untagged", 0))
-        lines.append(f"\n**注**：实例统计基于14个策展模块（{domain:,}个），按来源分类：知识实例 {knowledge:,}、产线数据 {operational:,}、未标注 {untagged:,}。")
-        # 级联"地基"脚注：源系统(sourceSystem)为一级维度，制造侧再按工艺段(processSegment)细分
         manufacturing = int(totals.get("system_manufacturing", 0))
         erp = int(totals.get("system_erp", 0))
+        # 「按源系统」子句仅在有制造/ERP 实例时出现（无则为空串），保持原条件行为。
+        system_line = ""
         if manufacturing or erp:
-            lines.append(f"**级联**：按源系统一级维度——制造/MES {manufacturing:,}、ERP(SAP FI+SD) {erp:,}；制造侧再按前段/后段工艺段细分。")
-    # 表格『制造/MES 新增 / ERP/SAP 新增』两列的口径脚注（一次性说明，不随数据变动）。
-    lines.append("**拆分口径**：类/属性/关系/实例四项经「类→模块→源系统」归属拆分；公理/规则/知识条目/经营模型关系/仿真场景/场景知识产物为跨源系统共享的本体骨架或全局产物，无源系统维度，故列示「—」。跨源系统属性在两侧各计一次，关系仅统计有源系统归属的断言，故拆分列之和可能小于该行今日新增。")
+            system_line = Template(_SYSTEM_LINE_TPL).safe_substitute(
+                manufacturing=f"{manufacturing:,}", erp=f"{erp:,}")
+        note = Template(tpl["note_tpl"]).safe_substitute(
+            domain=f"{domain:,}", knowledge=f"{knowledge:,}", operational=f"{operational:,}",
+            untagged=f"{untagged:,}", manufacturing=f"{manufacturing:,}", erp=f"{erp:,}",
+            system_line=system_line)
+        lines.append("\n**注**：" + note)
+    # 表格『制造/MES 新增 / ERP/SAP 新增 / 未映射 新增』三列的口径脚注（一次性说明，不随数据变动，
+    # 与实例数据存废无关，故无条件追加）。纯说明文字，取自模版的 criteria_tpl（默认见 DEFAULT_REPORT_TEMPLATE）。
+    lines.append("**口径**：" + tpl["criteria_tpl"])
     # 『质量与验证』小节已按需求移除：门禁与来源对齐信息统一在『交叉验证结果』小节呈现，不再重复。
     lines.extend(["", _cross_validation_section(snapshot)])
     # 『本体领域覆盖』紧随交叉验证之后、明日计划之前；无数据时 section 返回空串即跳过。
@@ -441,10 +532,12 @@ async def generate_report(db: Session, user_id: int, report_date: str, model_id:
     # 兜底：模型偶尔仍漏出轮次口径，统一改写为“今日”，与上面的措辞替换并列。
     narrative = re.sub(r"本轮|这一轮|上一轮|每一轮|每轮", "今日", narrative)
     narrative = re.sub(r"^\s*#+\s*.*$", "", narrative, flags=re.MULTILINE).strip()
-    fixed = fixed_metrics_markdown(snapshot)
+    # 用户可编辑的固定版式文案模版（标题前缀/注/口径）；NULL 或缺字段自动回落默认。
+    tpl = normalize_report_template(json.loads(settings_row.report_template_json or "null"))
+    fixed = fixed_metrics_markdown(snapshot, tpl)
     if narrative:
         fixed = fixed.replace("\n## 交叉验证结果\n", f"\n{narrative}\n\n## 交叉验证结果\n", 1)
-    content = f"# SEMI-KB 日报｜{report_date}\n\n{fixed}\n"
+    content = f"# {tpl['title_prefix']}｜{report_date}\n\n{fixed}\n"
     validation = validate_report(content, snapshot)
     report.metrics_snapshot_json = json.dumps(snapshot, ensure_ascii=False)
     report.model_draft = content

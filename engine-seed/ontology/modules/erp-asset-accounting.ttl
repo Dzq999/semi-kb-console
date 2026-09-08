@@ -1,0 +1,92 @@
+@prefix semi: <urn:pxai:semi:> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# ============================================================================
+# ERP 资产会计 / 固定资产折旧（财务视角，FI-AA / SAP Asset Accounting）本体模块
+#   ·  urn:pxai:semi:erp-asset-accounting
+# 定位：设备（fab 里最贵的一类 PhysicalEntity）在账上的镜像——原值/残值/年限/折旧法/
+# 累计折旧/账面净值，并让"产量法折旧"接到产能侧（设备折旧随实际产出计提），把折旧
+# 作为成本要素喂给 erp-controlling。补充 erp-financial（FI）的资产折旧细节。
+# 纯 T-Box：一个数值都不填。
+#
+# 复用纪律：FixedAsset 已在 erp-financial 声明；本模块 import 后只"追加属性/关联"，
+#   绝不 `FixedAsset a owl:Class` 重声明（字母序 asset-accounting<financial 会抢归属）。
+# 分支纪律：折旧法/资产类/折旧分录=InformationEntity（挂 AssetAccountingArtifact）；
+#   折旧计提=Event（DepreciationRun），二者绝不双归属。
+# ============================================================================
+
+<urn:pxai:semi:erp-asset-accounting> a owl:Ontology ;
+  rdfs:label "ERP 资产会计（固定资产折旧）域本体"@zh, "ERP Asset Accounting (depreciation) ontology"@en ;
+  owl:imports <urn:pxai:semi:common>, <urn:pxai:semi:erp-financial>,
+              <urn:pxai:semi:capacity-performance> .
+
+# ---- 领域归类根 -------------------------------------------------------------
+semi:AssetAccountingArtifact a owl:Class ; rdfs:subClassOf semi:FinancialArtifact ;
+  rdfs:label "资产会计信息制品"@zh, "Asset accounting artifact"@en .
+
+# ---- 实体（信息实体） ------------------------------------------------------
+semi:DepreciationMethod a owl:Class ; rdfs:subClassOf semi:AssetAccountingArtifact ;
+  rdfs:label "折旧方法"@zh, "Depreciation method"@en ;
+  rdfs:comment "直线法/产量法/双倍余额递减法。产量法折旧律：折旧随实际产出比例计提，与产能侧挂钩。"@zh .
+semi:AssetClass a owl:Class ; rdfs:subClassOf semi:AssetAccountingArtifact ;
+  rdfs:label "资产类别"@zh, "Asset class"@en ;
+  rdfs:comment "光刻机/刻蚀机/厂务设施等；决定默认年限与折旧法。"@zh .
+semi:DepreciationEntry a owl:Class ; rdfs:subClassOf semi:AssetAccountingArtifact ;
+  rdfs:label "折旧分录"@zh, "Depreciation entry"@en ;
+  rdfs:comment "单期单资产折旧记录；作为折旧类成本要素喂给 erp-controlling。"@zh .
+semi:AccumulatedDepreciation a owl:Class ; rdfs:subClassOf semi:AssetAccountingArtifact ;
+  rdfs:label "累计折旧"@zh, "Accumulated depreciation"@en ;
+  rdfs:comment "折旧上限律：累计折旧 ≤ 原值 − 残值（可折旧基数），不得超提。"@zh .
+
+# ---- 动作（事件） ----------------------------------------------------------
+semi:DepreciationRun a owl:Class ; rdfs:subClassOf semi:Event ;
+  rdfs:label "折旧计提"@zh, "Depreciation run"@en ;
+  rdfs:comment "按期计提；产量法下 unitsBasis 引产能侧实际产出。"@zh .
+
+# ---- 关系（含对 FixedAsset 的追加属性） ------------------------------------
+semi:hasDepreciationMethod a owl:ObjectProperty ;
+  rdfs:label "采用折旧方法"@zh ;
+  rdfs:domain semi:FixedAsset ; rdfs:range semi:DepreciationMethod .
+semi:belongsToAssetClass a owl:ObjectProperty ;
+  rdfs:label "属于资产类别"@zh ;
+  rdfs:domain semi:FixedAsset ; rdfs:range semi:AssetClass .
+semi:mirrorsPhysical a owl:ObjectProperty ;
+  rdfs:label "账面镜像物理实体"@zh ;
+  rdfs:domain semi:FixedAsset ; rdfs:range semi:PhysicalEntity ;
+  rdfs:comment "固定资产 ↔ 设备/厂务设施（equipment/facility）的账实对应。"@zh .
+semi:hasAccumulatedDepreciation a owl:ObjectProperty ;
+  rdfs:label "对应累计折旧"@zh ;
+  rdfs:domain semi:FixedAsset ; rdfs:range semi:AccumulatedDepreciation .
+semi:runsOnAsset a owl:ObjectProperty ;
+  rdfs:label "计提针对资产"@zh ;
+  rdfs:domain semi:DepreciationRun ; rdfs:range semi:FixedAsset .
+semi:producesEntry a owl:ObjectProperty ;
+  rdfs:label "产生折旧分录"@zh ;
+  rdfs:domain semi:DepreciationRun ; rdfs:range semi:DepreciationEntry .
+semi:unitsBasis a owl:ObjectProperty ;
+  rdfs:label "产量法计提依据"@zh ;
+  rdfs:domain semi:DepreciationRun ; rdfs:range semi:PerformanceMetric ;
+  rdfs:comment "产量法折旧律的取值源：接 capacity-performance 的实际产出指标。"@zh .
+semi:entryAccumulatesInto a owl:ObjectProperty ;
+  rdfs:label "分录累计入"@zh ;
+  rdfs:domain semi:DepreciationEntry ; rdfs:range semi:AccumulatedDepreciation .
+
+# ---- 属性（追加到 FixedAsset + 本模块实体；取值属参数锥） -------------------
+semi:acquisitionCost a owl:DatatypeProperty ; rdfs:domain semi:FixedAsset ; rdfs:range xsd:decimal ;
+  rdfs:comment "原值（取得成本）。"@zh .
+semi:salvageValue a owl:DatatypeProperty ; rdfs:domain semi:FixedAsset ; rdfs:range xsd:decimal ;
+  rdfs:comment "残值 ≥ 0 且 ≤ 原值。"@zh .
+semi:usefulLife a owl:DatatypeProperty ; rdfs:domain semi:FixedAsset ; rdfs:range xsd:decimal ;
+  rdfs:comment "预计使用年限（或产量法下的总产能）。"@zh .
+semi:netBookValue a owl:DatatypeProperty ; rdfs:domain semi:FixedAsset ; rdfs:range xsd:decimal ;
+  rdfs:comment "账面净值律：= 原值 − 累计折旧，且 ≥ 残值。"@zh .
+semi:accumulatedAmount a owl:DatatypeProperty ; rdfs:domain semi:AccumulatedDepreciation ; rdfs:range xsd:decimal ;
+  rdfs:comment "折旧上限律：≤ 原值 − 残值。"@zh .
+semi:entryAmount a owl:DatatypeProperty ; rdfs:domain semi:DepreciationEntry ; rdfs:range xsd:decimal ;
+  rdfs:comment "单期折旧额 ≥ 0。"@zh .
+semi:entryPeriod a owl:DatatypeProperty ; rdfs:domain semi:DepreciationEntry ; rdfs:range xsd:string .
+semi:methodType a owl:DatatypeProperty ; rdfs:domain semi:DepreciationMethod ; rdfs:range xsd:string ;
+  rdfs:comment "straight-line / units-of-production / declining-balance。"@zh .

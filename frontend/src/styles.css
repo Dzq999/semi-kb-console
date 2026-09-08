@@ -325,6 +325,12 @@ code { color: #31557f; font-family: Consolas, monospace; font-size: 9px; }
 .switch-line { min-height: 36px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .switch-line input { width: 18px; min-height: 18px; margin: 0; accent-color: #2864dc; }
 .warning-box { padding: 9px 10px; border-radius: 8px; color: #9a5715; background: #fff3e4; font-size: 9px; line-height: 1.5; }
+.template-editor { display: grid; gap: 10px; padding: 12px; border: 1px solid #e2e8f2; border-radius: 8px; background: #fafbfe; }
+.template-editor-head { display: flex; align-items: center; justify-content: space-between; }
+.template-editor-head > span { color: #33415c; font-size: 11px; font-weight: 600; }
+.template-editor-hint { margin: 0; color: #708097; font-size: 9px; line-height: 1.5; }
+.template-editor label { display: grid; gap: 5px; color: #536378; font-size: 9px; }
+.template-editor-area { width: 100%; min-height: 84px; padding: 8px; resize: vertical; border-radius: 6px; font-family: Consolas,"Microsoft YaHei",monospace; font-size: 10px; line-height: 1.55; }
 .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .setting-copy, .security-note { min-height: 130px; padding: 16px; }
 .endpoint-form { padding: 14px; display: grid; gap: 12px; }

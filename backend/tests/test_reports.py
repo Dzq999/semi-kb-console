@@ -411,3 +411,64 @@ async def test_generate_report_strips_round_words(clean_db, monkeypatch):
     assert model_input["metrics"]["totals"]["classes"] == 10
     assert model_input["metrics"]["today_added"]["classes"] == 1
 
+
+
+def _system_snapshot():
+    """带领域/源系统字段的快照，才能触发『注』行渲染。"""
+    snap = snapshot()
+    snap["totals"].update({
+        "individuals_domain": 3141, "individuals_knowledge": 1904,
+        "individuals_operational": 0, "individuals_untagged": 1237,
+        "system_manufacturing": 3104, "system_erp": 37,
+    })
+    return snap
+
+
+def test_default_template_matches_builtin_output():
+    from app.services.reports import DEFAULT_REPORT_TEMPLATE, normalize_report_template
+    snap = _system_snapshot()
+    # None、显式默认、normalize(None) 三种入口渲染必须一致（防回归）。
+    a = fixed_metrics_markdown(snap, None)
+    b = fixed_metrics_markdown(snap, dict(DEFAULT_REPORT_TEMPLATE))
+    c = fixed_metrics_markdown(snap, normalize_report_template(None))
+    assert a == b == c
+    assert "**注**：实例统计基于 14 个策展模块（3,141 个）" in a
+    assert "制造/MES 3,104、ERP(SAP FI+SD) 37" in a
+
+
+def test_custom_template_renders_placeholders_and_prose():
+    snap = _system_snapshot()
+    custom = {
+        "title_prefix": "朋熙日报",
+        "note_tpl": "共 $domain 个：知识 $knowledge、产线 $operational$system_line。",
+        "criteria_tpl": "自定义口径说明。",
+    }
+    content = fixed_metrics_markdown(snap, custom)
+    assert "**注**：共 3,141 个：知识 1,904、产线 0；按源系统：制造/MES 3,104" in content
+    assert "**口径**：自定义口径说明。" in content
+
+
+def test_template_missing_placeholder_does_not_crash():
+    # 用户只保留一个变量，其余占位符缺失时 safe_substitute 不应抛错。
+    snap = _system_snapshot()
+    bad = {"note_tpl": "只有 $domain 个，其它不写", "criteria_tpl": "x"}
+    content = fixed_metrics_markdown(snap, bad)
+    assert "**注**：只有 3,141 个，其它不写" in content
+
+
+def test_normalize_falls_back_on_blank_and_none():
+    from app.services.reports import DEFAULT_REPORT_TEMPLATE, normalize_report_template
+    assert normalize_report_template(None) == dict(DEFAULT_REPORT_TEMPLATE)
+    # 空白字段回落默认，非空字段保留。
+    got = normalize_report_template({"title_prefix": "  ", "criteria_tpl": "自定义"})
+    assert got["title_prefix"] == DEFAULT_REPORT_TEMPLATE["title_prefix"]
+    assert got["criteria_tpl"] == "自定义"
+    assert got["note_tpl"] == DEFAULT_REPORT_TEMPLATE["note_tpl"]
+
+
+def test_custom_template_still_passes_validation():
+    # 自定义文案不得破坏硬校验（指标标签/数值仍需出现）。
+    snap = _system_snapshot()
+    custom = {"title_prefix": "朋熙日报", "note_tpl": "共 $domain 个。", "criteria_tpl": "口径说明。"}
+    content = fixed_metrics_markdown(snap, custom) + "\n场景正文 客户痛点 交叉验证 经营模型 仿真结果 明日重点"
+    assert validate_report(content, snap)["passed"]

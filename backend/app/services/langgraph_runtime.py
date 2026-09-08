@@ -642,9 +642,26 @@ class RoundGraphEngine:
             artifacts["partial"] = partial
             row.artifacts_json = json.dumps(artifacts, ensure_ascii=False)
             row.quarantined_files_json = json.dumps(state.get("quarantined_files") or [], ensure_ascii=False)
+            # 两侧平衡反馈：two-side × three-dim 的本轮增量。某侧权重>0 却该维度未产出(delta≤0)，
+            # 记入 balance_shortfall，透传给 compute_round_direction 写进下一轮方向（后置反馈、非硬门禁）。
+            focus = (state.get("config") or {}).get("system_focus") or {}
+            mfg_weight = int(focus.get("manufacturing", 40)); erp_weight = int(focus.get("erp", 60))
+            both_required = mfg_weight > 0 and erp_weight > 0
+            balance_shortfall: list[dict] = []
+            if both_required:
+                _dim_keys = {
+                    "class": ("class_system_manufacturing", "class_system_erp"),
+                    "property": ("property_system_manufacturing", "property_system_erp"),
+                    "relation": ("relation_system_manufacturing", "relation_system_erp"),
+                }
+                for dim, (mfg_key, erp_key) in _dim_keys.items():
+                    if mfg_weight > 0 and int(delta.get(mfg_key, 0)) <= 0:
+                        balance_shortfall.append({"side": "manufacturing", "dimension": dim})
+                    if erp_weight > 0 and int(delta.get(erp_key, 0)) <= 0:
+                        balance_shortfall.append({"side": "erp", "dimension": dim})
             # 本轮成功 → 产出下一轮结构化优化方向，下一轮 gap_analysis 的 augment_gap 读回注入。
             from .reports import compute_round_direction
-            row.next_direction_json = json.dumps(compute_round_direction(semi_kb.feature_gap(), validation, delta), ensure_ascii=False)
+            row.next_direction_json = json.dumps(compute_round_direction(semi_kb.feature_gap(), validation, delta, balance_shortfall=balance_shortfall, system_focus=focus), ensure_ascii=False)
             run.metrics_after_json = row.metrics_after_json; run.progress = 100; run.heartbeat_at = datetime.now(timezone.utc)
             db.commit()
             self.controller.emit(db, state["run_id"], "round_completed", f"第 {state['round_number']} 轮{'部分完成' if partial else '完成'}，准备下一轮", {"round": state["round_number"], "duration_seconds": row.duration_seconds, "delta": delta, "published": (state.get("validation") or {}).get("published", False), "partial": partial, "repair_attempts": int(state.get("repair_attempt", 0)), "repair_successes": int(state.get("repair_successes", 0)), "engine": "langgraph"})

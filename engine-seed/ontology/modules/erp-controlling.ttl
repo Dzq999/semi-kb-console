@@ -1,0 +1,119 @@
+@prefix semi: <urn:pxai:semi:> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# ============================================================================
+# ERP 管理会计 / 产品成本核算域（CO / SAP Controlling）本体模块
+#   ·  urn:pxai:semi:erp-controlling
+# 定位：把物理/运营层（wip/capacity/quality/material）接到"钱"——资源消耗→成本
+# 要素→成本中心→成本对象，算出良率调整后的单片/单 die 成本，为 business-simulation
+# 提供 grounded 成本来源。补充 erp-financial（FI）的成本侧（CO）。
+# 只描述"世界是什么样"（实体/关系/律），一个数值都不填——数值属参数锥（落实例/溯源侧）。
+#
+# 分支纪律（common.ttl:27-28 三顶层互斥）：
+#   · 成本对象/要素/动因等"核算对象"→ InformationEntity（挂 ControllingArtifact）。
+#   · 分摊/归集等"动作"→ Event，绝不与信息实体双归属。
+# 复用纪律：CostCenter/FinancialArtifact 已在 erp-financial 声明，本模块 import 后
+#   只"追加属性/关联"，绝不重声明类（否则字母序首见会把类归属抢到本模块）。
+# 领域根 ControllingArtifact ⊂ FinancialArtifact：经 subClassOf 祖先自动归入财务/ERP 侧。
+# ============================================================================
+
+<urn:pxai:semi:erp-controlling> a owl:Ontology ;
+  rdfs:label "ERP 管理会计（产品成本核算）域本体"@zh, "ERP Controlling (Product Costing) ontology"@en ;
+  owl:imports <urn:pxai:semi:common>, <urn:pxai:semi:erp-financial>,
+              <urn:pxai:semi:material-product>, <urn:pxai:semi:process-route>,
+              <urn:pxai:semi:wip-production>, <urn:pxai:semi:capacity-performance>,
+              <urn:pxai:semi:quality-metrology> .
+
+# ---- 领域归类根（无 SHACL 约束，纯上位归类） --------------------------------
+semi:ControllingArtifact a owl:Class ; rdfs:subClassOf semi:FinancialArtifact ;
+  rdfs:label "管理会计信息制品"@zh, "Controlling artifact"@en .
+
+# ---- 实体（核算对象，皆信息实体） ------------------------------------------
+semi:CostObject a owl:Class ; rdfs:subClassOf semi:ControllingArtifact ;
+  rdfs:label "成本对象"@zh, "Cost object"@en ;
+  rdfs:comment "成本归集枢纽：成本挂在 Lot/Wafer/Product/Step 上。成本对象闭合律：每笔成本落唯一对象或明确待分摊池，无悬空。"@zh .
+semi:CostElement a owl:Class ; rdfs:subClassOf semi:ControllingArtifact ;
+  rdfs:label "成本要素"@zh, "Cost element"@en ;
+  rdfs:comment "成本类型：material/labor/depreciation/utility/overhead。折旧要素接 erp-asset-accounting 的折旧计提。"@zh .
+semi:CostDriver a owl:Class ; rdfs:subClassOf semi:ControllingArtifact ;
+  rdfs:label "成本动因"@zh, "Cost driver"@en ;
+  rdfs:comment "分摊基准：直接复用现有产能/绩效指标（WPH/OEE/CycleTime）作为动因取值源。"@zh .
+semi:StandardCost a owl:Class ; rdfs:subClassOf semi:ControllingArtifact ;
+  rdfs:label "标准成本"@zh, "Standard cost"@en .
+semi:ActualCost a owl:Class ; rdfs:subClassOf semi:ControllingArtifact ;
+  rdfs:label "实际成本"@zh, "Actual cost"@en .
+semi:ProductCost a owl:Class ; rdfs:subClassOf semi:ControllingArtifact ;
+  rdfs:label "产品成本"@zh, "Product cost"@en ;
+  rdfs:comment "成本对象卷积到产品的汇总；business-simulation 的 grounded 成本来源。"@zh .
+semi:CostVariance a owl:Class ; rdfs:subClassOf semi:ControllingArtifact ;
+  rdfs:label "成本差异"@zh, "Cost variance"@en ;
+  rdfs:comment "标准-实际差异律：差异必须可归因到价差/量差/效率差。"@zh .
+
+# ---- 动作（事件，只挂 Event） ----------------------------------------------
+semi:CostAllocation a owl:Class ; rdfs:subClassOf semi:Event ;
+  rdfs:label "成本分摊"@zh, "Cost allocation"@en ;
+  rdfs:comment "分摊守恒律：一个成本中心按动因分到多个对象，Σ分摊比例=1（总额守恒，成本不凭空增减）。"@zh .
+
+# ---- 关系（指向另一实体；含跨模块桥接） ------------------------------------
+semi:costObjectOf a owl:ObjectProperty ;
+  rdfs:label "成本对象归属实体"@zh ;
+  rdfs:domain semi:CostObject ; rdfs:range semi:Entity ;
+  rdfs:comment "成本对象挂到 Lot/Wafer/Product/Step（material-product / process-route）。"@zh .
+semi:accumulatesOn a owl:ObjectProperty ;
+  rdfs:label "要素归集于成本对象"@zh ;
+  rdfs:domain semi:CostElement ; rdfs:range semi:CostObject .
+semi:mapsToArea a owl:ObjectProperty ;
+  rdfs:label "成本中心对应区域"@zh ;
+  rdfs:domain semi:CostCenter ; rdfs:range semi:Entity ;
+  rdfs:comment "追加到 erp-financial 的 CostCenter：映射到 facility 的区域/设备组。"@zh .
+semi:allocatesTo a owl:ObjectProperty ;
+  rdfs:label "成本中心分摊至对象"@zh ;
+  rdfs:domain semi:CostCenter ; rdfs:range semi:CostObject .
+semi:allocationFrom a owl:ObjectProperty ;
+  rdfs:label "分摊来源成本中心"@zh ;
+  rdfs:domain semi:CostAllocation ; rdfs:range semi:CostCenter .
+semi:allocationTo a owl:ObjectProperty ;
+  rdfs:label "分摊目标成本对象"@zh ;
+  rdfs:domain semi:CostAllocation ; rdfs:range semi:CostObject .
+semi:allocatedVia a owl:ObjectProperty ;
+  rdfs:label "经由成本动因分摊"@zh ;
+  rdfs:domain semi:CostAllocation ; rdfs:range semi:CostDriver .
+semi:driverMeasuredBy a owl:ObjectProperty ;
+  rdfs:label "动因由绩效指标度量"@zh ;
+  rdfs:domain semi:CostDriver ; rdfs:range semi:PerformanceMetric ;
+  rdfs:comment "直接拿现有 capacity-performance 指标当分摊动因，零重复建模。"@zh .
+semi:yieldAdjustedBy a owl:ObjectProperty ;
+  rdfs:label "良率调整依据"@zh ;
+  rdfs:domain semi:CostObject ; rdfs:range semi:Yield ;
+  rdfs:comment "良率调整律：良品吸收损失成本，接 quality-metrology 的 Yield。"@zh .
+semi:rollsUpTo a owl:ObjectProperty ;
+  rdfs:label "卷积至产品"@zh ;
+  rdfs:domain semi:CostObject ; rdfs:range semi:Product .
+semi:explainsObject a owl:ObjectProperty ;
+  rdfs:label "差异归因于成本对象"@zh ;
+  rdfs:domain semi:CostVariance ; rdfs:range semi:CostObject .
+
+# ---- 属性（仅声明；取值属参数锥，落实例/溯源侧） ---------------------------
+semi:costObjectType a owl:DatatypeProperty ; rdfs:domain semi:CostObject ; rdfs:range xsd:string ;
+  rdfs:comment "Lot/Wafer/Product/Step。"@zh .
+semi:accumulatedCost a owl:DatatypeProperty ; rdfs:domain semi:CostObject ; rdfs:range xsd:decimal .
+semi:costPerWafer a owl:DatatypeProperty ; rdfs:domain semi:CostObject ; rdfs:range xsd:decimal .
+semi:costPerDie a owl:DatatypeProperty ; rdfs:domain semi:CostObject ; rdfs:range xsd:decimal .
+semi:rawUnitCost a owl:DatatypeProperty ; rdfs:domain semi:CostObject ; rdfs:range xsd:decimal ;
+  rdfs:comment "投入单位成本（良率调整前）。"@zh .
+semi:yieldRate a owl:DatatypeProperty ; rdfs:domain semi:CostObject ; rdfs:range xsd:decimal ;
+  rdfs:comment "应用良率 ∈(0,1]。"@zh .
+semi:yieldAdjustedCost a owl:DatatypeProperty ; rdfs:domain semi:CostObject ; rdfs:range xsd:decimal ;
+  rdfs:comment "良率调整律：= rawUnitCost / yieldRate，且 ≥ rawUnitCost。"@zh .
+semi:costElementType a owl:DatatypeProperty ; rdfs:domain semi:CostElement ; rdfs:range xsd:string .
+semi:periodAmount a owl:DatatypeProperty ; rdfs:domain semi:CostElement ; rdfs:range xsd:decimal ;
+  rdfs:comment "要素本期发生额。"@zh .
+semi:allocationRatio a owl:DatatypeProperty ; rdfs:domain semi:CostAllocation ; rdfs:range xsd:decimal ;
+  rdfs:comment "分摊比例 ∈[0,1]；同一成本中心 Σ=1（分摊守恒律）。"@zh .
+semi:driverBasis a owl:DatatypeProperty ; rdfs:domain semi:CostDriver ; rdfs:range xsd:string .
+semi:varianceType a owl:DatatypeProperty ; rdfs:domain semi:CostVariance ; rdfs:range xsd:string ;
+  rdfs:comment "价差/量差/效率差。"@zh .
+semi:varianceAmount a owl:DatatypeProperty ; rdfs:domain semi:CostVariance ; rdfs:range xsd:decimal .

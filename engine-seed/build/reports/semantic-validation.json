@@ -1,11 +1,13 @@
 {
   "status": "pass",
-  "generated_at": "2026-08-30T18:54:04.810048+00:00",
-  "modules": 14,
-  "schema_triples": 1224,
+  "generated_at": "2026-09-08T17:54:50.643944+00:00",
+  "modules": 19,
+  "schema_triples": 1982,
   "data_quads": 11245,
   "abox_triples": 1892,
-  "inferred_triples": 11018,
+  "explicit_shape_targets": 55,
+  "reasoner": "native",
+  "inferred_triples": 3140,
   "rule_generated_triples": 678,
   "rule_counts": {
     "R-INF-003": 0,

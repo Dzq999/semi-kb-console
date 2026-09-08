@@ -26,24 +26,39 @@ from .semi_kb import semi_kb
 _HISTORY_LIMIT = 12
 
 
+# ERP 专属词：用于把仿真场景分到 ERP 侧（区别于制造侧）。刻意用具体词，避免“财务/订单”
+# 这类制造场景也会提的宽泛词造成误分。当前 ERP 场景为 0，一旦编排在 ERP 侧产出即可被纳入。
+_ERP_SCENARIO_KEYWORDS = ("erp", "sap", "o2c", "应收", "公司代码", "company code",
+                          "销售订单", "订单到收款", "总账", "glaccount", "发票", "会计期间")
+
+
 def _simulation_scenarios(limit: int = 8) -> list[dict]:
-    """读 simulation/scenarios/*.yaml 的场景名与关键变量，作为仿真侧接地线索。"""
+    """读 simulation/scenarios/*.yaml 的场景名与关键变量，作为仿真侧接地线索。
+
+    跨源系统均衡取样：把场景分制造/ERP 两堆，给 ERP 侧留配额（≈1/4，向上取整），
+    余额归制造侧——避免 ERP 场景（一旦产出）被按文件名排序的制造场景挤在 limit 之外。
+    """
     root = settings.engine_root
-    scenarios: list[dict] = []
+    manufacturing: list[dict] = []
+    erp: list[dict] = []
     for path in sorted((root / "simulation" / "scenarios").glob("*.yaml")):
         try:
-            document = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+            raw = path.read_text(encoding="utf-8")
+            document = yaml.safe_load(raw) or {}
         except (OSError, yaml.YAMLError):
             continue
-        scenarios.append({
+        entry = {
             "path": path.relative_to(root).as_posix(),
             "name": document.get("name") or path.stem,
             "model": document.get("model") or document.get("base_model"),
             "scenarios": [s.get("name") or s.get("id") for s in (document.get("scenarios") or [])][:6],
-        })
-        if len(scenarios) >= limit:
-            break
-    return scenarios
+        }
+        (erp if any(k in raw.lower() for k in _ERP_SCENARIO_KEYWORDS) else manufacturing).append(entry)
+    # ERP 侧保底配额（向上取整 limit/4，但不超其容量），制造侧取余额；ERP 不足时把余额还给制造侧。
+    erp_reserve = min(len(erp), (limit + 3) // 4)
+    mfg_take = min(len(manufacturing), limit - erp_reserve)
+    erp_take = min(len(erp), limit - mfg_take)
+    return erp[:erp_take] + manufacturing[:mfg_take]
 
 
 def build_grounding_context() -> dict:
@@ -76,6 +91,11 @@ def build_grounding_context() -> dict:
 
 _SYSTEM_PROMPT = (
     "你是半导体智能制造知识库的问答助手，面向经营与运营问题（如成本预测、产能、良率影响等）。"
+    "本库本体已覆盖制造侧（晶圆厂 Fab、封测 AP、设备 EQP、厂务 FAC 等）与 ERP 侧"
+    "（财务会计：公司代码/总账科目/会计期间；订单到收款：销售订单/报价单/发票/业务伙伴）等概念域；"
+    "制造侧同时有经营模型与仿真场景可做数值测算，ERP 侧目前以本体概念为主、经营测算模型与仿真场景仍在建设。"
+    "因此 ERP 的概念/结构/术语问题可据 ontology_terms 作答；涉及 ERP 数值测算而库内无经营模型支撑时，"
+    "按下述兜底规则处理（grounded=false、显式标注非本库来源），不得编造 ERP 库内数字。\n"
     "只输出一个合法 JSON 对象，不要 Markdown 代码围栏，结构：\n"
     '{"answer": "中文回答正文(Markdown, 可含要点/表格/推算步骤)",\n'
     ' "citations": [{"source": "经营模型/仿真场景/知识库来源族/本体", "ref": "文件路径或来源标识", "note": "该来源支撑了什么"}],\n'
@@ -96,7 +116,10 @@ _SYSTEM_PROMPT = (
 # 规划：一次小调用，判定简单/复杂、给出子步骤与要引用的库内来源。产出 JSON。
 _PLANNER_PROMPT = (
     "你是半导体经营知识库问答的【规划器】。基于用户问题与知识上下文，判断该问题是否需要分步分析，"
-    "并输出计划。只输出一个合法 JSON 对象，不要 Markdown 代码围栏，结构：\n"
+    "并输出计划。知识库覆盖制造侧（Fab/AP/EQP/FAC，含经营模型与仿真场景）与 ERP 侧"
+    "（财务会计、订单到收款，目前以本体概念为主、经营测算仍在建设）；ERP 概念题可据 ontology_terms 规划作答，"
+    "ERP 数值测算若无经营模型支撑则 grounded=false。\n"
+    "只输出一个合法 JSON 对象，不要 Markdown 代码围栏，结构：\n"
     '{"mode": "simple" | "complex",\n'
     ' "steps": [{"title": "该步要解决什么(简短)", "instruction": "该步的具体测算/分析指令"}],\n'
     ' "citations": [{"source": "经营模型/仿真场景/知识库来源族/本体", "ref": "文件路径或来源标识", "note": "支撑了什么"}],\n'

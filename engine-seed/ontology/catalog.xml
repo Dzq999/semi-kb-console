@@ -15,5 +15,8 @@
   <uri name="urn:pxai:semi:application-scenario" uri="modules/application-scenario.ttl"/>
   <uri name="urn:pxai:semi:erp-financial" uri="modules/erp-financial.ttl"/>
   <uri name="urn:pxai:semi:erp-sales-o2c" uri="modules/erp-sales-o2c.ttl"/>
+  <uri name="urn:pxai:semi:erp-controlling" uri="modules/erp-controlling.ttl"/>
+  <uri name="urn:pxai:semi:erp-asset-accounting" uri="modules/erp-asset-accounting.ttl"/>
+  <uri name="urn:pxai:semi:erp-inventory-valuation" uri="modules/erp-inventory-valuation.ttl"/>
   <uri name="urn:pxai:semi:generated-schema" uri="modules/generated.ttl"/>
 </catalog>

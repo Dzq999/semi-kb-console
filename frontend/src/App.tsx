@@ -473,7 +473,7 @@ function CascadeSystemCard({ system }: { system: CascadeSystem }) {
 
 // 级联"地基"总面板：源系统一级维度的层级下钻视图。数据与总览平铺卡同源(system_* 键)，数字一致。
 function SourceSystemCascade({ data }: { data: CascadeData }) {
-  if (!data.systems.length) return null;
+  if (!data.systems?.length) return null;
   const total = data.domain_total || 1;
   return (
     <Panel
@@ -508,14 +508,14 @@ function MetricsFacet({
   cascade?: CascadeData;
 }) {
   const [view, setView] = useState<"all" | string>("all");
-  const active = cascade?.systems.find((s) => s.system === view);
+  const active = cascade?.systems?.find((s) => s.system === view);
   const options: Array<[string, string]> = [
     ["all", "全部"],
-    ...(cascade?.systems.map((s) => [s.system, s.label] as [string, string]) ?? []),
+    ...(cascade?.systems?.map((s) => [s.system, s.label] as [string, string]) ?? []),
   ];
   return (
     <div className="metrics-facet">
-      {cascade && cascade.systems.length > 0 && (
+      {cascade && (cascade.systems?.length ?? 0) > 0 && (
         <div className="facet-tabs" role="tablist">
           {options.map(([key, label]) => (
             <button
@@ -1053,6 +1053,8 @@ function Orchestrator({
   const [maxRepairAttempts, setMaxRepairAttempts] = useState(1);
   const [autoStart, setAutoStart] = useState(false);
   const [autoStartInterval, setAutoStartInterval] = useState(1440);
+  // 源系统侧重比例：ERP/SAP 占比（制造/MES = 100 - erpFocus）。默认偏 ERP 60%。
+  const [erpFocus, setErpFocus] = useState(60);
   const [agents, setAgents] = useState<AgentConfig[]>(() =>
     agentTemplates.map(([role, objective, domain, source]) => ({
       name: role,
@@ -1073,7 +1075,7 @@ function Orchestrator({
   const loop = useQuery<{
     enabled: boolean;
     interval_minutes: number;
-    run_config?: { max_consecutive_round_failures?: number; max_auto_repair_attempts?: number; auto_repair?: boolean; repair_follow_failure_threshold?: boolean; max_rounds?: number | null };
+    run_config?: { max_consecutive_round_failures?: number; max_auto_repair_attempts?: number; auto_repair?: boolean; repair_follow_failure_threshold?: boolean; max_rounds?: number | null; system_focus?: { manufacturing?: number; erp?: number } };
   }>({
     queryKey: ["loop"],
     queryFn: () => api("/api/loop"),
@@ -1095,6 +1097,8 @@ function Orchestrator({
       if (loop.data.run_config?.repair_follow_failure_threshold !== undefined) setRepairFollowsFailures(loop.data.run_config.repair_follow_failure_threshold);
       const configuredRounds = loop.data.run_config?.max_rounds;
       setMaxRounds(configuredRounds ?? 0);
+      const configuredErp = loop.data.run_config?.system_focus?.erp;
+      if (configuredErp !== undefined) setErpFocus(Math.min(100, Math.max(0, configuredErp)));
     }
   }, [loop.data]);
   const filtered = useMemo(
@@ -1115,6 +1119,7 @@ function Orchestrator({
     auto_repair: autoRepair,
     max_auto_repair_attempts: repairFollowsFailures ? maxConsecutiveFailures : maxRepairAttempts,
     repair_follow_failure_threshold: repairFollowsFailures,
+    system_focus: { manufacturing: 100 - erpFocus, erp: erpFocus },
   });
   const start = useMutation({
     mutationFn: () =>
@@ -1319,6 +1324,24 @@ function Orchestrator({
             />
             <small className="field-hint">
               执行到该轮次后自动停止；设为 0 则持续循环直到人工停止。
+            </small>
+          </label>
+          <label>
+            源系统侧重比例：ERP/SAP {erpFocus}% · 制造/MES {100 - erpFocus}%
+            <input
+              type="range"
+              min="0"
+              max="100"
+              step="5"
+              value={erpFocus}
+              onChange={(e) => setErpFocus(Number(e.target.value))}
+            />
+            <small className="field-hint">
+              {erpFocus > 0 && erpFocus < 100
+                ? "两侧侧重均>0：本轮将要求制造/MES 与 ERP/SAP 的类、属性、关系都有产出；某维度为空会记入下一轮优先补齐。"
+                : erpFocus === 100
+                  ? "仅 ERP/SAP：本轮制造/MES 侧不刻意新增，仅在跨系统联动时产出关系。"
+                  : "仅 制造/MES：本轮 ERP/SAP 侧不刻意新增内部结构。"}
             </small>
           </label>
           <label>
@@ -3633,6 +3656,12 @@ function ReportStatusBadge({ status }: { status?: string }) {
   );
 }
 
+type ReportTemplate = {
+  title_prefix: string;
+  note_tpl: string;
+  criteria_tpl: string;
+};
+
 function Reports({ user }: { user: User }) {
   const queryClient = useQueryClient();
   const setNotice = useAppStore((state) => state.setNotice);
@@ -3665,6 +3694,8 @@ function Reports({ user }: { user: User }) {
     email_sender?: string;
     email_recipient?: string;
     email_reminder_enabled: boolean;
+    report_template: ReportTemplate;
+    report_template_default: ReportTemplate;
   }>({
     queryKey: ["report-settings"],
     queryFn: () => api("/api/report-settings"),
@@ -3913,6 +3944,84 @@ function Reports({ user }: { user: User }) {
                     }
                   />
                 </label>
+                <div className="template-editor">
+                  <div className="template-editor-head">
+                    <span>日报文案模版</span>
+                    <button
+                      type="button"
+                      className="link-button"
+                      onClick={() =>
+                        setSettingsState({
+                          ...settingsState,
+                          report_template: {
+                            ...settingsState.report_template_default,
+                          },
+                        })
+                      }
+                    >
+                      恢复默认
+                    </button>
+                  </div>
+                  <p className="template-editor-hint">
+                    仅编辑标题与脚注文案，不影响指标表格与模型结论。留空的字段按默认回落。
+                  </p>
+                  <label>
+                    标题前缀
+                    <input
+                      value={settingsState.report_template.title_prefix}
+                      placeholder={
+                        settingsState.report_template_default.title_prefix
+                      }
+                      onChange={(e) =>
+                        setSettingsState({
+                          ...settingsState,
+                          report_template: {
+                            ...settingsState.report_template,
+                            title_prefix: e.target.value,
+                          },
+                        })
+                      }
+                    />
+                  </label>
+                  <label>
+                    「注」文案（可用变量：$domain $knowledge $operational $untagged $manufacturing $erp $system_line）
+                    <textarea
+                      className="template-editor-area"
+                      value={settingsState.report_template.note_tpl}
+                      placeholder={
+                        settingsState.report_template_default.note_tpl
+                      }
+                      onChange={(e) =>
+                        setSettingsState({
+                          ...settingsState,
+                          report_template: {
+                            ...settingsState.report_template,
+                            note_tpl: e.target.value,
+                          },
+                        })
+                      }
+                    />
+                  </label>
+                  <label>
+                    「口径」文案（纯文字，无变量）
+                    <textarea
+                      className="template-editor-area"
+                      value={settingsState.report_template.criteria_tpl}
+                      placeholder={
+                        settingsState.report_template_default.criteria_tpl
+                      }
+                      onChange={(e) =>
+                        setSettingsState({
+                          ...settingsState,
+                          report_template: {
+                            ...settingsState.report_template,
+                            criteria_tpl: e.target.value,
+                          },
+                        })
+                      }
+                    />
+                  </label>
+                </div>
                 <Button primary onClick={() => updateSettings.mutate()} disabled={updateSettings.isPending}>
                   {updateSettings.isPending ? "保存中…" : "保存日报设置"}
                 </Button>

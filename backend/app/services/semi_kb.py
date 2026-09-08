@@ -178,6 +178,11 @@ class SemiKbAdapter:
             if hits:
                 return sorted(hits)[0]
             frontier = nxt
+        # BFS 上溯够不到领域根：仅对 generated 模块声明的类，退到关键词前瞻兜底（防未来新增反弹）。
+        # common 骨架类不参与（其未映射是设计使然）。写侧已落地 subClassOf 的类会在上面 BFS 命中，
+        # 走不到这里，故写侧权威恒优先。
+        if declared_module.get(cls) == "generated":
+            return self._keyword_domain_module(cls, schema)
         return None
 
     def _load_data_graph(self) -> Graph:
@@ -311,19 +316,31 @@ class SemiKbAdapter:
 
         balanced=False（默认，供导入门禁/编排的 target_class 白名单）：按 (kind, iri)
         排序取前 limit，class 优先，保持原有语义不变。
-        balanced=True（供问答接地）：按 kind 占比分配名额、每类内跨字母段等距采样，
-        避免样本偏科到「只有 A–D 段的 class、property 一条不入」。
+        balanced=True（供问答接地）：按 kind 占比分配名额、每类内再按【源系统】分层
+        （给 ERP 侧保底配额），层内跨字母段等距采样。避免 ERP 术语（占比小）被制造侧
+        3000+ 术语摊薄到几乎不进上下文——否则问答对 ERP 概念题接地不足。
         两种模式都附全量 by_kind 计数与 sampled/strategy 标注，便于消费方（尤其 LLM）
         据实说明覆盖口径，不必从样本反推分布。
         """
-        schema = Graph()
-        for path in sorted((self.root / "ontology" / "modules").glob("*.ttl")):
-            schema.parse(path, format="turtle")
+        # 逐文件解析：ERP 术语与制造术语同处 urn:pxai:semi: 命名空间，无法从 IRI 区分源系统，
+        # 必须按 module 文件名 stem 记录每个术语的归属（复用级联“地基”的同一映射）。
+        erp_modules = self._SOURCE_SYSTEM_MODULES.get("erp", set())
+        iri_system: dict[str, str] = {}  # iri -> 'erp' / 'manufacturing'（未登记模块归 manufacturing 侧，不摊薄 ERP）
         buckets: dict[str, list[dict]] = {"class": [], "object_property": [], "datatype_property": []}
-        for rdf_type, kind in ((OWL.Class, "class"), (OWL.ObjectProperty, "object_property"), (OWL.DatatypeProperty, "datatype_property")):
-            for subject in schema.subjects(RDF.type, rdf_type):
-                label = next(schema.objects(subject, RDFS.label), None)
-                buckets[kind].append({"iri": str(subject), "label": str(label) if label else str(subject), "kind": kind})
+        seen: set[tuple[str, str]] = set()
+        for path in sorted((self.root / "ontology" / "modules").glob("*.ttl")):
+            side = "erp" if path.stem in erp_modules else "manufacturing"
+            g = Graph()
+            g.parse(path, format="turtle")
+            for rdf_type, kind in ((OWL.Class, "class"), (OWL.ObjectProperty, "object_property"), (OWL.DatatypeProperty, "datatype_property")):
+                for subject in g.subjects(RDF.type, rdf_type):
+                    iri = str(subject)
+                    if (kind, iri) in seen:  # 跨文件重复声明只记一次；首见的源系统为准
+                        continue
+                    seen.add((kind, iri))
+                    label = next(g.objects(subject, RDFS.label), None)
+                    buckets[kind].append({"iri": iri, "label": str(label) if label else iri, "kind": kind})
+                    iri_system[iri] = side
         by_kind = {kind: len(items) for kind, items in buckets.items()}
         total = sum(by_kind.values())
         for items in buckets.values():
@@ -335,8 +352,21 @@ class SemiKbAdapter:
                 key=lambda item: (item["kind"], item["iri"]),
             )[:limit]
         else:
+            # 一层：kind 间按占比分名额；二层：每 kind 内给 ERP 侧保底（≈20%，但不超其容量），
+            # 余额归制造侧。层内各自等距采样，保持字母段覆盖。
             quota = _balanced_quota(by_kind, limit)
-            picked = [t for kind, items in buckets.items() for t in _evenly_sample(items, quota[kind])]
+            picked: list[dict] = []
+            for kind, items in buckets.items():
+                k = quota[kind]
+                if k <= 0:
+                    continue
+                erp_items = [t for t in items if iri_system.get(t["iri"]) == "erp"]
+                mfg_items = [t for t in items if iri_system.get(t["iri"]) != "erp"]
+                erp_reserve = min(len(erp_items), (k + 4) // 5)  # ceil(k*0.2) 的整数写法
+                mfg_take = min(len(mfg_items), k - erp_reserve)
+                erp_take = min(len(erp_items), k - mfg_take)  # 制造侧不足时把余额还给 ERP
+                picked.extend(_evenly_sample(erp_items, erp_take))
+                picked.extend(_evenly_sample(mfg_items, mfg_take))
             terms = sorted(picked, key=lambda item: (item["kind"], item["iri"]))
 
         return {
@@ -1133,9 +1163,14 @@ class SemiKbAdapter:
             result[f"{prefix}_system_unmapped"] = split["unmapped"]
         return result
 
-    # 溯源来源类型：model_prior/web/assumption 三值，均属"知识"来源（agent 先验 / web 检索 / 推定假设）。
-    # 未来接入真实产线/导入数据后，会出现这三值以外的 sourceType，届时归入"产线数据"。
-    _KNOWLEDGE_SOURCE_TYPES = {"model_prior", "web", "assumption"}
+    # 「产线数据」(operational) 采白名单：只有真正从产线现场测得/导入的 sourceType 才算，
+    # 与 simulate.py 的"观测证据"口径一致（observed=现场实测、internal_feature=内部特征实测）。
+    # 其余一律归"知识"：model_prior/web/assumption(agent 先验/web 检索/推定)、human(人工手写目录/参考种子)、
+    # vfab(外部 SEMI 标准与设备手册，属外部知识而非本厂产线数据)。
+    # 用白名单而非"非知识即产线"的黑名单：确保在未导入真实产线数据前 operational 恒为 0，
+    # 且任何将来新增的手写/参考类 sourceType 都安全落到知识侧，不会误增产线数据。
+    # 真实产线数据经导入通道(internal.imported)入库并标记为 observed 后，才会在此点亮。
+    _OPERATIONAL_SOURCE_TYPES = {"observed", "internal_feature"}
     _SOURCE_TYPE_PRED = URIRef("urn:pxai:semi:sourceType")
 
     def _individual_source_split(self, data: Graph) -> dict[str, int]:
@@ -1145,7 +1180,8 @@ class SemiKbAdapter:
         业务推理层（BusinessVariable、SimulationScenario 等）与溯源/结构噪声。
         sourceType 有两条到达路径：
         (1) 直接挂在个体上；(2) 经 prov:Entity --prov:specializationOf--> 个体 回指。两路合并取并集。
-        当前库内 sourceType 只有 model_prior/web/assumption（均属知识），故 operational 恒为 0，
+        产线数据采白名单 _OPERATIONAL_SOURCE_TYPES：只有 observed/internal_feature 才计产线数据，
+        其余（含人工手写种子 human、外部 vfab 知识）一律归知识；未导入真实产线数据前 operational 恒为 0，
         如实反映"尚未接入真实产线数据"。传入已缓存的 data graph，避免二次解析。
         """
         prov_spec = URIRef("http://www.w3.org/ns/prov#specializationOf")
@@ -1175,9 +1211,9 @@ class SemiKbAdapter:
             vals = direct.get(indiv, set()) | chain.get(indiv, set())
             if not vals:
                 untagged += 1
-            elif vals - self._KNOWLEDGE_SOURCE_TYPES:  # 出现任何非知识来源即计产线数据
+            elif vals & self._OPERATIONAL_SOURCE_TYPES:  # 命中产线数据白名单即计产线数据
                 operational += 1
-            else:
+            else:  # 有来源但均为知识类（先验/检索/推定/人工种子/外部标准）
                 knowledge += 1
         return {"domain": len(domain_individuals), "knowledge": knowledge, "operational": operational, "untagged": untagged}
 
@@ -1463,6 +1499,9 @@ class SemiKbAdapter:
         "wip-production": "在制生产",
         "erp-financial": "ERP财务会计",
         "erp-sales-o2c": "ERP订单到收款",
+        "erp-controlling": "ERP成本核算",
+        "erp-asset-accounting": "ERP资产折旧",
+        "erp-inventory-valuation": "ERP存货计价",
     }
     _INFRA_MODULES = {"common", "generated"}
 
@@ -1476,9 +1515,50 @@ class SemiKbAdapter:
             "application-scenario", "process-route", "business-simulation", "maintenance",
             "capacity-performance", "facility", "organization", "wip-production",
         },
-        "erp": {"erp-financial", "erp-sales-o2c"},
+        "erp": {
+            "erp-financial", "erp-sales-o2c",
+            "erp-controlling", "erp-asset-accounting", "erp-inventory-valuation",
+        },
     }
     _SOURCE_SYSTEM_LABELS = {"manufacturing": "制造/MES", "erp": "ERP/SAP"}
+
+    # 前瞻兜底分类器：未来每轮自动生成、落在 generated 模块、但父类只接到抽象类
+    # (InformationEntity/Entity/CatalogConcept 等) 而 subClassOf 上溯**够不到**领域根的业务类，
+    # 按 localname/标签词根就近归入领域模块，避免 unmapped 随新增反弹。有序表，首命中即定
+    # （表序即多词歧义的确定性 tie-break）；仅作 _nearest_domain_module 的兜底，BFS 命中（含写侧
+    # 权威 subClassOf）恒优先。词表与写侧 generated.ttl 的重连规则**同源**，二者一致、写侧为准。
+    # Camp A（建库/校验机具）由 _GENERATED_CAMP_A_KEYWORDS 拦在前面，刻意不归域（留未映射，
+    # 诚实呈现接线债）；该表与写侧重连脚本的 Camp A 令牌集逐字一致，确保读/写归属边界重合。
+    _GENERATED_CAMP_A_KEYWORDS = (
+        "Finding", "Constraint", "Shape", "Validation", "Violation", "Review", "Gate",
+        "Check", "Report", "Suite", "Profile", "SHACL", "Ontology", "Reasoning",
+        "Evidence", "Provenance", "Backlog", "Scoring", "Scorecard", "WeightingScheme",
+        "DeductionFactor",
+    )
+    _GENERATED_KEYWORD_MODULES = (
+        ("maintenance",          ("Maintenance", "Preventive", "CMMS", "保养")),
+        ("capacity-performance", ("Capacity", "Utilization", "Downtime", "Throughput", "Queue", "Bottleneck", "产能", "利用率")),
+        ("facility",             ("Facility", "Building", "BMS", "Desiccant", "Dryer", "厂务", "楼宇")),
+        ("erp-sales-o2c",        ("Sales", "Revenue", "Order", "销售", "订单", "收入")),
+        ("erp-financial",        ("Cost", "Financial", "Payment", "Billing", "成本", "财务")),
+        ("quality-metrology",    ("Quality", "Inspection", "Defect", "Bin", "SPC", "Yield", "Nonconformance", "质量", "检测", "缺陷", "不良品", "良率")),
+        ("equipment",            ("Equipment", "Chamber", "Recipe", "Alarm", "设备", "机台", "报警")),
+        ("material-product",     ("Material", "Product", "Consumable", "Supplier", "原料", "物料", "产品", "耗材", "供应商")),
+        ("process-route",        ("Process", "Flow", "RouteStep", "Step", "Route", "工艺", "流程", "工序")),
+        ("wip-production",       ("WIP", "Lot", "Wafer", "在制品", "批次", "晶圆")),
+    )
+
+    def _keyword_domain_module(self, cls, schema: Graph):
+        """generated 类的前瞻兜底归属：Camp A 机具先拦（留未映射），再按 localname+中文标签词根
+        套 _GENERATED_KEYWORD_MODULES 首命中归域；无命中返回 None。纯启发式、只读、可回退。"""
+        name = self._local_name(cls)
+        if any(kw in name for kw in self._GENERATED_CAMP_A_KEYWORDS):
+            return None
+        hay = name + "||" + "||".join(str(o) for o in schema.objects(cls, RDFS.label))
+        for module, keywords in self._GENERATED_KEYWORD_MODULES:
+            if any(kw in hay for kw in keywords):
+                return module
+        return None
 
     def domain_coverage(self) -> dict:
         """按本体模块聚合『领域覆盖』：每个专业领域的类数与落地实例数，供日报领域覆盖小节取数。

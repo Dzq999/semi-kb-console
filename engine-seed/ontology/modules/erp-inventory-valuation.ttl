@@ -1,0 +1,101 @@
+@prefix semi: <urn:pxai:semi:> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# ============================================================================
+# ERP 存货计价（MM-IM / SAP Inventory Valuation）本体模块
+#   ·  urn:pxai:semi:erp-inventory-valuation
+# 定位：给 material-product 的 Material/Lot 挂上"账面价值"——计价方法（移动加权/标准/
+# FIFO）、库存移动（入库/出库/在制转结）、期末计价与跌价准备。两条硬律：成本流转守恒
+# （期初+入库=期末+出库）、跌价转回上限（转回后不得超原成本）。补充 erp-financial（FI）
+# 的存货侧（MM-IM）。纯 T-Box：一个数值都不填。
+#
+# 分支纪律：计价/存货余额/跌价准备=InformationEntity（挂 InventoryValuationArtifact）；
+#   库存移动/计提跌价=Event，绝不双归属。
+# 复用纪律：Material/Lot（material-product）、WorkInProgress（wip-production）经 import
+#   引用并追加计价属性，不重声明。
+# ============================================================================
+
+<urn:pxai:semi:erp-inventory-valuation> a owl:Ontology ;
+  rdfs:label "ERP 存货计价域本体"@zh, "ERP Inventory Valuation ontology"@en ;
+  owl:imports <urn:pxai:semi:common>, <urn:pxai:semi:erp-financial>,
+              <urn:pxai:semi:material-product>, <urn:pxai:semi:wip-production> .
+
+# ---- 领域归类根 -------------------------------------------------------------
+semi:InventoryValuationArtifact a owl:Class ; rdfs:subClassOf semi:FinancialArtifact ;
+  rdfs:label "存货计价信息制品"@zh, "Inventory valuation artifact"@en .
+
+# ---- 实体（信息实体） ------------------------------------------------------
+semi:ValuationMethod a owl:Class ; rdfs:subClassOf semi:InventoryValuationArtifact ;
+  rdfs:label "计价方法"@zh, "Valuation method"@en ;
+  rdfs:comment "移动加权平均/标准成本/FIFO。一物一法一期律：同物同期不得混用两法。"@zh .
+semi:InventoryBalance a owl:Class ; rdfs:subClassOf semi:InventoryValuationArtifact ;
+  rdfs:label "存货余额"@zh, "Inventory balance"@en ;
+  rdfs:comment "某物某期数量×单价的账面余额。成本流转守恒律：期初+入库=期末+出库。"@zh .
+semi:WriteDownProvision a owl:Class ; rdfs:subClassOf semi:InventoryValuationArtifact ;
+  rdfs:label "跌价准备"@zh, "Write-down provision"@en ;
+  rdfs:comment "存货减值准备。跌价转回上限律：转回后账面价值 ≤ 历史成本（准备余额 ≥ 0）。"@zh .
+semi:NetRealizableValue a owl:Class ; rdfs:subClassOf semi:InventoryValuationArtifact ;
+  rdfs:label "可变现净值"@zh, "Net realizable value"@en ;
+  rdfs:comment "NRV=预计售价−完工成本−销售费用；账面取 min(成本, NRV)（成本与可变现净值孰低）。"@zh .
+
+# ---- 动作（事件） ----------------------------------------------------------
+semi:InventoryMovement a owl:Class ; rdfs:subClassOf semi:Event ;
+  rdfs:label "库存移动"@zh, "Inventory movement"@en ;
+  rdfs:comment "入库/出库/在制转结。成本流转守恒律在移动序列上闭合。"@zh .
+semi:WriteDownEvent a owl:Class ; rdfs:subClassOf semi:Event ;
+  rdfs:label "计提/转回跌价"@zh, "Write-down / reversal event"@en ;
+  rdfs:comment "计提为负向、转回为正向；转回受跌价转回上限律约束。"@zh .
+
+# ---- 关系（含对 Material/Lot/WIP 的桥接与追加） ----------------------------
+semi:valuationOf a owl:ObjectProperty ;
+  rdfs:label "计价对象"@zh ;
+  rdfs:domain semi:InventoryBalance ; rdfs:range semi:Material ;
+  rdfs:comment "存货余额挂到 material-product 的 Material。"@zh .
+semi:valuationOfLot a owl:ObjectProperty ;
+  rdfs:label "批次计价对象"@zh ;
+  rdfs:domain semi:InventoryBalance ; rdfs:range semi:Lot .
+semi:valuationOfWIP a owl:ObjectProperty ;
+  rdfs:label "在制品计价对象"@zh ;
+  rdfs:domain semi:InventoryBalance ; rdfs:range semi:WorkInProgress ;
+  rdfs:comment "在制品计价：接 wip-production 的 WorkInProgress。"@zh .
+semi:usesValuationMethod a owl:ObjectProperty ;
+  rdfs:label "采用计价方法"@zh ;
+  rdfs:domain semi:InventoryBalance ; rdfs:range semi:ValuationMethod .
+semi:movesBalance a owl:ObjectProperty ;
+  rdfs:label "移动影响余额"@zh ;
+  rdfs:domain semi:InventoryMovement ; rdfs:range semi:InventoryBalance .
+semi:hasProvision a owl:ObjectProperty ;
+  rdfs:label "对应跌价准备"@zh ;
+  rdfs:domain semi:InventoryBalance ; rdfs:range semi:WriteDownProvision .
+semi:againstNRV a owl:ObjectProperty ;
+  rdfs:label "对照可变现净值"@zh ;
+  rdfs:domain semi:WriteDownProvision ; rdfs:range semi:NetRealizableValue .
+semi:adjustsProvision a owl:ObjectProperty ;
+  rdfs:label "事件调整准备"@zh ;
+  rdfs:domain semi:WriteDownEvent ; rdfs:range semi:WriteDownProvision .
+
+# ---- 属性（取值属参数锥，落实例/溯源侧） -----------------------------------
+semi:openingQty a owl:DatatypeProperty ; rdfs:domain semi:InventoryBalance ; rdfs:range xsd:decimal ;
+  rdfs:comment "期初数量。成本流转守恒律：opening+received=closing+issued。"@zh .
+semi:receivedQty a owl:DatatypeProperty ; rdfs:domain semi:InventoryBalance ; rdfs:range xsd:decimal .
+semi:issuedQty a owl:DatatypeProperty ; rdfs:domain semi:InventoryBalance ; rdfs:range xsd:decimal .
+semi:closingQty a owl:DatatypeProperty ; rdfs:domain semi:InventoryBalance ; rdfs:range xsd:decimal .
+semi:unitValue a owl:DatatypeProperty ; rdfs:domain semi:InventoryBalance ; rdfs:range xsd:decimal ;
+  rdfs:comment "账面单价（按计价方法算出）。"@zh .
+semi:bookValue a owl:DatatypeProperty ; rdfs:domain semi:InventoryBalance ; rdfs:range xsd:decimal ;
+  rdfs:comment "账面价值 = closingQty × unitValue − 跌价准备。"@zh .
+semi:historicalCost a owl:DatatypeProperty ; rdfs:domain semi:InventoryBalance ; rdfs:range xsd:decimal ;
+  rdfs:comment "历史成本；跌价转回上限律的天花板。"@zh .
+semi:methodKind a owl:DatatypeProperty ; rdfs:domain semi:ValuationMethod ; rdfs:range xsd:string ;
+  rdfs:comment "moving-average / standard / FIFO。"@zh .
+semi:provisionBalance a owl:DatatypeProperty ; rdfs:domain semi:WriteDownProvision ; rdfs:range xsd:decimal ;
+  rdfs:comment "跌价准备余额 ≥ 0（转回上限律：不得转出为负、不得使账面超原成本）。"@zh .
+semi:nrvAmount a owl:DatatypeProperty ; rdfs:domain semi:NetRealizableValue ; rdfs:range xsd:decimal .
+semi:movementQty a owl:DatatypeProperty ; rdfs:domain semi:InventoryMovement ; rdfs:range xsd:decimal .
+semi:movementKind a owl:DatatypeProperty ; rdfs:domain semi:InventoryMovement ; rdfs:range xsd:string ;
+  rdfs:comment "receipt / issue / wip-settle。"@zh .
+semi:writeDownAmount a owl:DatatypeProperty ; rdfs:domain semi:WriteDownEvent ; rdfs:range xsd:decimal ;
+  rdfs:comment "计提为正、转回为负；|转回累计| ≤ 已计提累计。"@zh .

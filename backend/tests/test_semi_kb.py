@@ -328,6 +328,9 @@ def test_source_split_survives_merged_load():
     # 三类来源互斥且穷尽领域实例
     assert (counts["individuals_knowledge"] + counts["individuals_operational"]
             + counts["individuals_untagged"]) == counts["individuals_domain"]
+    # 底线：尚未导入真实产线数据（无 observed/internal_feature 来源）前，产线数据必须为 0。
+    # 人工手写种子(human)、外部标准(vfab)、先验/检索/推定均属知识，不得误增产线数据。
+    assert counts["individuals_operational"] == 0
 
 
 def test_erp_modules_registered_as_domains():
@@ -341,7 +344,10 @@ def test_erp_modules_registered_as_domains():
     for modules in adapter._SOURCE_SYSTEM_MODULES.values():
         all_system_modules |= modules
     assert set(labels) == all_system_modules, "策展模块与源系统登记必须一一对齐"
-    assert adapter._SOURCE_SYSTEM_MODULES["erp"] == {"erp-financial", "erp-sales-o2c"}
+    assert adapter._SOURCE_SYSTEM_MODULES["erp"] == {
+        "erp-financial", "erp-sales-o2c",
+        "erp-controlling", "erp-asset-accounting", "erp-inventory-valuation",
+    }
 
 
 def test_erp_domains_have_instances():
