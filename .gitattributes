@@ -1,0 +1,27 @@
+# ---------------------------------------------------------------------------
+# 换行策略。根因：core.autocrlf=true 会在 checkout 时把仓库里的 LF 改写成 CRLF，
+# 对「按字节 SHA-256 钉在 manifest 里的规范源文件」是致命的——一次全新 clone 就会
+# 把它们的字节改掉、哈希漂移、语义门禁在 clone 上直接失败（本次修的正是这个坑）。
+# ---------------------------------------------------------------------------
+
+# 默认：所有文本文件在仓库内统一存为 LF，并在任何平台 checkout 都保持 LF。
+# （新文件与今后被修改的文件按此规范化；不触发对既有 blob 的强制重规范化。）
+* text=auto eol=lf
+
+# 哈希钉死的规范源产物：绝不做任何文本/换行转换（manifest 用精确 SHA-256 钉字节）。
+# 覆盖 sources/internal 全树（含 vfab 契约），保证 clone 后字节与 manifest 逐字节一致。
+engine-seed/sources/internal/** -text
+
+# Shell 脚本必须 LF，否则 bash 直接报错（\r 会混进 shebang/命令）。
+*.sh text eol=lf
+
+# 已知二进制资产：永不套用文本/换行处理（否则会被损坏）。
+*.docx binary
+*.xlsx binary
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.pdf  binary
+*.ico  binary
+*.gz   binary
+*.zip  binary
