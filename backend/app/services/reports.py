@@ -281,11 +281,24 @@ def _business_domain_section(snapshot: dict) -> str:
 
 
 def fixed_metrics_markdown(snapshot: dict) -> str:
-    lines = ["## 今日结果", "", "| 指标 | 今日新增 | 当前总量 |", "|---|---:|---:|"]
+    lines = ["## 今日结果", "", "| 指标 | 今日新增 | 当前总量 | 制造/MES 新增 | ERP/SAP 新增 |", "|---|---:|---:|---:|---:|"]
     totals = snapshot["totals"]
     added = snapshot["today_added"]
+
+    # 提取源系统维度的今日新增（仅实例 individuals 有此拆分）
+    mfg_added = int(added.get("system_manufacturing", 0))
+    erp_added = int(added.get("system_erp", 0))
+
     for key, label in METRIC_LABELS:
-        lines.append(f"| {label} | {int(added.get(key, 0)):,} | {int(totals.get(key, 0)):,} |")
+        today_added = int(added.get(key, 0))
+        current_total = int(totals.get(key, 0))
+
+        # 实例行展示源系统拆分，其余指标（公理/类/属性等）显示"—"
+        if key == "individuals":
+            lines.append(f"| {label} | {today_added:,} | {current_total:,} | {mfg_added:,} | {erp_added:,} |")
+        else:
+            lines.append(f"| {label} | {today_added:,} | {current_total:,} | — | — |")
+
     # individuals 来源拆分脚注：基于策展模块个体（与工艺段拆分使用相同基数）
     domain = int(totals.get("individuals_domain", 0))
     if domain:
