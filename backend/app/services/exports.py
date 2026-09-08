@@ -83,13 +83,12 @@ def _filter_semantic_ttl(source_path: Path, filtered: bool, scope: str = "all") 
         for prefix, namespace in data.namespaces():
             filtered_graph.bind(prefix, namespace)
 
-        # 只保留策展模块个体相关的三元组
+        # 只保留「主语是策展模块个体」的三元组——按主语归属切分，与读侧级联同口径。
+        # 不再纳入「客体命中策展个体」的入边：否则跨源系统边（如 ERP 订单项→制造侧 wafer）
+        # 会让 ERP 主语泄漏进 manufacturing 子图，破坏两子图正交；且 all 会混入非策展主语，
+        # 违反本函数「只保留策展模块个体」的契约。策展个体之间的边因主语即策展个体而照常保留。
         for s, p, o in data:
-            # 保留：主体是策展模块个体的三元组
             if s in curated_individuals:
-                filtered_graph.add((s, p, o))
-            # 保留：客体是策展模块个体的三元组（关系指向）
-            elif o in curated_individuals:
                 filtered_graph.add((s, p, o))
 
         # 序列化为 Turtle 格式
