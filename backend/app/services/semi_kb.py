@@ -1092,6 +1092,7 @@ class SemiKbAdapter:
         source_split = self._individual_source_split(data)
         segment_split = self._segment_split(data)
         system_split = self._source_system_split(data)
+        dim_system_split = self._dimension_system_splits(schema, data, class_to_module, classes, object_properties, datatype_properties)
         relation_assertions = sum(1 for subject, predicate, obj in data if predicate in object_properties and subject != obj)
         axiom_predicates = {OWL.equivalentClass, OWL.disjointWith, OWL.inverseOf, OWL.onProperty, OWL.cardinality, OWL.qualifiedCardinality, OWL.minQualifiedCardinality, OWL.maxQualifiedCardinality}
         axioms = sum(1 for _, predicate, _ in schema if predicate in axiom_predicates)
@@ -1120,9 +1121,16 @@ class SemiKbAdapter:
             result[f"segment_{seg}"] = count
         result["segment_cross"] = segment_split["cross"]
         # 级联"地基"：源系统(sourceSystem)一级维度拆分，展开为 system_<sys>: count 平铺键
+        # 个体维保持无前缀 system_<sys>（向后兼容既有脚注/前端级联卡/测试）。
         for system, count in system_split["by_system"].items():
             result[f"system_{system}"] = count
         result["system_unmapped"] = system_split["unmapped"]
+        # 类/属性/关系维用 <dim>_system_<sys> 前缀键（不以 system_ 开头，不干扰个体维划分校验）。
+        for dim, prefix in (("classes", "class"), ("properties", "property"), ("relations", "relation")):
+            split = dim_system_split[dim]
+            for system, count in split["by_system"].items():
+                result[f"{prefix}_system_{system}"] = count
+            result[f"{prefix}_system_unmapped"] = split["unmapped"]
         return result
 
     # 溯源来源类型：model_prior/web/assumption 三值，均属"知识"来源（agent 先验 / web 检索 / 推定假设）。
@@ -1248,6 +1256,82 @@ class SemiKbAdapter:
             else:
                 unmapped += 1
         return {"domain": len(indiv_systems), "by_system": by_system, "unmapped": unmapped}
+
+    def _dimension_system_splits(self, schema: Graph, data: Graph, class_to_module: dict,
+                                 classes: set, object_properties: set, datatype_properties: set) -> dict:
+        """把 类 / 属性 / 关系 三个维度也按源系统(sourceSystem)一级维度拆分（与个体维正交同源）。
+
+        归属路径与 _source_system_split 完全一致（模块 → 源系统反查），口径「可归属才拆、否则 unmapped」：
+        - 类 Class：经 class_to_module → 源系统；非策展模块残余（generated/common、自动扩展类）计 unmapped。
+        - 属性 Property：经 rdfs:domain 的类 → 模块 → 源系统；跨系统属性（domain 命中多系统）在各系统都 +1；
+          无 domain 或 domain 不落策展模块的属性计 unmapped（口径偏模糊，故日报脚注注明）。
+        - 关系 Relation：仅拆 data 图里的关系断言（object property 三元组，s≠o），按主语个体的源系统归属；
+          主语无源系统归属（治理/噪声节点或 legacy 边）计 unmapped。与 relations 总量含 legacy edges 的
+          口径差同 individuals 全局 vs individuals_domain，脚注统一说明。
+
+        返回 {"classes": {...}, "properties": {...}, "relations": {...}}，每项含 {"by_system", "unmapped"}。
+        纯只读、不改数据、完全可逆。
+        """
+        module_to_system = {
+            module: system
+            for system, modules in self._SOURCE_SYSTEM_MODULES.items()
+            for module in modules
+        }
+
+        def _system_of_class(cls):
+            module = class_to_module.get(cls)
+            if module and module in self._DOMAIN_MODULE_LABELS:
+                return module_to_system.get(module)
+            return None
+
+        # --- 类维 ---
+        cls_by_system: dict[str, int] = {}
+        cls_unmapped = 0
+        for cls in classes:
+            system = _system_of_class(cls)
+            if system:
+                cls_by_system[system] = cls_by_system.get(system, 0) + 1
+            else:
+                cls_unmapped += 1
+
+        # --- 属性维（跨系统 domain 在各命中系统都 +1）---
+        prop_by_system: dict[str, int] = {}
+        prop_unmapped = 0
+        for prop in object_properties | datatype_properties:
+            systems = {s for cls in schema.objects(prop, RDFS.domain) if (s := _system_of_class(cls))}
+            if systems:
+                for system in systems:
+                    prop_by_system[system] = prop_by_system.get(system, 0) + 1
+            else:
+                prop_unmapped += 1
+
+        # --- 关系维（个体 → 源系统两跳，按主语端点归属关系断言）---
+        noise = self._INSTANCE_NOISE_TYPES
+        indiv_systems: dict = {}
+        for s, _, o in data.triples((None, RDF.type, None)):
+            if o in noise:
+                continue
+            module = class_to_module.get(o)
+            if module and module in self._DOMAIN_MODULE_LABELS:
+                system = module_to_system.get(module)
+                if system:
+                    indiv_systems.setdefault(s, set()).add(system)
+        rel_by_system: dict[str, int] = {}
+        rel_unmapped = 0
+        for subject, predicate, obj in data:
+            if predicate in object_properties and subject != obj:
+                systems = indiv_systems.get(subject)
+                if systems:
+                    for system in systems:
+                        rel_by_system[system] = rel_by_system.get(system, 0) + 1
+                else:
+                    rel_unmapped += 1
+
+        return {
+            "classes": {"by_system": cls_by_system, "unmapped": cls_unmapped},
+            "properties": {"by_system": prop_by_system, "unmapped": prop_unmapped},
+            "relations": {"by_system": rel_by_system, "unmapped": rel_unmapped},
+        }
 
     def source_system_cascade(self) -> dict:
         """级联"地基"的层级视图：源系统(一级) → 工艺段(制造侧二级) + 领域模块清单，供前端下钻渲染。
@@ -1757,7 +1841,17 @@ class SemiKbAdapter:
             totals.update({"legacy_entities": legacy.get("entities", 0), "knowledge_entries": int(legacy.get("kb_cases", 0)) + int(totals.get("knowledge_entries", 0)), "relations": int(legacy.get("edges", 0)) + int(totals.get("relation_assertions", 0)), "anomaly_total": legacy.get("anomaly_total", 0), "anomaly_covered": legacy.get("anomaly_covered", 0)})
             self._base_metrics_cache = (time.monotonic(), {"legacy": legacy, "totals": dict(totals)})
         totals["coverage_percent"] = round(100 * totals["anomaly_covered"] / totals["anomaly_total"], 1) if totals["anomaly_total"] else 0
-        today = {key: 0 for key in ("classes", "properties", "relations", "individuals", "axioms", "rules", "knowledge_entries", "business_relations", "simulation_scenarios", "scenario_articles")}
+        # system_* / <dim>_system_* 为源系统一级维度（sourceSystem）的今日新增拆分：必须显式列入 today
+        # 初始化，否则下方 `for key in today` 的循环不会遍历到它们，日报四项行的「制造/MES 新增 / ERP/SAP
+        # 新增」两列恒为 0。个体维无前缀（system_*），类/属性/关系维带 <dim>_ 前缀。
+        today = {key: 0 for key in (
+            "classes", "properties", "relations", "individuals", "axioms", "rules",
+            "knowledge_entries", "business_relations", "simulation_scenarios", "scenario_articles",
+            "system_manufacturing", "system_erp", "system_unmapped",
+            "class_system_manufacturing", "class_system_erp", "class_system_unmapped",
+            "property_system_manufacturing", "property_system_erp", "property_system_unmapped",
+            "relation_system_manufacturing", "relation_system_erp", "relation_system_unmapped",
+        )}
         if db is not None and user_id is not None:
             zone = ZoneInfo(settings.timezone)
             today_text = datetime.now(zone).date().isoformat()

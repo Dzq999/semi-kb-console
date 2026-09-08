@@ -285,18 +285,25 @@ def fixed_metrics_markdown(snapshot: dict) -> str:
     totals = snapshot["totals"]
     added = snapshot["today_added"]
 
-    # 提取源系统维度的今日新增（仅实例 individuals 有此拆分）
-    mfg_added = int(added.get("system_manufacturing", 0))
-    erp_added = int(added.get("system_erp", 0))
+    # 有源系统(sourceSystem)归属维度的四项 → 其今日新增拆分键前缀（制造键, ERP键）。
+    # 个体维沿用无前缀 system_*（向后兼容）；类/属性/关系维带 <dim>_ 前缀。其余指标无此维度，显示"—"。
+    SYSTEM_SPLIT_KEYS = {
+        "classes": ("class_system_manufacturing", "class_system_erp"),
+        "properties": ("property_system_manufacturing", "property_system_erp"),
+        "relations": ("relation_system_manufacturing", "relation_system_erp"),
+        "individuals": ("system_manufacturing", "system_erp"),
+    }
 
     for key, label in METRIC_LABELS:
         today_added = int(added.get(key, 0))
         current_total = int(totals.get(key, 0))
-
-        # 实例行展示源系统拆分，其余指标（公理/类/属性等）显示"—"
-        if key == "individuals":
-            lines.append(f"| {label} | {today_added:,} | {current_total:,} | {mfg_added:,} | {erp_added:,} |")
+        split = SYSTEM_SPLIT_KEYS.get(key)
+        if split:
+            mfg = int(added.get(split[0], 0))
+            erp = int(added.get(split[1], 0))
+            lines.append(f"| {label} | {today_added:,} | {current_total:,} | {mfg:,} | {erp:,} |")
         else:
+            # 公理/规则/知识/经营/仿真/场景：跨源系统共享或全局产物，无 sourceSystem 归属
             lines.append(f"| {label} | {today_added:,} | {current_total:,} | — | — |")
 
     # individuals 来源拆分脚注：基于策展模块个体（与工艺段拆分使用相同基数）
@@ -311,6 +318,8 @@ def fixed_metrics_markdown(snapshot: dict) -> str:
         erp = int(totals.get("system_erp", 0))
         if manufacturing or erp:
             lines.append(f"**级联**：按源系统一级维度——制造/MES {manufacturing:,}、ERP(SAP FI+SD) {erp:,}；制造侧再按前段/后段工艺段细分。")
+    # 表格『制造/MES 新增 / ERP/SAP 新增』两列的口径脚注（一次性说明，不随数据变动）。
+    lines.append("**拆分口径**：类/属性/关系/实例四项经「类→模块→源系统」归属拆分；公理/规则/知识条目/经营模型关系/仿真场景/场景知识产物为跨源系统共享的本体骨架或全局产物，无源系统维度，故列示「—」。跨源系统属性在两侧各计一次，关系仅统计有源系统归属的断言，故拆分列之和可能小于该行今日新增。")
     # 『质量与验证』小节已按需求移除：门禁与来源对齐信息统一在『交叉验证结果』小节呈现，不再重复。
     lines.extend(["", _cross_validation_section(snapshot)])
     # 『本体领域覆盖』紧随交叉验证之后、明日计划之前；无数据时 section 返回空串即跳过。
