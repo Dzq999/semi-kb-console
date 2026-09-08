@@ -1,0 +1,139 @@
+# erp 层 · 财务会计域主数据（SAP FI 主数据：科目表/科目/公司代码/成本中心等）
+# 建法遵循《SAP 财务域本体·方案与方法》六问·①实体。所有取值属参数锥（会计政策唯一
+# 取值源）：本层只落"有哪些实体、什么类型、归属谁"，具体数值/政策参数走溯源三件套。
+# ERP 实体为跨工艺段通用（不设 processSegment），经 sourceSystem 归入"ERP"源系统。
+default_provenance:
+  source_type: model_prior
+  ref: null
+  confidence: high
+  created_at: "2026-09-08"
+  reviewed_by: null
+
+entities:
+  - id: erp.company.cc1000
+    type: CompanyCode
+    name_zh: 公司代码 1000（晶圆制造主体）
+    name_en: Company Code 1000
+    domain: erp
+    aliases: [法人主体, 记账主体, Company Code]
+    description: SAP 最小独立记账法人主体，会计恒等式（资产=负债+权益）在此层涌现。
+
+  - id: erp.coa.ykint
+    type: ChartOfAccounts
+    name_zh: 集团科目表 YKINT
+    name_en: Chart of Accounts YKINT
+    domain: erp
+    description: 公司代码采用的统一科目表，规定全部会计科目的编号与结构。
+
+  - id: erp.gl.1001_cash
+    type: GLAccount
+    name_zh: 库存现金（资产类）
+    name_en: Cash on Hand
+    domain: erp
+    description: 资产类科目，借增贷减（科目方向律）。
+
+  - id: erp.gl.1122_ar
+    type: GLAccount
+    name_zh: 应收账款（资产类）
+    name_en: Accounts Receivable
+    domain: erp
+    description: 资产类科目，承接 O2C 开票生成的客户未清项。
+
+  - id: erp.gl.1405_inventory
+    type: GLAccount
+    name_zh: 库存商品（资产类）
+    name_en: Finished Goods Inventory
+    domain: erp
+    description: 发货过账(PGI)时贷记本科目、借记销售成本。
+
+  - id: erp.gl.2221_output_tax
+    type: GLAccount
+    name_zh: 应交税费—销项税额（负债类）
+    name_en: Output VAT Payable
+    domain: erp
+    description: 负债类科目，贷增借减；开票时计提销项税。
+
+  - id: erp.gl.6001_revenue
+    type: GLAccount
+    name_zh: 主营业务收入（收入类）
+    name_en: Sales Revenue
+    domain: erp
+    description: 收入类科目，损益类期末结转本年利润（结转律）。
+
+  - id: erp.gl.6401_cogs
+    type: GLAccount
+    name_zh: 主营业务成本（成本类）
+    name_en: Cost of Goods Sold
+    domain: erp
+    description: 成本类科目，与收入同期确认（期间匹配律）。
+
+  - id: erp.gl.2203_contract_liab
+    type: GLAccount
+    name_zh: 合同负债—预收产能保证金（负债类）
+    name_en: Contract Liability
+    domain: erp
+    description: 承接产能保证金/预收款，按 wafer 实际提货逐步转收入。
+
+  - id: erp.costcenter.fab_photo
+    type: CostCenter
+    name_zh: 成本中心—黄光区
+    name_en: Cost Center Photo Bay
+    domain: erp
+    description: 费用归集载体（成本归集律：费用→成本中心→成本对象）。
+
+  - id: erp.costcenter.fab_etch
+    type: CostCenter
+    name_zh: 成本中心—蚀刻区
+    name_en: Cost Center Etch Bay
+    domain: erp
+    description: 蚀刻区制造费用归集。
+
+  - id: erp.profitcenter.foundry
+    type: ProfitCenter
+    name_zh: 利润中心—晶圆代工
+    name_en: Profit Center Foundry
+    domain: erp
+    description: 利润中心，成本中心归属其下用于利润分析。
+
+  - id: erp.bp.customer_fabless_a
+    type: BusinessPartner
+    name_zh: 业务伙伴—Fabless 客户 A
+    name_en: Business Partner Fabless-A
+    domain: erp
+    aliases: [客户主数据, BP]
+    description: BP 统一主数据（客户/供应商同源），承担客户角色。
+
+  - id: erp.bp.vendor_osat_b
+    type: BusinessPartner
+    name_zh: 业务伙伴—OSAT 供应商 B
+    name_en: Business Partner OSAT-B
+    domain: erp
+    description: 承担供应商角色（后段封测委外）。
+
+  - id: erp.tax.v17
+    type: TaxCode
+    name_zh: 税码 V17（增值税销项 13%）
+    name_en: Tax Code V17
+    domain: erp
+    description: 定义销项税率，开票时套用。
+
+  - id: erp.period.2026_09
+    type: FiscalPeriod
+    name_zh: 会计期间 2026 年第 9 期
+    name_en: Fiscal Period 2026/09
+    domain: erp
+    description: 收入与成本在同一会计期间确认（期间匹配律）。
+
+  - id: erp.bank.icbc_main
+    type: BankAccount
+    name_zh: 银行账户—工行基本户
+    name_en: Bank Account ICBC-Main
+    domain: erp
+    description: 收款流水来源，用于应收清账匹配。
+
+  - id: erp.asset.litho_scanner
+    type: FixedAsset
+    name_zh: 固定资产—光刻机
+    name_en: Fixed Asset Litho Scanner
+    domain: erp
+    description: 折旧计提对象（skill：折旧计提，自检累计折旧<原值）。

@@ -1,0 +1,109 @@
+# erp 层 · 订单到收款（O2C / SAP SD）主数据与单据
+# 承接《SAP 订单到收款 O2C 流程详解》七阶段：售前主数据→商机订单→履约发货→
+# 开票收入→回款核销。半导体特化：wafer 计价、NRE、里程碑开票、合同负债、OSAT tolling。
+default_provenance:
+  source_type: model_prior
+  ref: null
+  confidence: high
+  created_at: "2026-09-08"
+  reviewed_by: null
+
+entities:
+  - id: erp.quotation.q2026_wafer_a
+    type: Quotation
+    name_zh: 报价单—客户A 28nm wafer
+    name_en: Quotation Wafer-A
+    domain: erp
+    description: wafer 按工艺平台与光罩层数分档报价，有效期 30~90 天（报价有效期律）。
+
+  - id: erp.pricing.pr00_wafer
+    type: PricingCondition
+    name_zh: 定价条件—基础价 PR00（按 wafer 计价）
+    name_en: Pricing Condition PR00
+    domain: erp
+    description: 条件技术起点，Foundry 以 wafer 为最小计价单位。
+
+  - id: erp.pricing.nre_maskset
+    type: PricingCondition
+    name_zh: 定价条件—NRE/掩膜费（一次性工程收入）
+    name_en: Pricing Condition NRE
+    domain: erp
+    description: 单独履约义务，走 RAR/EBRR 分摊或按期确认。
+
+  - id: erp.credit.customer_a_profile
+    type: CreditManagement
+    name_zh: 信用管理—客户A 信用档案
+    name_en: Credit Profile Customer-A
+    domain: erp
+    description: FSCM 信用管理，三处检查点（订单创建/交货创建/发货过账）。
+
+  - id: erp.order.so2026_0001
+    type: SalesOrder
+    name_zh: 销售订单 SO-2026-0001（MTO 晶圆代工）
+    name_en: Sales Order SO-2026-0001
+    domain: erp
+    aliases: [销售订单, SO]
+    description: Foundry 以按单生产(MTO)为主，订单触发信用审查与可用性检查(ATP)。
+
+  - id: erp.orderitem.so0001_10
+    type: SalesOrderItem
+    name_zh: 订单行 0001/10（wafer 主行）
+    name_en: SO Item 0001/10
+    domain: erp
+    description: 承载 wafer 定价与收入确认键。
+
+  - id: erp.orderitem.so0001_20
+    type: SalesOrderItem
+    name_zh: 订单行 0001/20（NRE 工程行）
+    name_en: SO Item 0001/20
+    domain: erp
+    description: NRE 单独行项目，单独履约义务、单独确认。
+
+  - id: erp.revreckey.point_in_time
+    type: RevenueRecognitionKey
+    name_zh: 收入确认键—时点确认（标准产品）
+    name_en: Rev Rec Key Point-in-Time
+    domain: erp
+    description: 标准芯片销售在控制权转移时点确认收入。
+
+  - id: erp.revreckey.contract_liability
+    type: RevenueRecognitionKey
+    name_zh: 收入确认键—合同负债（产能保证金）
+    name_en: Rev Rec Key Contract-Liability
+    domain: erp
+    description: 产能保证金计合同负债，按实际提货逐步转收入。
+
+  - id: erp.contract.capacity_reserve_a
+    type: QuantityContract
+    name_zh: 数量合同—客户A 年度产能预约
+    name_en: Quantity Contract Capacity-A
+    domain: erp
+    description: 含 Take-or-Pay 与预付产能保证金条款（长期协议律）。
+
+  - id: erp.delivery.dn2026_0001
+    type: DeliveryDocument
+    name_zh: 交货单 DN-2026-0001
+    name_en: Delivery DN-2026-0001
+    domain: erp
+    description: 物流执行主单据，驱动拣配与发货过账(PGI)。
+
+  - id: erp.billing.vf2026_0001
+    type: BillingDocument
+    name_zh: 发票 VF-2026-0001（标准发票）
+    name_en: Billing VF-2026-0001
+    domain: erp
+    description: 依发货单开票，确认主营业务收入并计提销项税。
+
+  - id: erp.ar.ar2026_0001
+    type: AccountsReceivable
+    name_zh: 应收账款—客户A VF0001
+    name_en: AR Customer-A VF0001
+    domain: erp
+    description: 开票过账自动生成的客户未清项，收款后逐笔核销。
+
+  - id: erp.contractliab.cl2026_a
+    type: ContractLiability
+    name_zh: 合同负债—客户A 产能保证金
+    name_en: Contract Liability Customer-A
+    domain: erp
+    description: 预收产能保证金余额，按 wafer 实际提货转收入。

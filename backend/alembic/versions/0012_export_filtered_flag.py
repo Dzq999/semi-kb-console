@@ -16,10 +16,19 @@ branch_labels = None
 depends_on = None
 
 
+def _columns(table: str) -> set[str]:
+    inspector = sa.inspect(op.get_bind())
+    return {column["name"] for column in inspector.get_columns(table)} if table in inspector.get_table_names() else set()
+
+
 def upgrade() -> None:
-    # 添加 filtered 字段，默认为 True（精简导出）
-    op.add_column('export_jobs', sa.Column('filtered', sa.Boolean(), nullable=False, server_default='1'))
+    # 添加 filtered 字段，默认为 True（精简导出）。
+    # 存在性守卫与本目录其它迁移一致：schema 已由 create_all 建全（如测试 fixture）时，
+    # 从头重跑迁移不得因列已存在而炸——SQLite ADD COLUMN 无 IF NOT EXISTS，必须先查。
+    if "filtered" not in _columns("export_jobs"):
+        op.add_column('export_jobs', sa.Column('filtered', sa.Boolean(), nullable=False, server_default='1'))
 
 
 def downgrade() -> None:
-    op.drop_column('export_jobs', 'filtered')
+    if "filtered" in _columns("export_jobs"):
+        op.drop_column('export_jobs', 'filtered')

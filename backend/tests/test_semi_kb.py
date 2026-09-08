@@ -329,3 +329,75 @@ def test_source_split_survives_merged_load():
     assert (counts["individuals_knowledge"] + counts["individuals_operational"]
             + counts["individuals_untagged"]) == counts["individuals_domain"]
 
+
+def test_erp_modules_registered_as_domains():
+    """ERP 两模块（财务会计/订单到收款）已登记为策展领域，且都归属 erp 源系统。"""
+    adapter = SemiKbAdapter()
+    labels = adapter._DOMAIN_MODULE_LABELS
+    assert labels.get("erp-financial") == "ERP财务会计"
+    assert labels.get("erp-sales-o2c") == "ERP订单到收款"
+    # 级联"地基"配置：每个策展领域模块必须恰好归属一个源系统（否则 system_unmapped 会非零）
+    all_system_modules = set()
+    for modules in adapter._SOURCE_SYSTEM_MODULES.values():
+        all_system_modules |= modules
+    assert set(labels) == all_system_modules, "策展模块与源系统登记必须一一对齐"
+    assert adapter._SOURCE_SYSTEM_MODULES["erp"] == {"erp-financial", "erp-sales-o2c"}
+
+
+def test_erp_domains_have_instances():
+    """migrate 后 ERP 领域应有落地实例（财务主数据 + O2C 单据链），证明 YAML→current.ttl 通路打通。"""
+    dc = SemiKbAdapter().domain_coverage()
+    by_module = {d["module"]: d for d in dc["domains"]}
+    assert by_module["erp-financial"]["instances"] > 0
+    assert by_module["erp-sales-o2c"]["instances"] > 0
+    # 两个 ERP 领域都应各有 class 声明
+    assert by_module["erp-financial"]["classes"] > 0
+    assert by_module["erp-sales-o2c"]["classes"] > 0
+
+
+def test_source_system_cascade_partitions_domain_individuals():
+    """级联"地基"不变式：源系统拆分是领域实例的一个划分——
+    (1) system_unmapped 恒为 0（每个策展模块都登记了源系统）；
+    (2) 各 system_<sys> 之和恰等于 individuals_domain（无遗漏、无重复）；
+    (3) 制造与 ERP 两系统都非空。"""
+    counts = SemiKbAdapter().semantic_counts()
+    assert counts["system_unmapped"] == 0
+    system_sum = sum(v for k, v in counts.items() if k.startswith("system_") and k != "system_unmapped")
+    assert system_sum == counts["individuals_domain"]
+    assert counts["system_manufacturing"] > 0
+    assert counts["system_erp"] > 0
+
+
+def test_source_system_orthogonal_to_segment():
+    """源系统(一级)与工艺段(制造侧二级)是正交维度：制造侧实例数 ≥ 有工艺段标注的实例数，
+    ERP 实例不带工艺段（跨段通用），故段拆分基数与源系统基数口径一致但切分维度不同。"""
+    counts = SemiKbAdapter().semantic_counts()
+    seg_total = (counts.get("segment_fab", 0) + counts.get("segment_ap", 0)
+                 + counts.get("segment_cross", 0))
+    # 段拆分与源系统拆分同基数（都基于策展领域个体唯一主语计）
+    assert seg_total == counts["individuals_domain"]
+    # 制造源系统至少覆盖所有带工艺段(fab/ap)标注的实例
+    assert counts["system_manufacturing"] >= counts.get("segment_fab", 0) + counts.get("segment_ap", 0)
+
+
+def test_export_scope_filter_partitions_by_source_system():
+    """导出源系统子图不变式：manufacturing 与 erp 两个子图的主语集互不相交、
+    并集恰等于 all(全部策展个体)——与读侧级联同口径，不重不漏。"""
+    from app.services import exports, semi_kb
+    from rdflib import Graph
+
+    ttl = semi_kb.semi_kb.root / "knowledge" / "semantic" / "current.ttl"
+    if not ttl.is_file():
+        pytest.skip("engine current.ttl 不存在")
+
+    def subjects(scope: str) -> set:
+        graph = Graph()
+        graph.parse(data=exports._filter_semantic_ttl(ttl, True, scope), format="turtle")
+        return {s for s in graph.subjects()}
+
+    all_subs, mfg_subs, erp_subs = subjects("all"), subjects("manufacturing"), subjects("erp")
+    assert erp_subs, "ERP 子图不应为空"
+    assert mfg_subs, "制造子图不应为空"
+    assert mfg_subs.isdisjoint(erp_subs)  # 两源系统正交，主语不重叠
+    assert mfg_subs | erp_subs == all_subs  # 并集=全部策展个体，无遗漏
+

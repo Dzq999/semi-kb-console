@@ -1,0 +1,152 @@
+# erp 层 · 财务/O2C 关系（账务对象 + 单据链 + 跨模块桥接）
+# 关系只写"指向谁"（四要素·②关系判据）。未在 RELATION_MAP 登记的 type 会自动落
+# iri("relation", type)，故此处 type 用蛇形命名与模块 ObjectProperty 对齐。
+default_provenance:
+  source_type: model_prior
+  ref: null
+  confidence: high
+  created_at: "2026-09-08"
+  reviewed_by: null
+
+relations:
+  # --- 科目表 / 科目结构 ---
+  - from: erp.company.cc1000
+    type: uses_chart_of_accounts
+    to: erp.coa.ykint
+    note: 公司代码采用集团科目表
+  - from: erp.gl.1001_cash
+    type: account_in_chart
+    to: erp.coa.ykint
+    note: 现金科目归属 YKINT
+  - from: erp.gl.1122_ar
+    type: account_in_chart
+    to: erp.coa.ykint
+  - from: erp.gl.6001_revenue
+    type: account_in_chart
+    to: erp.coa.ykint
+  - from: erp.gl.6401_cogs
+    type: account_in_chart
+    to: erp.coa.ykint
+
+  # --- 成本归集律：费用→成本中心→利润中心 ---
+  - from: erp.costcenter.fab_photo
+    type: cost_center_in_profit_center
+    to: erp.profitcenter.foundry
+    note: 黄光区成本中心归晶圆代工利润中心
+  - from: erp.costcenter.fab_etch
+    type: cost_center_in_profit_center
+    to: erp.profitcenter.foundry
+
+  # --- 结转律：损益类期末结转 ---
+  - from: erp.gl.6001_revenue
+    type: carries_forward_to
+    to: erp.gl.6401_cogs
+    note: 损益类科目期末结转（示意收入成本配比）
+    confidence: medium
+
+  # --- 资产归属 ---
+  - from: erp.asset.litho_scanner
+    type: belongs_to
+    to: erp.company.cc1000
+    note: 光刻机资产归公司代码 1000
+
+  # --- O2C 单据链：报价→订单→交货→开票→应收 ---
+  - from: erp.quotation.q2026_wafer_a
+    type: quotation_for_customer
+    to: erp.bp.customer_fabless_a
+    note: 报价面向 Fabless 客户 A
+  - from: erp.order.so2026_0001
+    type: order_from_quotation
+    to: erp.quotation.q2026_wafer_a
+    note: 订单源自报价
+  - from: erp.order.so2026_0001
+    type: order_for_customer
+    to: erp.bp.customer_fabless_a
+  - from: erp.order.so2026_0001
+    type: order_under_credit_check
+    to: erp.credit.customer_a_profile
+    note: 订单受信用管控（三处检查点）
+  - from: erp.order.so2026_0001
+    type: has_order_item
+    to: erp.orderitem.so0001_10
+  - from: erp.order.so2026_0001
+    type: has_order_item
+    to: erp.orderitem.so0001_20
+  - from: erp.orderitem.so0001_10
+    type: priced_by_condition
+    to: erp.pricing.pr00_wafer
+    note: wafer 主行按基础价 PR00 计价
+  - from: erp.orderitem.so0001_20
+    type: priced_by_condition
+    to: erp.pricing.nre_maskset
+    note: NRE 行按掩膜费定价
+  - from: erp.orderitem.so0001_10
+    type: order_item_rev_rec_key
+    to: erp.revreckey.point_in_time
+    note: wafer 时点确认
+  - from: erp.orderitem.so0001_20
+    type: order_item_rev_rec_key
+    to: erp.revreckey.contract_liability
+    note: NRE 视合同条款可能走合同负债
+    confidence: medium
+  - from: erp.delivery.dn2026_0001
+    type: delivery_for_order
+    to: erp.order.so2026_0001
+  - from: erp.billing.vf2026_0001
+    type: billing_for_delivery
+    to: erp.delivery.dn2026_0001
+  - from: erp.billing.vf2026_0001
+    type: generates_receivable
+    to: erp.ar.ar2026_0001
+    note: 开票过账生成客户未清项
+
+  # --- 半导体特化：产能保证金 → 合同负债 ---
+  - from: erp.contract.capacity_reserve_a
+    type: order_for_customer
+    to: erp.bp.customer_fabless_a
+    note: 数量合同锁定客户 A 年度产能
+
+  # --- 跨模块桥接：订单行 → 产品（material-product） ---
+  # 说明：orderItemForProduct 的 range 是 semi:Product；此处引用一个已存在的产品实例锚点。
+  # 订单行项目对应的产品即制造侧晶圆物料，跨域指向 core 层规范实例，避免悬空引用。
+  - from: erp.orderitem.so0001_10
+    type: order_item_for_product
+    to: core.material.wafer
+    note: wafer 主行对应 28nm 逻辑产品（晶圆物料）
+    confidence: medium
+
+  # --- 补全账务对象接线：科目归属科目表 ---
+  - from: erp.gl.1405_inventory
+    type: account_in_chart
+    to: erp.coa.ykint
+    note: 库存商品科目归属 YKINT
+  - from: erp.gl.2221_output_tax
+    type: account_in_chart
+    to: erp.coa.ykint
+    note: 销项税额科目归属 YKINT
+  - from: erp.gl.2203_contract_liab
+    type: account_in_chart
+    to: erp.coa.ykint
+    note: 合同负债科目归属 YKINT
+
+  # --- 补全 O2C 单据链的税/期间/回款/委外/合同负债接线 ---
+  - from: erp.billing.vf2026_0001
+    type: billing_uses_tax
+    to: erp.tax.v17
+    note: 开票行采用 17% 销项税码
+  - from: erp.billing.vf2026_0001
+    type: billing_in_period
+    to: erp.period.2026_09
+    note: 开票凭证过账于 2026 年 9 期
+  - from: erp.ar.ar2026_0001
+    type: receivable_settled_to_bank
+    to: erp.bank.icbc_main
+    note: 客户回款结算至工行主账户
+  - from: erp.company.cc1000
+    type: outsources_to_vendor
+    to: erp.bp.vendor_osat_b
+    note: 公司代码 1000 委外封测供应商 OSAT-B
+  - from: erp.contractliab.cl2026_a
+    type: contract_liability_posts_to
+    to: erp.gl.2203_contract_liab
+    note: 预收产能保证金过账至合同负债科目

@@ -876,6 +876,12 @@ async def ontology_metrics(user: User = Depends(current_user), db: Session = Dep
     return await semi_kb.metrics(db, user.id)
 
 
+@app.get("/api/ontology/cascade")
+async def ontology_cascade(user: User = Depends(current_user)) -> dict:
+    """级联"地基"层级视图：源系统(一级) → 工艺段(制造侧二级) + 领域模块。纯只读图计算，丢线程池。"""
+    return await asyncio.to_thread(semi_kb.source_system_cascade)
+
+
 @app.get("/api/ontology/entities")
 def ontology_entities(search: str = "", limit: int = Query(100, ge=1, le=500), user: User = Depends(current_user)) -> dict:
     graph = Graph()
@@ -1756,10 +1762,10 @@ async def test_email(user: User = Depends(current_user), db: Session = Depends(g
 
 @app.post("/api/exports", status_code=202)
 async def start_export(payload: ExportCreate, user: User = Depends(current_user), db: Session = Depends(get_db)) -> dict:
-    job = ExportJob(id="export-" + uuid.uuid4().hex[:16], user_id=user.id, kind=payload.kind, filtered=payload.filtered)
+    job = ExportJob(id="export-" + uuid.uuid4().hex[:16], user_id=user.id, kind=payload.kind, filtered=payload.filtered, scope=payload.scope)
     db.add(job); db.commit()
     asyncio.create_task(export_job_task(job.id))
-    return {"id": job.id, "status": job.status, "kind": job.kind, "filtered": job.filtered}
+    return {"id": job.id, "status": job.status, "kind": job.kind, "filtered": job.filtered, "scope": job.scope}
 
 
 async def export_job_task(job_id: str) -> None:
@@ -1774,7 +1780,7 @@ def get_export(job_id: str, user: User = Depends(current_user), db: Session = De
     job = db.get(ExportJob, job_id)
     if not job or job.user_id != user.id:
         raise HTTPException(status_code=404, detail="导出任务不存在")
-    return {"id": job.id, "kind": job.kind, "filtered": getattr(job, 'filtered', True), "status": job.status, "progress": job.progress, "total_files": job.total_files, "processed_files": job.processed_files, "error": job.error, "created_at": job.created_at, "started_at": job.started_at, "completed_at": job.completed_at, "attempt_count": job.attempt_count, "download_url": f"/api/exports/{job.id}/download" if job.status == "completed" else None}
+    return {"id": job.id, "kind": job.kind, "filtered": getattr(job, 'filtered', True), "scope": getattr(job, 'scope', 'all'), "status": job.status, "progress": job.progress, "total_files": job.total_files, "processed_files": job.processed_files, "error": job.error, "created_at": job.created_at, "started_at": job.started_at, "completed_at": job.completed_at, "attempt_count": job.attempt_count, "download_url": f"/api/exports/{job.id}/download" if job.status == "completed" else None}
 
 
 @app.get("/api/exports")

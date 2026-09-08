@@ -58,7 +58,7 @@ def _merge_provenance(item: dict, default: dict | None) -> dict:
 def iter_ontology_files(kind: str) -> list[Path]:
     """kind: 'entities' | 'relations'"""
     out: list[Path] = []
-    for domain in ("core", "fab", "ap"):
+    for domain in ("core", "fab", "ap", "erp"):
         d = ROOT / "ontology" / domain / kind
         if d.is_dir():
             out.extend(sorted(d.glob("*.yaml")))

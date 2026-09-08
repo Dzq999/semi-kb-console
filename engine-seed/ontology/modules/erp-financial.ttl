@@ -1,0 +1,158 @@
+@prefix semi: <urn:pxai:semi:> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# ============================================================================
+# ERP 财务会计域（SAP FI）本体模块  ·  urn:pxai:semi:erp-financial
+# 建法遵循《SAP 财务域本体·方案与方法》七步：先律后体、四要素、三层组合。
+# 本模块只描述"世界是什么样"（实体/关系/律），一个数值都不填——数值属参数锥
+# （会计政策唯一取值源，落在实例/溯源侧，见 knowledge/semantic + provenance）。
+#
+# 分支纪律（common.ttl:27-28 PhysicalEntity/Event/InformationEntity 三者互斥）：
+#   · 会计凭证/科目/余额等"账务对象"是信息实体 → 挂 InformationEntity。
+#   · 过账/结转等"动作"是事件 → 挂 Event，绝不与信息实体双归属。
+# 领域"信息制品"根 FinancialArtifact：自动生成的财务记录/快照类挂靠于此，经
+# subClassOf 祖先自动归入本域（读侧归属自维持，见 semi_kb._resolve_domain_modules）。
+# ============================================================================
+
+<urn:pxai:semi:erp-financial> a owl:Ontology ;
+  rdfs:label "ERP 财务会计域本体"@zh, "ERP Financial Accounting ontology"@en ;
+  owl:imports <urn:pxai:semi:common>, <urn:pxai:semi:organization> .
+
+# ---- 领域归类根（无 SHACL 约束，纯上位归类） --------------------------------
+semi:FinancialArtifact a owl:Class ; rdfs:subClassOf semi:InformationEntity ;
+  rdfs:label "财务信息制品"@zh, "Financial artifact"@en .
+
+# ---- 步骤4 三层组合·L-farm 场级（公司代码 = SAP 记账法人主体，组织概念） -------
+semi:CompanyCode a owl:Class ; rdfs:subClassOf semi:Organization ;
+  rdfs:label "公司代码"@zh, "Company code"@en ;
+  rdfs:comment "SAP 最小独立记账法人主体；会计恒等式在此层（或集团合并视图）涌现。"@zh .
+semi:companyCodeId a owl:DatatypeProperty ; rdfs:domain semi:CompanyCode ; rdfs:range xsd:string .
+
+# ---- 步骤1 六问·① 实体（账务对象，皆信息实体） -----------------------------
+semi:ChartOfAccounts a owl:Class ; rdfs:subClassOf semi:FinancialArtifact ;
+  rdfs:label "科目表"@zh, "Chart of accounts"@en .
+semi:GLAccount a owl:Class ; rdfs:subClassOf semi:FinancialArtifact ;
+  rdfs:label "会计科目"@zh, "G/L account"@en ;
+  rdfs:comment "科目方向律：资产/成本类借增贷减，负债/权益/收入类贷增借减；方向固有不可反。"@zh .
+semi:AccountingDocument a owl:Class ; rdfs:subClassOf semi:FinancialArtifact ;
+  rdfs:label "会计凭证"@zh, "Accounting document"@en ;
+  rdfs:comment "复式记账律：每张凭证借贷平衡（Σ借方=Σ贷方）。审计铁律：凭证不可删除，只能红字冲销（reversalOf）。"@zh .
+semi:JournalLineItem a owl:Class ; rdfs:subClassOf semi:FinancialArtifact ;
+  rdfs:label "凭证行项目"@zh, "Journal line item"@en .
+semi:CostCenter a owl:Class ; rdfs:subClassOf semi:FinancialArtifact ;
+  rdfs:label "成本中心"@zh, "Cost center"@en ;
+  rdfs:comment "成本归集律：费用 → 成本中心 → 成本对象，成本必有归宿。"@zh .
+semi:ProfitCenter a owl:Class ; rdfs:subClassOf semi:FinancialArtifact ;
+  rdfs:label "利润中心"@zh, "Profit center"@en .
+semi:BusinessPartner a owl:Class ; rdfs:subClassOf semi:FinancialArtifact ;
+  rdfs:label "业务伙伴"@zh, "Business partner"@en .
+semi:FixedAsset a owl:Class ; rdfs:subClassOf semi:FinancialArtifact ;
+  rdfs:label "固定资产"@zh, "Fixed asset"@en .
+semi:BankAccount a owl:Class ; rdfs:subClassOf semi:FinancialArtifact ;
+  rdfs:label "银行账户"@zh, "Bank account"@en .
+semi:TaxCode a owl:Class ; rdfs:subClassOf semi:FinancialArtifact ;
+  rdfs:label "税码"@zh, "Tax code"@en .
+semi:FiscalPeriod a owl:Class ; rdfs:subClassOf semi:FinancialArtifact ;
+  rdfs:label "会计期间"@zh, "Fiscal period"@en ;
+  rdfs:comment "期间匹配律：收入与其对应成本在同一会计期间确认。"@zh .
+semi:AccountBalance a owl:Class ; rdfs:subClassOf semi:FinancialArtifact ;
+  rdfs:label "科目余额"@zh, "Account balance"@en ;
+  rdfs:comment "会计恒等式：资产 = 负债 + 所有者权益（场级涌现，恒成立）。"@zh .
+semi:TrialBalance a owl:Class ; rdfs:subClassOf semi:FinancialArtifact ;
+  rdfs:label "试算平衡表"@zh, "Trial balance"@en .
+
+# ---- 步骤4 三层组合·L-sub 子系统（组合才涌现，如"借贷平衡"是总账层涌现） -----
+semi:LedgerSubsystem a owl:Class ; rdfs:subClassOf semi:FinancialArtifact ;
+  rdfs:label "账务子系统"@zh, "Ledger subsystem"@en ;
+  rdfs:comment "总账GL/应收AR/应付AP/固定资产AA/成本CO；emergent 判据：借贷平衡为总账层涌现属性。"@zh .
+
+# ---- ① 实体·动作（事件，只挂 Event，绝不与信息实体双归属） -------------------
+semi:PostingEvent a owl:Class ; rdfs:subClassOf semi:Event ;
+  rdfs:label "过账事件"@zh, "Posting event"@en ;
+  rdfs:comment "前置条件『借贷平衡』→ 效果『科目余额变动』。装配序：过账→外币评估→折旧→应计→结转→报表。"@zh .
+semi:CarryForwardEvent a owl:Class ; rdfs:subClassOf semi:Event ;
+  rdfs:label "结转事件"@zh, "Carry-forward event"@en ;
+  rdfs:comment "结转律：损益类科目期末结转本年利润，期末余额归零。"@zh .
+
+# ---- 步骤3 四要素·② 关系（必须指向另一实体） -------------------------------
+semi:usesChartOfAccounts a owl:ObjectProperty ;
+  rdfs:label "采用科目表"@zh ;
+  rdfs:domain semi:CompanyCode ; rdfs:range semi:ChartOfAccounts .
+semi:accountInChart a owl:ObjectProperty ;
+  rdfs:label "科目归属科目表"@zh ;
+  rdfs:domain semi:GLAccount ; rdfs:range semi:ChartOfAccounts .
+semi:parentAccount a owl:ObjectProperty, owl:TransitiveProperty ;
+  rdfs:label "上级科目"@zh ;
+  rdfs:domain semi:GLAccount ; rdfs:range semi:GLAccount .
+semi:hasLineItem a owl:ObjectProperty ;
+  rdfs:label "含行项目"@zh ;
+  rdfs:domain semi:AccountingDocument ; rdfs:range semi:JournalLineItem .
+semi:lineItemAccount a owl:ObjectProperty ;
+  rdfs:label "行项目对应科目"@zh ;
+  rdfs:domain semi:JournalLineItem ; rdfs:range semi:GLAccount .
+semi:documentInCompanyCode a owl:ObjectProperty ;
+  rdfs:label "凭证归属公司代码"@zh ;
+  rdfs:domain semi:AccountingDocument ; rdfs:range semi:CompanyCode .
+semi:documentInPeriod a owl:ObjectProperty ;
+  rdfs:label "凭证归属会计期间"@zh ;
+  rdfs:domain semi:AccountingDocument ; rdfs:range semi:FiscalPeriod .
+semi:documentForPartner a owl:ObjectProperty ;
+  rdfs:label "凭证对应业务伙伴"@zh ;
+  rdfs:domain semi:AccountingDocument ; rdfs:range semi:BusinessPartner .
+semi:reversalOf a owl:ObjectProperty ;
+  rdfs:label "红字冲销"@zh ;
+  rdfs:domain semi:AccountingDocument ; rdfs:range semi:AccountingDocument .
+semi:allocatesToCostCenter a owl:ObjectProperty ;
+  rdfs:label "分摊至成本中心"@zh ;
+  rdfs:domain semi:JournalLineItem ; rdfs:range semi:CostCenter .
+semi:costCenterInProfitCenter a owl:ObjectProperty ;
+  rdfs:label "成本中心归属利润中心"@zh ;
+  rdfs:domain semi:CostCenter ; rdfs:range semi:ProfitCenter .
+semi:carriesForwardTo a owl:ObjectProperty ;
+  rdfs:label "结转至科目"@zh ;
+  rdfs:domain semi:GLAccount ; rdfs:range semi:GLAccount .
+semi:balanceOfAccount a owl:ObjectProperty ;
+  rdfs:label "余额对应科目"@zh ;
+  rdfs:domain semi:AccountBalance ; rdfs:range semi:GLAccount .
+semi:balanceInPeriod a owl:ObjectProperty ;
+  rdfs:label "余额所属期间"@zh ;
+  rdfs:domain semi:AccountBalance ; rdfs:range semi:FiscalPeriod .
+semi:assetInCompanyCode a owl:ObjectProperty ;
+  rdfs:label "资产归属公司代码"@zh ;
+  rdfs:domain semi:FixedAsset ; rdfs:range semi:CompanyCode .
+semi:outsourcesToVendor a owl:ObjectProperty ;
+  rdfs:label "委外供应商"@zh ;
+  rdfs:domain semi:CompanyCode ; rdfs:range semi:BusinessPartner ;
+  rdfs:comment "公司代码将封测/代工业务委外给业务伙伴（vendor 角色）。"@zh .
+# 事件→账务对象（跨互斥顶层的关系是合法的：主语是事件个体、宾语是信息个体，二者不同）
+semi:postsDocument a owl:ObjectProperty ;
+  rdfs:label "过账凭证"@zh ;
+  rdfs:domain semi:PostingEvent ; rdfs:range semi:AccountingDocument .
+semi:updatesBalance a owl:ObjectProperty ;
+  rdfs:label "更新余额"@zh ;
+  rdfs:domain semi:PostingEvent ; rdfs:range semi:AccountBalance .
+
+# ---- 四要素·属性（intrinsic 固有 + extrinsic 状态；仅声明属性，取值属参数锥） --
+semi:accountNumber a owl:DatatypeProperty ; rdfs:domain semi:GLAccount ; rdfs:range xsd:string .
+semi:accountType a owl:DatatypeProperty ; rdfs:domain semi:GLAccount ; rdfs:range xsd:string ;
+  rdfs:comment "科目类型：asset/liability/equity/revenue/expense。"@zh .
+semi:debitCredit a owl:DatatypeProperty, owl:FunctionalProperty ;
+  rdfs:label "借贷方向"@zh ;
+  rdfs:range xsd:string ;
+  rdfs:comment "科目方向律的载体：debit/credit，行项目单值不可反。"@zh .
+semi:documentNumber a owl:DatatypeProperty ; rdfs:domain semi:AccountingDocument ; rdfs:range xsd:string .
+semi:documentType a owl:DatatypeProperty ; rdfs:domain semi:AccountingDocument ; rdfs:range xsd:string .
+semi:postingDate a owl:DatatypeProperty ; rdfs:range xsd:dateTime .
+semi:amountValue a owl:DatatypeProperty ; rdfs:range xsd:decimal ;
+  rdfs:comment "金额（含币种，币种见 currencyCode）。"@zh .
+semi:currencyCode a owl:DatatypeProperty ; rdfs:range xsd:string .
+semi:taxRate a owl:DatatypeProperty ; rdfs:domain semi:TaxCode ; rdfs:range xsd:decimal .
+semi:fiscalYear a owl:DatatypeProperty ; rdfs:domain semi:FiscalPeriod ; rdfs:range xsd:string .
+semi:periodNumber a owl:DatatypeProperty ; rdfs:domain semi:FiscalPeriod ; rdfs:range xsd:integer .
+semi:partnerRole a owl:DatatypeProperty ; rdfs:domain semi:BusinessPartner ; rdfs:range xsd:string ;
+  rdfs:comment "业务伙伴角色：customer/vendor/both（BP 统一主数据）。"@zh .
+semi:balanceType a owl:DatatypeProperty ; rdfs:domain semi:AccountBalance ; rdfs:range xsd:string ;
+  rdfs:comment "opening/movement/closing（期初/发生额/期末）。"@zh .

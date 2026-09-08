@@ -9,10 +9,10 @@ updated_at: "2026-08-27"
 # ID 规范
 # ---------------------------------------------------------------
 id_rules:
-  pattern: '^(core|fab|ap|ext)\.[a-z_]+\.[a-z0-9_]+$'
+  pattern: '^(core|fab|ap|erp|ext)\.[a-z_]+\.[a-z0-9_]+$'
   format: "<domain>.<type_slug>.<name_slug>"
   note: >
-    domain 取 core|fab|ap；ext 为外部域预留（跨行业类比目标，如其他行业本体节点），
+    domain 取 core|fab|ap|erp；ext 为外部域预留（跨行业类比目标，如其他行业本体节点），
     ext.* 允许悬空引用，不参与本地解析校验。
   examples:
     - fab.process.photo_exposure
@@ -37,12 +37,35 @@ entity_types:
   Action:     {type_slug: action,    desc: "处置动作"}
   Route:      {type_slug: route,     desc: "流程路径，主流程的载体"}
   RiskNode:   {type_slug: risknode,  desc: "风险节点，主流程上的高风险位置"}
+  # ERP/SAP 域实体类型（domain=erp）：FI 财务主数据 + SD/O2C 订单到收款。
+  # type_slug 与 erp.* 实例 ID 的中段严格一致，由 ERP 种子数据反推登记。
+  CompanyCode:           {type_slug: company,      desc: "公司代码，FI 记账的法律实体单元"}
+  ChartOfAccounts:       {type_slug: coa,          desc: "科目表，GL 科目的组织框架"}
+  GLAccount:             {type_slug: gl,           desc: "总账科目"}
+  CostCenter:            {type_slug: costcenter,   desc: "成本中心，成本归集单元"}
+  ProfitCenter:          {type_slug: profitcenter, desc: "利润中心，利润归集单元"}
+  BusinessPartner:       {type_slug: bp,           desc: "业务伙伴，客户/供应商统一主数据"}
+  TaxCode:               {type_slug: tax,          desc: "税码，进销项税率与科目映射"}
+  FiscalPeriod:          {type_slug: period,       desc: "会计期间"}
+  BankAccount:           {type_slug: bank,         desc: "银行账户主数据"}
+  FixedAsset:            {type_slug: asset,        desc: "固定资产"}
+  Quotation:             {type_slug: quotation,    desc: "报价单，O2C 前段"}
+  PricingCondition:      {type_slug: pricing,      desc: "定价条件，SD 价格要素"}
+  CreditManagement:      {type_slug: credit,       desc: "信用管理档案，订单信用检查"}
+  SalesOrder:            {type_slug: order,        desc: "销售订单"}
+  SalesOrderItem:        {type_slug: orderitem,    desc: "销售订单行项目"}
+  RevenueRecognitionKey: {type_slug: revreckey,    desc: "收入确认码，时点/合同负债法"}
+  QuantityContract:      {type_slug: contract,     desc: "数量合同，产能预留框架"}
+  DeliveryDocument:      {type_slug: delivery,     desc: "交货单，SD 出库凭证"}
+  BillingDocument:       {type_slug: billing,      desc: "开票凭证，SD 计费"}
+  AccountsReceivable:    {type_slug: ar,           desc: "应收账款"}
+  ContractLiability:     {type_slug: contractliab, desc: "合同负债，收入递延"}
 
 # ---------------------------------------------------------------
 # 允许的关系类型
 # ---------------------------------------------------------------
 relation_types:
-  belongs_to:   {from: [Process, Equipment, Parameter, Metric], to: [Stage, Process], desc: "归属"}
+  belongs_to:   {from: [Process, Equipment, Parameter, Metric, FixedAsset], to: [Stage, Process, CompanyCode], desc: "归属；ERP 侧固定资产归属公司代码"}
   precedes:     {from: [Process], to: [Process], desc: "工序先后，构成主流程 Flow"}
   performed_on: {from: [Process], to: [Material], desc: "工序作用于物料"}
   controls:     {from: [Parameter], to: [Process], desc: "参数调控工序"}
@@ -56,6 +79,28 @@ relation_types:
   blocks:       {from: [Anomaly, State], to: [Process, Route], desc: "阻塞后续工序/路径"}
   refines:      {from: [Process, Parameter, Metric, Anomaly, State, Material, Stage, RiskNode], to: [Process, Parameter, Metric, Anomaly, State, Material, Stage, RiskNode], desc: "子本体细化 core 层概念"}
   analogous_to: {from: [Process, Parameter, Metric, Anomaly, State, Stage, Material, RiskNode], to: [Process, Parameter, Metric, Anomaly, State, Stage, Material, RiskNode], desc: "跨行业类比映射，知识飞轮载体，通常指向 ext.*"}
+  # ERP/SAP 域关系类型：FI 财务结构 + SD/O2C 订单到收款链路。
+  # from/to 端点类型由 ERP 种子数据反推，与实例严格对齐。
+  uses_chart_of_accounts:       {from: [CompanyCode], to: [ChartOfAccounts], desc: "公司代码采用科目表"}
+  account_in_chart:             {from: [GLAccount], to: [ChartOfAccounts], desc: "GL 科目隶属科目表"}
+  cost_center_in_profit_center: {from: [CostCenter], to: [ProfitCenter], desc: "成本中心归属利润中心"}
+  carries_forward_to:           {from: [GLAccount], to: [GLAccount], desc: "科目结转（如收入→成本对冲）"}
+  quotation_for_customer:       {from: [Quotation], to: [BusinessPartner], desc: "报价单面向客户"}
+  order_from_quotation:         {from: [SalesOrder], to: [Quotation], desc: "销售订单由报价单转换"}
+  order_for_customer:           {from: [SalesOrder, QuantityContract], to: [BusinessPartner], desc: "订单/合同面向客户"}
+  order_under_credit_check:     {from: [SalesOrder], to: [CreditManagement], desc: "订单受信用检查约束"}
+  has_order_item:               {from: [SalesOrder], to: [SalesOrderItem], desc: "订单含行项目"}
+  priced_by_condition:          {from: [SalesOrderItem], to: [PricingCondition], desc: "行项目按定价条件计价"}
+  order_item_rev_rec_key:       {from: [SalesOrderItem], to: [RevenueRecognitionKey], desc: "行项目绑定收入确认码"}
+  order_item_for_product:       {from: [SalesOrderItem], to: [Material], desc: "行项目对应产品（晶圆等物料）"}
+  delivery_for_order:           {from: [DeliveryDocument], to: [SalesOrder], desc: "交货单对应订单"}
+  billing_for_delivery:         {from: [BillingDocument], to: [DeliveryDocument], desc: "开票凭证对应交货单"}
+  generates_receivable:         {from: [BillingDocument], to: [AccountsReceivable], desc: "开票产生应收账款"}
+  billing_uses_tax:             {from: [BillingDocument], to: [TaxCode], desc: "开票凭证采用税码（销项税）"}
+  billing_in_period:            {from: [BillingDocument], to: [FiscalPeriod], desc: "开票凭证归属会计期间"}
+  receivable_settled_to_bank:   {from: [AccountsReceivable], to: [BankAccount], desc: "应收回款结算至银行账户"}
+  outsources_to_vendor:         {from: [CompanyCode], to: [BusinessPartner], desc: "公司代码外包委外供应商（OSAT/Foundry）"}
+  contract_liability_posts_to:  {from: [ContractLiability], to: [GLAccount], desc: "合同负债过账至合同负债科目"}
 
 # ---------------------------------------------------------------
 # 字段契约
@@ -74,7 +119,7 @@ entity_optional_fields:
   - economic_hooks
   - tags
   - aliases
-
+  - attributes       # 由 common.load_entities 合并 default_attributes 后注入；ERP 等结构化域的键值属性载体
 relation_required_fields: [from, type, to]
 relation_optional_fields: [note, confidence, likelihood, provenance]
 

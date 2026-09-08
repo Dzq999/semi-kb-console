@@ -1091,6 +1091,7 @@ class SemiKbAdapter:
         individuals = set(subj_types) - governance
         source_split = self._individual_source_split(data)
         segment_split = self._segment_split(data)
+        system_split = self._source_system_split(data)
         relation_assertions = sum(1 for subject, predicate, obj in data if predicate in object_properties and subject != obj)
         axiom_predicates = {OWL.equivalentClass, OWL.disjointWith, OWL.inverseOf, OWL.onProperty, OWL.cardinality, OWL.qualifiedCardinality, OWL.minQualifiedCardinality, OWL.maxQualifiedCardinality}
         axioms = sum(1 for _, predicate, _ in schema if predicate in axiom_predicates)
@@ -1118,6 +1119,10 @@ class SemiKbAdapter:
         for seg, count in segment_split["by_segment"].items():
             result[f"segment_{seg}"] = count
         result["segment_cross"] = segment_split["cross"]
+        # 级联"地基"：源系统(sourceSystem)一级维度拆分，展开为 system_<sys>: count 平铺键
+        for system, count in system_split["by_system"].items():
+            result[f"system_{system}"] = count
+        result["system_unmapped"] = system_split["unmapped"]
         return result
 
     # 溯源来源类型：model_prior/web/assumption 三值，均属"知识"来源（agent 先验 / web 检索 / 推定假设）。
@@ -1128,7 +1133,7 @@ class SemiKbAdapter:
     def _individual_source_split(self, data: Graph) -> dict[str, int]:
         """把策展模块个体按 sourceType 拆成 知识 / 产线数据 / 未标注 三类（纯只读、无副作用）。
 
-        统计基数与 _segment_split 对齐：只统计能映射到 12 个策展模块的实例，排除
+        统计基数与 _segment_split 对齐：只统计能映射到策展领域模块的实例，排除
         业务推理层（BusinessVariable、SimulationScenario 等）与溯源/结构噪声。
         sourceType 有两条到达路径：
         (1) 直接挂在个体上；(2) 经 prov:Entity --prov:specializationOf--> 个体 回指。两路合并取并集。
@@ -1138,7 +1143,7 @@ class SemiKbAdapter:
         prov_spec = URIRef("http://www.w3.org/ns/prov#specializationOf")
         noise = self._INSTANCE_NOISE_TYPES
 
-        # 与 _segment_split 相同的过滤逻辑：只保留能映射到 12 个策展模块的个体
+        # 与 _segment_split 相同的过滤逻辑：只保留能映射到策展领域模块的个体
         _, class_to_module, _ = self._load_schema_graph()
         domain_individuals = set()
         for s, _, o in data.triples((None, RDF.type, None)):
@@ -1175,14 +1180,14 @@ class SemiKbAdapter:
 
         processSegment 直接挂在个体上（YAML default_attributes 编译生成），当前有 fab/ap 两值，
         未来可能新增 test/packaging 等。无此属性的个体属跨段通用（如设备域、厂务域）。
-        去噪口径与 domain_coverage 对齐：只统计能映射到 12 个策展模块的实例，排除
+        去噪口径与 domain_coverage 对齐：只统计能映射到策展领域模块的实例，排除
         业务推理层（BusinessVariable、SimulationScenario 等）与溯源/结构噪声。
 
         返回 {"domain": 总数, "by_segment": {"fab": n, "ap": m, ...}, "cross": 无标注个体数}。
         """
         noise = self._INSTANCE_NOISE_TYPES
         _, class_to_module, _ = self._load_schema_graph()
-        # 只统计能映射到 12 个策展模块的实例（与 domain_coverage 逻辑对齐）
+        # 只统计能映射到策展领域模块的实例（与 domain_coverage 逻辑对齐）
         domain_individuals = set()
         for s, _, o in data.triples((None, RDF.type, None)):
             if o in noise:
@@ -1200,6 +1205,127 @@ class SemiKbAdapter:
             else:
                 cross += 1
         return {"domain": len(domain_individuals), "by_segment": by_segment, "cross": cross}
+
+    def _source_system_split(self, data: Graph) -> dict:
+        """级联"地基"——把领域个体按一级维度 sourceSystem 拆分（制造/ERP，值开放可扩展）。
+
+        与 processSegment(制造侧二级维度)正交：sourceSystem 是「这条知识来自哪个业务系统」的
+        顶层归属。读侧纯派生——不在个体上打 sourceSystem 标，而是经 类→模块→源系统 两跳映射
+        （class_to_module + _SOURCE_SYSTEM_MODULES 反查）聚合，零数据侵入、完全可逆。
+        去噪与统计基数与 _segment_split / domain_coverage 完全对齐（只数策展模块个体）。
+
+        返回 {"domain": 总数, "by_system": {"manufacturing": n, "erp": m}, "unmapped": 未归属数}。
+        unmapped 恒应为 0（每个策展模块都在 _SOURCE_SYSTEM_MODULES 里有归属）；非 0 即配置漏登，
+        测试据此守护"新增领域模块必须同时登记源系统"这条级联不变式。
+        """
+        noise = self._INSTANCE_NOISE_TYPES
+        _, class_to_module, _ = self._load_schema_graph()
+        # 模块 → 源系统 反查表（一个模块只属一个源系统）
+        module_to_system = {
+            module: system
+            for system, modules in self._SOURCE_SYSTEM_MODULES.items()
+            for module in modules
+        }
+        # 个体 → 其所属源系统集合（经类→模块→系统两跳；同一个体多类型时取并集）
+        indiv_systems: dict = {}
+        for s, _, o in data.triples((None, RDF.type, None)):
+            if o in noise:
+                continue
+            module = class_to_module.get(o)
+            if module and module in self._DOMAIN_MODULE_LABELS:
+                system = module_to_system.get(module)
+                if system:
+                    indiv_systems.setdefault(s, set()).add(system)
+                else:
+                    indiv_systems.setdefault(s, set())  # 已登记领域但漏登源系统 → unmapped
+        by_system: dict[str, int] = {}
+        unmapped = 0
+        for _, systems in indiv_systems.items():
+            if systems:
+                # 理论上单系统；跨系统个体（若未来出现）计入每个命中系统
+                for system in systems:
+                    by_system[system] = by_system.get(system, 0) + 1
+            else:
+                unmapped += 1
+        return {"domain": len(indiv_systems), "by_system": by_system, "unmapped": unmapped}
+
+    def source_system_cascade(self) -> dict:
+        """级联"地基"的层级视图：源系统(一级) → 工艺段(制造侧二级) + 领域模块清单，供前端下钻渲染。
+
+        一趟扫描领域个体（唯一主语计，去噪口径与三处拆分完全一致），同时确定每个个体的
+        源系统(类→模块→系统两跳)与工艺段(processSegment 属性)，聚合出嵌套结构。
+        每个系统给出：总实例数、工艺段分布(fab/ap/跨段)、其下领域模块清单(含类数/实例数)。
+        纯只读、不触库、不改数据；文件缺失时优雅降级为空。与 semantic_counts 的 system_* 平铺键
+        同源同口径（系统 total == system_<sys>），前端可任选平铺卡或层级视图，数字一致。
+        """
+        self._ensure_root()
+        noise = self._INSTANCE_NOISE_TYPES
+        schema, class_to_module, cached_stats = self._load_schema_graph()
+        data = self._load_data_graph()
+        module_to_system = {
+            module: system
+            for system, modules in self._SOURCE_SYSTEM_MODULES.items()
+            for module in modules
+        }
+        # 个体 → (所属模块集合)：只保留策展领域个体
+        indiv_modules: dict = {}
+        for s, _, o in data.triples((None, RDF.type, None)):
+            if o in noise:
+                continue
+            module = class_to_module.get(o)
+            if module and module in self._DOMAIN_MODULE_LABELS:
+                indiv_modules.setdefault(s, set()).add(module)
+        # 每个个体的工艺段（单值；无标注记为跨段 cross）
+        def _segment_of(indiv) -> str:
+            for _, _, seg in data.triples((indiv, self._SEGMENT_PRED, None)):
+                return str(seg)
+            return "cross"
+
+        # 聚合：系统 → {total, segments{seg:n}, modules{stem:instances}}
+        systems_agg: dict[str, dict] = {}
+        for indiv, modules in indiv_modules.items():
+            hit_systems = {module_to_system[m] for m in modules if m in module_to_system}
+            seg = _segment_of(indiv)
+            for system in hit_systems:
+                agg = systems_agg.setdefault(system, {"total": 0, "segments": {}, "modules": {}})
+                agg["total"] += 1
+                agg["segments"][seg] = agg["segments"].get(seg, 0) + 1
+            for m in modules:
+                system = module_to_system.get(m)
+                if system:
+                    agg = systems_agg.setdefault(system, {"total": 0, "segments": {}, "modules": {}})
+                    agg["modules"][m] = agg["modules"].get(m, 0) + 1
+        # 组装输出：系统按总量降序，模块按实例数降序；带中文标签与类数
+        seg_labels = {"fab": "前段厂 (fab)", "ap": "后段厂 (ap)", "cross": "跨段通用"}
+        systems_out = []
+        for system, labels_key in ((k, k) for k in self._SOURCE_SYSTEM_MODULES):
+            agg = systems_agg.get(system, {"total": 0, "segments": {}, "modules": {}})
+            modules_out = []
+            for stem in self._SOURCE_SYSTEM_MODULES[system]:
+                stat = cached_stats.get(stem) or {"classes": 0}
+                modules_out.append({
+                    "module": stem,
+                    "label": self._DOMAIN_MODULE_LABELS.get(stem, stem),
+                    "classes": int(stat.get("classes", 0)),
+                    "instances": int(agg["modules"].get(stem, 0)),
+                })
+            modules_out.sort(key=lambda m: (m["instances"], m["classes"]), reverse=True)
+            segments_out = [
+                {"segment": seg, "label": seg_labels.get(seg, seg), "instances": n}
+                for seg, n in sorted(agg["segments"].items(), key=lambda kv: kv[1], reverse=True)
+            ]
+            systems_out.append({
+                "system": system,
+                "label": self._SOURCE_SYSTEM_LABELS.get(system, system),
+                "total": int(agg["total"]),
+                "segments": segments_out,
+                "modules": modules_out,
+            })
+        systems_out.sort(key=lambda s: s["total"], reverse=True)
+        return {
+            "systems": systems_out,
+            "domain_total": sum(s["total"] for s in systems_out),
+        }
 
     # 顶部『实例』计数与三处领域拆分共用的"非实例类型"噪声集：结构公理(owl:Class/*Property)、
     # 本体头节点(owl:Ontology)、溯源/具体化记账(prov:Entity / rdf:Statement)。四处口径统一到此常量，
@@ -1235,7 +1361,9 @@ class SemiKbAdapter:
         name = self._local_name(cls)
         return any(kw in name for kw in self._GOVERNANCE_CLASS_KEYWORDS)
 
-    # 12 个手工策展的专业领域模块 → 中文标签；common/generated 属基础设施(不计入领域)。
+    # 手工策展的专业领域模块 → 中文标签；common/generated 属基础设施(不计入领域)。
+    # 制造侧 12 个 + ERP 侧 2 个（财务会计域 / 订单到收款域）。领域归属经 sourceSystem
+    # 级联分两级：制造(fab/ap 工艺段)与 ERP(财务/O2C) 为一级源系统，见 _SOURCE_SYSTEM_MODULES。
     _DOMAIN_MODULE_LABELS = {
         "risk-diagnosis": "风险诊断",
         "equipment": "设备",
@@ -1249,8 +1377,24 @@ class SemiKbAdapter:
         "facility": "厂务设施",
         "organization": "组织",
         "wip-production": "在制生产",
+        "erp-financial": "ERP财务会计",
+        "erp-sales-o2c": "ERP订单到收款",
     }
     _INFRA_MODULES = {"common", "generated"}
+
+    # 级联"地基"：源系统(sourceSystem)为一级维度、工艺段(processSegment)为制造侧二级维度。
+    # 每个策展领域模块归属一个源系统；读侧按模块 stem 聚合，不在个体上打标（零侵入、可逆）。
+    # manufacturing = 制造/MES 侧 12 模块；erp = ERP(SAP FI+SD) 侧 2 模块。未来接入更多源系统
+    # （如 MES、PLM）在此扩充即可，semantic_counts 会自动展开 system_<key> 平铺键。
+    _SOURCE_SYSTEM_MODULES = {
+        "manufacturing": {
+            "risk-diagnosis", "equipment", "quality-metrology", "material-product",
+            "application-scenario", "process-route", "business-simulation", "maintenance",
+            "capacity-performance", "facility", "organization", "wip-production",
+        },
+        "erp": {"erp-financial", "erp-sales-o2c"},
+    }
+    _SOURCE_SYSTEM_LABELS = {"manufacturing": "制造/MES", "erp": "ERP/SAP"}
 
     def domain_coverage(self) -> dict:
         """按本体模块聚合『领域覆盖』：每个专业领域的类数与落地实例数，供日报领域覆盖小节取数。
@@ -1259,7 +1403,7 @@ class SemiKbAdapter:
           增强：generated/common 里声明、但上溯可达某策展领域根的类，计入该领域），已排除 prov:Entity /
           rdf:Statement / owl:* 等溯源与结构噪声，故与全局 individuals 总量口径不同。
         - auto_generated 现仅剩"未能归入任一策展领域"的自动生成类残余（引擎治理台账 + 仅挂通用根
-          common:Entity/skos:Concept 的记录），不混入 12 个策展领域，避免掩盖手工领域的真实分布。
+          common:Entity/skos:Concept 的记录），不混入策展领域，避免掩盖手工领域的真实分布。
           business_baselines 来自 business/models 下的 *-baseline.yaml。
         纯只读、不触库；文件缺失时优雅降级为零。metrics() 不在热路径调用它，仅日报生成时取用。
         """

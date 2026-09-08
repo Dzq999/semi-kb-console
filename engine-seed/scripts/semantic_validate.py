@@ -92,7 +92,7 @@ def _cache_input_files() -> list[Path]:
         if canonical:
             files.append(ROOT / canonical)
     # 经 current.trig 的 migrate 源（见 migrate_semantic.py / common.py）
-    for domain in ("core", "fab", "ap"):
+    for domain in ("core", "fab", "ap", "erp"):
         add((ROOT / "ontology" / domain / "entities").glob("*.yaml"))
         add((ROOT / "ontology" / domain / "relations").glob("*.yaml"))
     add([ROOT / "ontology" / "meta-schema.yaml"])

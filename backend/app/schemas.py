@@ -89,6 +89,7 @@ class ReportContentUpdate(BaseModel):
 class ExportCreate(BaseModel):
     kind: Literal["ontology", "knowledge", "business", "simulation", "scenarios", "complete"]
     filtered: bool = True  # 默认精简导出，只保留策展模块个体
+    scope: Literal["all", "manufacturing", "erp"] = "all"  # 源系统一级维度子图
 
 
 class ArticleGenerateRequest(BaseModel):

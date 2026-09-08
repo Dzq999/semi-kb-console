@@ -200,6 +200,32 @@ def _seed_run(db, user_id: int, status: str) -> str:
     return run.id
 
 
+def test_ontology_cascade_endpoint_partitions_domain_individuals(authenticated: TestClient):
+    response = authenticated.get("/api/ontology/cascade")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["systems"], "expected at least one source system"
+    # 每个源系统聚合的实例总数之和必须等于领域实例总量（级联不重不漏）。
+    assert sum(system["total"] for system in body["systems"]) == body["domain_total"]
+    labels = {system["system"] for system in body["systems"]}
+    assert {"manufacturing", "erp"} <= labels
+    # 制造侧必须携带工艺段细分；ERP 全部落在跨段通用，不产生前段/后段。
+    manufacturing = next(system for system in body["systems"] if system["system"] == "manufacturing")
+    assert manufacturing["segments"], "manufacturing must expose process-segment breakdown"
+
+
+def test_export_accepts_source_system_scope(authenticated: TestClient):
+    response = authenticated.post("/api/exports", json={"kind": "ontology", "scope": "erp"})
+    assert response.status_code == 202
+    assert response.json()["scope"] == "erp"
+    # 默认 scope 省略时回落 all
+    default = authenticated.post("/api/exports", json={"kind": "ontology"})
+    assert default.json()["scope"] == "all"
+    # 非法 scope 被 schema 拒绝
+    bad = authenticated.post("/api/exports", json={"kind": "ontology", "scope": "sap-only"})
+    assert bad.status_code == 422
+
+
 def test_report_settings_default_email_reminder_enabled(authenticated: TestClient):
     body = authenticated.get("/api/report-settings").json()
     assert body["email_reminder_enabled"] is True

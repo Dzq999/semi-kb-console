@@ -86,6 +86,16 @@ type DashboardData = {
   latest_run: RunInfo | null;
 };
 
+// 级联"地基"：源系统(一级) → 工艺段(制造侧二级) + 领域模块清单。后端 /api/ontology/cascade 提供。
+type CascadeSystem = {
+  system: string;
+  label: string;
+  total: number;
+  segments: Array<{ segment: string; label: string; instances: number }>;
+  modules: Array<{ module: string; label: string; classes: number; instances: number }>;
+};
+type CascadeData = { systems: CascadeSystem[]; domain_total: number };
+
 type MetricKey =
   | "classes"
   | "properties"
@@ -97,6 +107,8 @@ type MetricKey =
   | "business_relations"
   | "simulation_scenarios"
   | "scenario_articles"
+  | "system_manufacturing"
+  | "system_erp"
   | "segment_fab"
   | "segment_ap"
   | "segment_cross";
@@ -106,9 +118,6 @@ const metricDefinitions: Array<{ key: MetricKey; label: string }> = [
   { key: "properties", label: "属性 Property" },
   { key: "relations", label: "关系 Relation" },
   { key: "individuals", label: "实例 Individual" },
-  { key: "segment_fab", label: "实例 · 前段厂 (fab)" },
-  { key: "segment_ap", label: "实例 · 后段厂 (ap)" },
-  { key: "segment_cross", label: "实例 · 跨段通用" },
   { key: "axioms", label: "公理 Axiom" },
   { key: "rules", label: "推理规则 Rule" },
   { key: "knowledge_entries", label: "知识条目" },
@@ -411,6 +420,134 @@ function MetricsOverview({
   );
 }
 
+// 单个源系统卡片：一级=系统总量，可展开下钻到工艺段分布(制造侧二级)与领域模块清单。
+function CascadeSystemCard({ system }: { system: CascadeSystem }) {
+  const [open, setOpen] = useState(false);
+  const maxSeg = Math.max(1, ...system.segments.map((s) => s.instances));
+  return (
+    <div className={`cascade-system ${open ? "open" : ""}`}>
+      <button className="cascade-head" onClick={() => setOpen((v) => !v)}>
+        <ChevronRight className="cascade-caret" size={16} />
+        <span className="cascade-sys-label">{system.label}</span>
+        <span className="cascade-sys-meta">
+          {system.modules.length} 领域模块 · {system.segments.length} 工艺段
+        </span>
+        <strong className="cascade-sys-total">{system.total.toLocaleString()}</strong>
+      </button>
+      {open && (
+        <div className="cascade-body">
+          <div className="cascade-block">
+            <small className="cascade-block-title">工艺段分布（制造侧二级维度）</small>
+            {system.segments.length ? (
+              system.segments.map((seg) => (
+                <div className="cascade-seg" key={seg.segment}>
+                  <span className="cascade-seg-label">{seg.label}</span>
+                  <div className="cascade-bar">
+                    <i style={{ width: `${(seg.instances / maxSeg) * 100}%` }} />
+                  </div>
+                  <span className="cascade-seg-val">{seg.instances.toLocaleString()}</span>
+                </div>
+              ))
+            ) : (
+              <span className="cascade-empty">暂无实例</span>
+            )}
+          </div>
+          <div className="cascade-block">
+            <small className="cascade-block-title">领域模块</small>
+            <div className="cascade-modules">
+              {system.modules.map((mod) => (
+                <div className="cascade-module" key={mod.module}>
+                  <span className="cascade-mod-label">{mod.label}</span>
+                  <span className="cascade-mod-stat">
+                    {mod.classes} 类 · {mod.instances.toLocaleString()} 实例
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// 级联"地基"总面板：源系统一级维度的层级下钻视图。数据与总览平铺卡同源(system_* 键)，数字一致。
+function SourceSystemCascade({ data }: { data: CascadeData }) {
+  if (!data.systems.length) return null;
+  const total = data.domain_total || 1;
+  return (
+    <Panel
+      title="来源系统级联"
+      meta={`一级维度 · 策展实例 ${data.domain_total.toLocaleString()}`}
+    >
+      <div className="cascade-summary">
+        {data.systems.map((sys) => (
+          <div className="cascade-chip" key={sys.system}>
+            <span>{sys.label}</span>
+            <strong>{sys.total.toLocaleString()}</strong>
+            <small>{Math.round((sys.total / total) * 100)}%</small>
+          </div>
+        ))}
+      </div>
+      <div className="cascade-list">
+        {data.systems.map((sys) => (
+          <CascadeSystemCard system={sys} key={sys.system} />
+        ))}
+      </div>
+    </Panel>
+  );
+}
+
+// 指标视角切换：默认"全部"渲染完整总览；切到某源系统时只重算「计数类」卡片(实例/类/领域模块)，
+// 数据取自已获取的级联(cascade)——覆盖率/门禁/operational 等全库口径指标不随视角切分、仅在"全部"下呈现。
+function MetricsFacet({
+  metrics,
+  cascade,
+}: {
+  metrics: DashboardData["metrics"];
+  cascade?: CascadeData;
+}) {
+  const [view, setView] = useState<"all" | string>("all");
+  const active = cascade?.systems.find((s) => s.system === view);
+  const options: Array<[string, string]> = [
+    ["all", "全部"],
+    ...(cascade?.systems.map((s) => [s.system, s.label] as [string, string]) ?? []),
+  ];
+  return (
+    <div className="metrics-facet">
+      {cascade && cascade.systems.length > 0 && (
+        <div className="facet-tabs" role="tablist">
+          {options.map(([key, label]) => (
+            <button
+              key={key}
+              role="tab"
+              aria-selected={view === key}
+              className={`facet-tab ${view === key ? "active" : ""}`}
+              onClick={() => setView(key)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+      {view === "all" || !active ? (
+        <MetricsOverview metrics={metrics} />
+      ) : (
+        <>
+          <div className="metrics-grid">
+            <MetricCard label="策展实例 Individual" value={active.total} />
+            <MetricCard label="类 Class" value={active.modules.reduce((sum, m) => sum + m.classes, 0)} />
+            <MetricCard label="领域模块" value={active.modules.length} />
+          </div>
+          <p className="facet-note">
+            {active.label} 视角只呈现按源系统可切分的计数指标；覆盖率、门禁、operational 等全库口径指标请切回“全部”查看。
+          </p>
+        </>
+      )}
+    </div>
+  );
+}
+
 const stageLabels: Record<string, string> = {
   gap_analysis: "缺口分析",
   parallel_research: "并行研究",
@@ -528,6 +665,12 @@ function Dashboard() {
     queryFn: () => api("/api/dashboard"),
     // 知识库累计指标慢变，10s 轮询足够；后端 metrics 缓存 20s，稳态下多数命中缓存。
     refetchInterval: 10000,
+  });
+  // 级联"地基"层级数据（源系统→工艺段/领域模块）。慢变，随 dashboard 同频刷新即可。
+  const cascade = useQuery<CascadeData>({
+    queryKey: ["ontology-cascade"],
+    queryFn: () => api("/api/ontology/cascade"),
+    refetchInterval: 30000,
   });
   const [events, setEvents] = useState<
     Array<{ message: string; level: string; created_at: string }>
@@ -760,7 +903,7 @@ function Dashboard() {
         </div>
       </section>
       {action.error && <ErrorBox error={action.error} />}
-      <MetricsOverview metrics={data.metrics} />
+      <MetricsFacet metrics={data.metrics} cascade={cascade.data} />
       <div className="metric-support-row">
         <MetricCard
           label="问题域覆盖率"
@@ -768,6 +911,7 @@ function Dashboard() {
         />
         <span>覆盖率是质量指标，不适用“今日新增”数量口径。</span>
       </div>
+      {cascade.data && <SourceSystemCascade data={cascade.data} />}
       <div className="dashboard-grid">
         <Panel
           title="完整执行链路"
@@ -864,16 +1008,19 @@ function Dashboard() {
   );
 }
 
+// 默认 run 模板：一次编排同时覆盖 前段(fab)/后段(ap)/厂务(fac)/设备(eqp) + ERP↔制造联动 +
+// 建模/校验/场景。ERP agent 锚定"跨系统联动"而非造 SAP 内部配置(ERP 模块无 SHACL 形状、
+// 输出契约围绕制造诊断成形)，source_mode 用 hybrid(SAP 流程知识非网搜目标、佐以模型先验)。
 const agentTemplates = [
-  ["Fab 研究", "工厂层级、产能、周期与WIP", "fab", "web"],
+  ["前段(Fab)研究", "前段厂层级、产能、周期与WIP", "fab", "web"],
+  ["后段(AP)研究", "后段封测装配、良率、老化与产出", "ap", "web"],
   ["FAC 研究", "厂务系统、能源与约束", "fac", "hybrid"],
   ["EQP 研究", "设备能力、状态与故障", "eqp", "web"],
+  ["ERP↔制造联动", "O2C交付/财务结转与WIP·产能·产线事件的跨系统关系(SAP FI+SD)", "erp", "hybrid"],
   ["语义建模", "类、属性、关系、公理与规则", "core", "model_prior"],
   ["质量校验", "内部特征、OWL、SHACL与推理", "validation", "model_prior"],
   ["场景沉淀", "客户痛点、经营影响与文章", "scenario", "hybrid"],
   ["扩展研究", "补充高价值问题域", "fab", "web"],
-  ["扩展研究", "补充高价值问题域", "fac", "web"],
-  ["扩展研究", "补充高价值问题域", "eqp", "hybrid"],
   ["质量审查", "审查证据与发布门禁", "validation", "model_prior"],
 ] as const;
 
@@ -1321,11 +1468,13 @@ function ExportButton({
 }) {
   const setNotice = useAppStore((state) => state.setNotice);
   const queryClient = useQueryClient();
+  // 源系统子图仅对语义本体导出有意义(过滤 current.ttl 个体)；其它 kind 不展示、按 all 处理。
+  const [scope, setScope] = useState<"all" | "manufacturing" | "erp">("all");
   const mutation = useMutation({
     mutationFn: () =>
       api<{ id: string }>("/api/exports", {
         method: "POST",
-        body: JSON.stringify({ kind }),
+        body: JSON.stringify({ kind, scope }),
       }),
     onSuccess: ({ id }) => {
       setNotice(`导出任务 ${id} 已创建，可在导出中心查看进度`);
@@ -1333,10 +1482,24 @@ function ExportButton({
     },
   });
   return (
-    <Button onClick={() => mutation.mutate()} disabled={mutation.isPending}>
-      <Download size={15} />
-      {mutation.isPending ? "创建导出任务…" : label}
-    </Button>
+    <div className="export-inline">
+      {kind === "ontology" && (
+        <select
+          className="export-scope"
+          value={scope}
+          onChange={(e) => setScope(e.target.value as typeof scope)}
+          aria-label="来源系统范围"
+        >
+          <option value="all">全部来源</option>
+          <option value="manufacturing">仅 制造/MES</option>
+          <option value="erp">仅 ERP/SAP</option>
+        </select>
+      )}
+      <Button onClick={() => mutation.mutate()} disabled={mutation.isPending}>
+        <Download size={15} />
+        {mutation.isPending ? "创建导出任务…" : label}
+      </Button>
+    </div>
   );
 }
 
@@ -1371,9 +1534,11 @@ function ExportCenter() {
       api(`/api/exports/${id}/cancel`, { method: "POST" }),
     onSuccess: () => { setNotice("导出任务已取消"); queryClient.invalidateQueries({ queryKey: ["exports"] }); },
   });
+  // 源系统子图仅作用于本体(语义 TTL)导出；其它 kind 恒按 all。
+  const [scope, setScope] = useState<"all" | "manufacturing" | "erp">("all");
   const create = useMutation({
     mutationFn: (kind: string) =>
-      api("/api/exports", { method: "POST", body: JSON.stringify({ kind }) }),
+      api("/api/exports", { method: "POST", body: JSON.stringify({ kind, scope: kind === "ontology" ? scope : "all" }) }),
     onSuccess: () => { setNotice("导出任务已创建，可在列表查看进度"); queryClient.invalidateQueries({ queryKey: ["exports"] }); },
   });
   const kinds = [
@@ -1391,9 +1556,21 @@ function ExportCenter() {
           <h2>导出中心</h2>
           <p>
             本体、知识库、经营模型、仿真引擎、场景知识产物均可独立导出，也可导出完整包。
+            本体导出可按来源系统切分子图（制造/MES 或 ERP/SAP）。
           </p>
         </div>
         <div className="actions">
+          <select
+            className="export-scope"
+            value={scope}
+            onChange={(e) => setScope(e.target.value as typeof scope)}
+            aria-label="本体导出来源系统范围"
+            title="仅作用于「导出本体」"
+          >
+            <option value="all">本体：全部来源</option>
+            <option value="manufacturing">本体：仅 制造/MES</option>
+            <option value="erp">本体：仅 ERP/SAP</option>
+          </select>
           {kinds.map(([kind, label]) => (
             <Button
               key={kind}

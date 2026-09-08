@@ -1,0 +1,147 @@
+@prefix semi: <urn:pxai:semi:> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# ============================================================================
+# ERP 订单到收款（O2C / SAP SD）域本体模块  ·  urn:pxai:semi:erp-sales-o2c
+# 承接《SAP 订单到收款 O2C 流程详解》：询价报价→定价→信用管理→销售订单→交付
+# 出货开票(PGI)→收入确认→应收收款。半导体特化：wafer 计价、NRE/掩膜、MPW、
+# 产能保证金/Take-or-Pay、OSAT tolling、里程碑开票/预收（合同负债）。
+#
+# 分支纪律（common.ttl:27-28 三顶层互斥）：
+#   · 销售订单/交货单/发票/合同等"单据对象"→ InformationEntity。
+#   · 发货过账(PGI)/收入确认/清账等"动作"→ Event，绝不与信息实体双归属。
+# 领域"信息制品"根 SalesArtifact：自动生成的 O2C 单据/记录类挂靠于此，经祖先归域。
+# 财务衔接：本模块 import erp-financial，发票/收款事件经关系桥接到会计凭证与应收。
+# ============================================================================
+
+<urn:pxai:semi:erp-sales-o2c> a owl:Ontology ;
+  rdfs:label "ERP 订单到收款域本体"@zh, "ERP Order-to-Cash ontology"@en ;
+  owl:imports <urn:pxai:semi:common>, <urn:pxai:semi:erp-financial>,
+              <urn:pxai:semi:material-product> .
+
+# ---- 领域归类根 -------------------------------------------------------------
+semi:SalesArtifact a owl:Class ; rdfs:subClassOf semi:InformationEntity ;
+  rdfs:label "销售信息制品"@zh, "Sales artifact"@en .
+
+# ---- 单据对象（信息实体） ---------------------------------------------------
+semi:Quotation a owl:Class ; rdfs:subClassOf semi:SalesArtifact ;
+  rdfs:label "报价单"@zh, "Quotation"@en ;
+  rdfs:comment "报价有效期律：半导体报价有效期30~90天，超期→失效→重新核价→返回成本测算（防长期沿用过期低价）。"@zh .
+semi:SalesOrder a owl:Class ; rdfs:subClassOf semi:SalesArtifact ;
+  rdfs:label "销售订单"@zh, "Sales order"@en ;
+  rdfs:comment "信用检查三处触发律：订单创建/交货创建/发货过账(PGI) 三点均查信用敞口。"@zh .
+semi:SalesOrderItem a owl:Class ; rdfs:subClassOf semi:SalesArtifact ;
+  rdfs:label "销售订单行"@zh, "Sales order item"@en .
+semi:DeliveryDocument a owl:Class ; rdfs:subClassOf semi:SalesArtifact ;
+  rdfs:label "交货单"@zh, "Delivery document"@en .
+semi:BillingDocument a owl:Class ; rdfs:subClassOf semi:SalesArtifact ;
+  rdfs:label "发票/开票凭证"@zh, "Billing document"@en ;
+  rdfs:comment "发货后依发货单开票：确认主营业务收入 + 计提销项税，生成应收未清项。"@zh .
+semi:CreditManagement a owl:Class ; rdfs:subClassOf semi:SalesArtifact ;
+  rdfs:label "信用管理"@zh, "Credit management"@en .
+semi:PricingCondition a owl:Class ; rdfs:subClassOf semi:SalesArtifact ;
+  rdfs:label "定价条件"@zh, "Pricing condition"@en ;
+  rdfs:comment "条件技术：条件类型→存取顺序→条件记录→定价过程。PR00基础价、阶梯价、客户/物料折扣、价格保护、NRE。"@zh .
+semi:AccountsReceivable a owl:Class ; rdfs:subClassOf semi:SalesArtifact ;
+  rdfs:label "应收账款"@zh, "Accounts receivable"@en ;
+  rdfs:comment "开票过账自动生成客户未清项；收款按发票逐笔核销（清账）后转为已结清。"@zh .
+semi:ContractLiability a owl:Class ; rdfs:subClassOf semi:SalesArtifact ;
+  rdfs:label "合同负债"@zh, "Contract liability"@en ;
+  rdfs:comment "产能保证金/预收款客户未取得可明确区分权利→计合同负债，按 wafer 实际提货逐步转收入（防已收款未确认收入挂账）。"@zh .
+semi:RevenueRecognitionKey a owl:Class ; rdfs:subClassOf semi:SalesArtifact ;
+  rdfs:label "收入确认键"@zh, "Revenue recognition key"@en ;
+  rdfs:comment "把会计政策固化到主数据；决定是否交 RAR/EBRR 及确认方法。NRE/掩膜/产能保证金/工程批/IP授权五类非标收入强制走 RAR，单独收入科目族。"@zh .
+semi:QuantityContract a owl:Class ; rdfs:subClassOf semi:SalesArtifact ;
+  rdfs:label "数量合同"@zh, "Quantity contract"@en ;
+  rdfs:comment "长期协议/产能预约：数量合同+计划协议+客户预测固化；含 Take-or-Pay 与产能保证金条款。"@zh .
+
+# ---- 动作（事件，只挂 Event） -----------------------------------------------
+semi:GoodsIssueEvent a owl:Class ; rdfs:subClassOf semi:Event ;
+  rdfs:label "发货过账事件"@zh, "Goods issue (PGI) event"@en ;
+  rdfs:comment "O2C 关键账务分界点：借记销售成本、贷记存货；库存实质减少、物权风险转移。"@zh .
+semi:RevenueRecognitionEvent a owl:Class ; rdfs:subClassOf semi:Event ;
+  rdfs:label "收入确认事件"@zh, "Revenue recognition event"@en ;
+  rdfs:comment "控制权转移时点/分期确认；标准产品时点确认，OSAT tolling/NRE/合同负债各异。"@zh .
+semi:ClearingEvent a owl:Class ; rdfs:subClassOf semi:Event ;
+  rdfs:label "清账事件"@zh, "Clearing event"@en ;
+  rdfs:comment "银行到款与应收未清项逐笔核销；清账后应收转为已结清，资金链闭环。"@zh .
+
+# ---- 关系（指向另一实体；含跨模块桥接到 material-product / erp-financial） -----
+semi:quotationForCustomer a owl:ObjectProperty ;
+  rdfs:label "报价面向客户"@zh ;
+  rdfs:domain semi:Quotation ; rdfs:range semi:BusinessPartner .
+semi:orderFromQuotation a owl:ObjectProperty ;
+  rdfs:label "订单源自报价"@zh ;
+  rdfs:domain semi:SalesOrder ; rdfs:range semi:Quotation .
+semi:orderForCustomer a owl:ObjectProperty ;
+  rdfs:label "订单客户"@zh ;
+  rdfs:domain semi:SalesOrder ; rdfs:range semi:BusinessPartner .
+semi:hasOrderItem a owl:ObjectProperty ;
+  rdfs:label "含订单行"@zh ;
+  rdfs:domain semi:SalesOrder ; rdfs:range semi:SalesOrderItem .
+semi:orderItemForProduct a owl:ObjectProperty ;
+  rdfs:label "订单行对应产品"@zh ;
+  rdfs:domain semi:SalesOrderItem ; rdfs:range semi:Product .
+semi:orderItemRevRecKey a owl:ObjectProperty ;
+  rdfs:label "订单行收入确认键"@zh ;
+  rdfs:domain semi:SalesOrderItem ; rdfs:range semi:RevenueRecognitionKey .
+semi:deliveryForOrder a owl:ObjectProperty ;
+  rdfs:label "交货对应订单"@zh ;
+  rdfs:domain semi:DeliveryDocument ; rdfs:range semi:SalesOrder .
+semi:billingForDelivery a owl:ObjectProperty ;
+  rdfs:label "开票对应交货"@zh ;
+  rdfs:domain semi:BillingDocument ; rdfs:range semi:DeliveryDocument .
+semi:pricedByCondition a owl:ObjectProperty ;
+  rdfs:label "由定价条件计价"@zh ;
+  rdfs:domain semi:SalesOrderItem ; rdfs:range semi:PricingCondition .
+semi:orderUnderCreditCheck a owl:ObjectProperty ;
+  rdfs:label "订单受信用管控"@zh ;
+  rdfs:domain semi:SalesOrder ; rdfs:range semi:CreditManagement .
+semi:generatesReceivable a owl:ObjectProperty ;
+  rdfs:label "生成应收"@zh ;
+  rdfs:domain semi:BillingDocument ; rdfs:range semi:AccountsReceivable .
+semi:billingUsesTax a owl:ObjectProperty ;
+  rdfs:label "开票采用税码"@zh ;
+  rdfs:domain semi:BillingDocument ; rdfs:range semi:TaxCode .
+semi:billingInPeriod a owl:ObjectProperty ;
+  rdfs:label "开票归属会计期间"@zh ;
+  rdfs:domain semi:BillingDocument ; rdfs:range semi:FiscalPeriod .
+semi:receivableSettledToBank a owl:ObjectProperty ;
+  rdfs:label "应收结算至银行账户"@zh ;
+  rdfs:domain semi:AccountsReceivable ; rdfs:range semi:BankAccount .
+semi:contractLiabilityPostsTo a owl:ObjectProperty ;
+  rdfs:label "合同负债过账科目"@zh ;
+  rdfs:domain semi:ContractLiability ; rdfs:range semi:GLAccount .
+# 事件→单据/账务对象（跨互斥顶层合法：主语事件、宾语信息）
+semi:issuesDelivery a owl:ObjectProperty ;
+  rdfs:label "发货事件出货交货单"@zh ;
+  rdfs:domain semi:GoodsIssueEvent ; rdfs:range semi:DeliveryDocument .
+semi:recognizesForBilling a owl:ObjectProperty ;
+  rdfs:label "收入确认对应发票"@zh ;
+  rdfs:domain semi:RevenueRecognitionEvent ; rdfs:range semi:BillingDocument .
+semi:clearsReceivable a owl:ObjectProperty ;
+  rdfs:label "清账核销应收"@zh ;
+  rdfs:domain semi:ClearingEvent ; rdfs:range semi:AccountsReceivable .
+# O2C 账务衔接到 FI：发货过账落会计凭证
+semi:postsAccountingDocument a owl:ObjectProperty ;
+  rdfs:label "过账生成会计凭证"@zh ;
+  rdfs:domain semi:GoodsIssueEvent ; rdfs:range semi:AccountingDocument .
+
+# ---- 属性 ------------------------------------------------------------------
+semi:orderNumber a owl:DatatypeProperty ; rdfs:domain semi:SalesOrder ; rdfs:range xsd:string .
+semi:orderType a owl:DatatypeProperty ; rdfs:domain semi:SalesOrder ; rdfs:range xsd:string ;
+  rdfs:comment "标准/寄售补货/退货/借贷备忘录/现金；OSAT 常用服务型订单、Foundry 以 MTO 为主。"@zh .
+semi:quotationValidTo a owl:DatatypeProperty ; rdfs:domain semi:Quotation ; rdfs:range xsd:dateTime .
+semi:pricingUnit a owl:DatatypeProperty ; rdfs:domain semi:PricingCondition ; rdfs:range xsd:string ;
+  rdfs:comment "计价颗粒度：wafer 按片、NRE 按工程服务、封装形态（Bump/WLCSP/FCBGA/2.5D/3D）分别定价。"@zh .
+semi:creditLimit a owl:DatatypeProperty ; rdfs:domain semi:CreditManagement ; rdfs:range xsd:decimal .
+semi:creditExposure a owl:DatatypeProperty ; rdfs:domain semi:CreditManagement ; rdfs:range xsd:decimal .
+semi:revRecMethod a owl:DatatypeProperty ; rdfs:domain semi:RevenueRecognitionKey ; rdfs:range xsd:string ;
+  rdfs:comment "point_in_time / over_time / milestone / contract_liability。"@zh .
+semi:receivableStatus a owl:DatatypeProperty ; rdfs:domain semi:AccountsReceivable ; rdfs:range xsd:string ;
+  rdfs:comment "open / cleared（未清/已结清）。"@zh .
+semi:billingType a owl:DatatypeProperty ; rdfs:domain semi:BillingDocument ; rdfs:range xsd:string ;
+  rdfs:comment "标准发票/发票清单/里程碑开票预收/公司间开票/借贷项备忘录。"@zh .

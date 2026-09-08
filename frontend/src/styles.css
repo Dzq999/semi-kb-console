@@ -79,6 +79,45 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .metric-support-row { display: flex; align-items: center; gap: 10px; }
 .metric-support-row .metric-card { flex: 0 0 190px; }
 .metric-support-row > span { color: #708097; font-size: 10px; }
+/* 来源系统级联"地基"：一级系统 chip 概览 + 可展开层级下钻 */
+.cascade-summary { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.cascade-chip { display: flex; align-items: baseline; gap: 6px; padding: 7px 11px; border: 1px solid #dce5ee; border-radius: 8px; background: #f7fafd; }
+.cascade-chip > span { color: #536378; font-size: 11px; }
+.cascade-chip > strong { font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; color: #1c2b3d; }
+.cascade-chip > small { color: #2864dc; font-size: 10px; font-variant-numeric: tabular-nums; }
+.cascade-list { display: flex; flex-direction: column; gap: 6px; }
+.cascade-system { border: 1px solid #dce5ee; border-radius: 9px; background: white; overflow: hidden; }
+.cascade-head { width: 100%; display: flex; align-items: center; gap: 9px; padding: 10px 12px; background: none; border: none; cursor: pointer; text-align: left; }
+.cascade-head:hover { background: #f7fafd; }
+.cascade-caret { color: #8796aa; flex: 0 0 auto; transition: transform .15s ease; }
+.cascade-system.open .cascade-caret { transform: rotate(90deg); }
+.cascade-sys-label { font-size: 13px; font-weight: 600; color: #1c2b3d; }
+.cascade-sys-meta { color: #8796aa; font-size: 10px; flex: 1; }
+.cascade-sys-total { font-size: 17px; font-weight: 600; font-variant-numeric: tabular-nums; color: #2864dc; }
+.cascade-body { padding: 4px 14px 14px 37px; display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 18px; border-top: 1px solid #eef3f8; }
+.cascade-block-title { display: block; color: #708097; font-size: 10px; margin: 10px 0 8px; }
+.cascade-seg { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.cascade-seg-label { flex: 0 0 92px; color: #536378; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cascade-bar { flex: 1; height: 7px; border-radius: 4px; background: #eef3f8; overflow: hidden; }
+.cascade-bar > i { display: block; height: 100%; background: #2864dc; border-radius: 4px; }
+.cascade-seg-val { flex: 0 0 auto; font-size: 11px; color: #1c2b3d; font-variant-numeric: tabular-nums; }
+.cascade-empty { color: #8796aa; font-size: 11px; }
+.cascade-modules { display: flex; flex-direction: column; gap: 5px; }
+.cascade-module { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 4px 0; border-bottom: 1px dashed #eef3f8; }
+.cascade-mod-label { color: #1c2b3d; font-size: 11px; }
+.cascade-mod-stat { color: #708097; font-size: 10px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* 指标视角切换（制造/MES vs ERP/SAP，只作用于计数类卡片） */
+.metrics-facet { display: flex; flex-direction: column; gap: 10px; }
+.facet-tabs { display: inline-flex; gap: 4px; padding: 3px; border: 1px solid #dce5ee; border-radius: 9px; background: #f3f6fa; width: fit-content; }
+.facet-tab { min-height: 28px; padding: 0 12px; border: 0; border-radius: 7px; color: #708097; background: transparent; font-size: 11px; cursor: pointer; transition: .14s ease; }
+.facet-tab:hover { color: #263448; }
+.facet-tab.active { color: #15325e; background: white; box-shadow: 0 2px 6px rgba(25,53,86,.08); font-weight: 600; }
+.facet-note { color: #708097; font-size: 10px; line-height: 1.5; }
+
+/* 导出来源系统范围选择器 */
+.export-inline { display: inline-flex; align-items: center; gap: 6px; }
+.export-scope { min-height: 34px; padding: 0 10px; border: 1px solid #d8e2ec; border-radius: 8px; color: #263448; background: white; font-size: 11px; cursor: pointer; }
 .dashboard-grid { display: grid; grid-template-columns: minmax(0,1.7fr) minmax(240px,.65fr); gap: 12px; }
 .pipeline { padding: 20px 12px 13px; display: grid; grid-template-columns: repeat(8,minmax(60px,1fr)); position: relative; }
 .pipeline::before { content: ""; position: absolute; top: 36px; left: 7%; right: 7%; height: 2px; background: #dce5ee; }
@@ -428,6 +467,7 @@ code { color: #31557f; font-family: Consolas, monospace; font-size: 9px; }
   .config-grid, .settings-grid, .catalog-grid, .loop-config, .article-stats { grid-template-columns: 1fr; }
   .metric-support-row { align-items: stretch; flex-direction: column; }
   .metric-support-row .metric-card { flex-basis: auto; }
+  .cascade-body { grid-template-columns: 1fr; gap: 4px; padding-left: 14px; }
   .credential-row { grid-template-columns: 1fr; }
 }
 @media (prefers-reduced-motion: reduce) {

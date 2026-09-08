@@ -1,5 +1,53 @@
 # SEMI-KB Console 项目迁移指南 — macOS
 
+> **交接方式说明**：本次通过压缩包 `semi-kb-console-handoff.tar.gz` 交接，采用 **方案 A（全新启动）**。
+> 压缩包已剔除虚拟环境、node_modules、Git 历史、控制台数据库和加密密钥，只保留源码 + 完整知识库（`data/engine`）。
+> 新电脑首次启动会自动生成新的加密密钥、自动新建控制台数据库，**无需迁移原电脑的 PostgreSQL 数据**。
+> 知识库内容（本体 / 经营模型 / 仿真 / 知识文章）已随 `data/engine` 一并带过来，开箱即用。
+
+---
+
+## 〇、快速上手（方案 A · 压缩包全新启动，推荐先读这段）
+
+> 已装好 Python 3.10+ / Node 18+ / PostgreSQL 14+ 的话，按下面 7 步即可跑起来；
+> 每一步的细节和排错见后文对应章节。
+
+```bash
+# 1) 解压到用户目录（不要放系统目录）
+mkdir -p ~/Projects && tar -xzf ~/Downloads/semi-kb-console-handoff.tar.gz -C ~/Projects
+cd ~/Projects/semi-kb-console
+
+# 2) 建库建用户（详见「二、数据库准备」）
+psql postgres -c "CREATE USER semi_kb_console WITH PASSWORD 'your_secure_password';"
+psql postgres -c "CREATE DATABASE semi_kb_console OWNER semi_kb_console;"
+
+# 3) 把数据库密码写进 shell 环境变量（zsh 为例）
+echo 'export SEMI_KB_DB_PASSWORD="your_secure_password"' >> ~/.zshrc && source ~/.zshrc
+
+# 4) 生成 .env（用示例模板，密码走环境变量，不写进文件）
+cp .env.example .env
+
+# 5) 脚本加执行权限
+chmod +x scripts/*.sh
+
+# 6) 初始化 PostgreSQL（建表结构）—— 方案 A 不恢复任何备份，全新空库
+./scripts/migrate-postgres.sh
+
+# 7) 启动前后端（首次会自动建 .venv、装依赖，耗时几分钟）
+./scripts/dev.sh
+```
+
+启动后打开 http://127.0.0.1:5173 ，首次进入 → 创建管理员账号 → 进「系统设置」录入 Anthropic API Key（问答/编排必需）。
+
+**方案 A 的三个"不需要"**：
+- **不需要** `./scripts/migrate-engine.sh`：知识库 `data/engine` 已在压缩包里，跑它反而会用 `engine-seed` 覆盖。
+- **不需要**迁移原电脑数据库：管理员账号、系统设置、任务记录都在新机重新建立。
+- **不需要**原电脑的 `data/.master.key`：首次启动自动生成新密钥；因为没有旧的加密凭据要解，全新录入即可。
+
+> 想连原电脑的历史控制台数据（用户/设置/任务记录）？那属于 **方案 B**，需另外用 `pg_dump` 导出再恢复，并把原 `data/.master.key` 一起带过来。见「七、备份与恢复」。
+
+---
+
 ## 一、环境要求
 
 ### 必需软件

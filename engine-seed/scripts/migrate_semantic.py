@@ -14,7 +14,7 @@ from urllib.parse import quote
 
 try:
     import yaml  # noqa: F401  # common.py 的明确运行依赖
-    from rdflib import BNode, Dataset, Literal, Namespace, RDF, RDFS, URIRef
+    from rdflib import BNode, Dataset, Graph, Literal, Namespace, RDF, RDFS, URIRef
     from rdflib.namespace import PROV, SKOS, XSD
 except ModuleNotFoundError as exc:
     print(
@@ -47,6 +47,38 @@ TYPE_MAP = {
     "Action": SEMI.Action,
     "Route": SEMI.Route,
     "RiskNode": SEMI.RiskNode,
+    # ERP 财务会计域（erp-financial）
+    "CompanyCode": SEMI.CompanyCode,
+    "ChartOfAccounts": SEMI.ChartOfAccounts,
+    "GLAccount": SEMI.GLAccount,
+    "AccountingDocument": SEMI.AccountingDocument,
+    "JournalLineItem": SEMI.JournalLineItem,
+    "CostCenter": SEMI.CostCenter,
+    "ProfitCenter": SEMI.ProfitCenter,
+    "BusinessPartner": SEMI.BusinessPartner,
+    "FixedAsset": SEMI.FixedAsset,
+    "BankAccount": SEMI.BankAccount,
+    "TaxCode": SEMI.TaxCode,
+    "FiscalPeriod": SEMI.FiscalPeriod,
+    "AccountBalance": SEMI.AccountBalance,
+    "LedgerSubsystem": SEMI.LedgerSubsystem,
+    "PostingEvent": SEMI.PostingEvent,
+    "CarryForwardEvent": SEMI.CarryForwardEvent,
+    # ERP 订单到收款域（erp-sales-o2c）
+    "Quotation": SEMI.Quotation,
+    "SalesOrder": SEMI.SalesOrder,
+    "SalesOrderItem": SEMI.SalesOrderItem,
+    "DeliveryDocument": SEMI.DeliveryDocument,
+    "BillingDocument": SEMI.BillingDocument,
+    "CreditManagement": SEMI.CreditManagement,
+    "PricingCondition": SEMI.PricingCondition,
+    "AccountsReceivable": SEMI.AccountsReceivable,
+    "ContractLiability": SEMI.ContractLiability,
+    "RevenueRecognitionKey": SEMI.RevenueRecognitionKey,
+    "QuantityContract": SEMI.QuantityContract,
+    "GoodsIssueEvent": SEMI.GoodsIssueEvent,
+    "RevenueRecognitionEvent": SEMI.RevenueRecognitionEvent,
+    "ClearingEvent": SEMI.ClearingEvent,
 }
 
 RELATION_MAP = {
@@ -61,6 +93,40 @@ RELATION_MAP = {
     "blocks": SEMI.blocks,
     "refines": SKOS.broader,
     "analogous_to": SEMI.analogousTo,
+    # ERP 财务/O2C 关系（未列出的 type 自动落 iri("relation", type)，此处只登记语义已建模的桥接边）
+    "uses_chart_of_accounts": SEMI.usesChartOfAccounts,
+    "account_in_chart": SEMI.accountInChart,
+    "parent_account": SEMI.parentAccount,
+    "has_line_item": SEMI.hasLineItem,
+    "line_item_account": SEMI.lineItemAccount,
+    "document_in_company_code": SEMI.documentInCompanyCode,
+    "document_in_period": SEMI.documentInPeriod,
+    "document_for_partner": SEMI.documentForPartner,
+    "reversal_of": SEMI.reversalOf,
+    "allocates_to_cost_center": SEMI.allocatesToCostCenter,
+    "cost_center_in_profit_center": SEMI.costCenterInProfitCenter,
+    "carries_forward_to": SEMI.carriesForwardTo,
+    "posts_document": SEMI.postsDocument,
+    "quotation_for_customer": SEMI.quotationForCustomer,
+    "order_from_quotation": SEMI.orderFromQuotation,
+    "order_for_customer": SEMI.orderForCustomer,
+    "has_order_item": SEMI.hasOrderItem,
+    "order_item_for_product": SEMI.orderItemForProduct,
+    "order_item_rev_rec_key": SEMI.orderItemRevRecKey,
+    "delivery_for_order": SEMI.deliveryForOrder,
+    "billing_for_delivery": SEMI.billingForDelivery,
+    "priced_by_condition": SEMI.pricedByCondition,
+    "order_under_credit_check": SEMI.orderUnderCreditCheck,
+    "generates_receivable": SEMI.generatesReceivable,
+    "billing_uses_tax": SEMI.billingUsesTax,
+    "billing_in_period": SEMI.billingInPeriod,
+    "receivable_settled_to_bank": SEMI.receivableSettledToBank,
+    "outsources_to_vendor": SEMI.outsourcesToVendor,
+    "contract_liability_posts_to": SEMI.contractLiabilityPostsTo,
+    "issues_delivery": SEMI.issuesDelivery,
+    "recognizes_for_billing": SEMI.recognizesForBilling,
+    "clears_receivable": SEMI.clearsReceivable,
+    "posts_accounting_document": SEMI.postsAccountingDocument,
 }
 
 
@@ -70,6 +136,20 @@ def iri(kind: str, identifier: str) -> URIRef:
 
 def semantic_ref(value: str) -> URIRef:
     return URIRef(value) if value.startswith("urn:pxai:semi:") else iri("catalog", value)
+
+
+def split_instances_provenance(dataset: Dataset) -> tuple[Graph, Graph]:
+    """按【节点类型】把数据集拆成 (纯实例图, 溯源图)。
+
+    prov:Entity / rdf:Statement 主语的全部三元组归溯源图，其余归实例图。按类型而非
+    命名图判定，故无论溯源落在哪个图都能统一捕获（含 changeset 落在 SEMANTIC_ABOX_GRAPH
+    的溯源），也能把历史混入实例投影的溯源一次性扫出（自愈）；对已分离输入再跑幂等。"""
+    prov_subjects = {s for s, _, o, _ in dataset.quads((None, RDF.type, None, None))
+                     if o in (PROV.Entity, RDF.Statement)}
+    merged, provenance = Graph(), Graph()
+    for s, p, o, _ in dataset.quads((None, None, None, None)):
+        (provenance if s in prov_subjects else merged).add((s, p, o))
+    return merged, provenance
 
 
 def add_text(graph, subject: URIRef | BNode, predicate: URIRef, value, lang=None) -> None:
@@ -89,6 +169,7 @@ def add_provenance(dataset: Dataset, subject: URIRef | BNode, provenance: dict, 
 
 
 def migrate_entity(dataset: Dataset, entity: dict) -> URIRef:
+    global _migrate_entity_debug_counter
     graph = dataset.graph(CATALOG_GRAPH)
     subject = iri("catalog", entity["id"])
     graph.add((subject, RDF.type, TYPE_MAP.get(entity.get("type"), SEMI.CatalogConcept)))
@@ -102,6 +183,16 @@ def migrate_entity(dataset: Dataset, entity: dict) -> URIRef:
     add_text(graph, subject, SEMI.severity, entity.get("severity"))
     for alias in entity.get("aliases") or []:
         add_text(graph, subject, SKOS.altLabel, alias)
+    # 把 attributes 字典中的键值对编译为 datatype property 断言（如 processSegment）
+    attrs = entity.get("attributes") or {}
+    # DEBUG: 检查 fab.stage.diffusion 是否有 processSegment
+    if entity["id"] == "fab.stage.diffusion":
+        print(f"DEBUG [fab.stage.diffusion]: attributes={attrs}, processSegment={attrs.get('processSegment')}")
+    for key, value in attrs.items():
+        if value is not None and str(value).strip():
+            graph.add((subject, SEMI[key], Literal(str(value))))
+            if entity["id"] == "fab.stage.diffusion" and key == "processSegment":
+                print(f"  ✓ Added processSegment={value} to {entity['id']}")
     add_provenance(dataset, subject, entity.get("provenance") or {}, entity.get("_file", ""))
     return subject
 
@@ -300,13 +391,29 @@ def main() -> int:
     business_model_count, simulation_scenario_count = migrate_business_simulation(dataset)
     abox_graph = dataset.graph(SEMANTIC_ABOX_GRAPH)
     abox_before = len(abox_graph)
-    for path in sorted((C.ROOT / "knowledge" / "semantic").glob("*.ttl")):
+    semantic_dir = C.ROOT / "knowledge" / "semantic"
+    provenance_ttl = semantic_dir / "provenance.ttl"
+    for path in sorted(semantic_dir.glob("*.ttl")):
+        if path.name == "provenance.ttl":
+            continue  # 溯源单独读入 PROVENANCE_GRAPH，不混进实例 abox
         abox_graph.parse(path, format="turtle")
     semantic_abox_triples = len(abox_graph) - abox_before
+    # 保住上一轮分离出的 changeset 溯源：读回 PROVENANCE_GRAPH，跨轮不丢、且回到正确的图身份
+    if provenance_ttl.is_file():
+        dataset.graph(PROVENANCE_GRAPH).parse(provenance_ttl, format="turtle")
 
     out = C.ROOT / "build" / "semantic" / "current.trig"
     out.parent.mkdir(parents=True, exist_ok=True)
     dataset.serialize(destination=out, format="trig", encoding="utf-8")
+
+    # 溯源分离：把 prov:Entity / rdf:Statement 记账节点从实例投影中剥离，current.ttl 只留
+    # 真实实例，溯源单独落 provenance.ttl。逻辑见 split_instances_provenance（按类型分离，
+    # 首轮自愈历史混入、再跑幂等）。current.trig 全量权威 Dataset 已在上方写出，保持不变。
+    merged, provenance = split_instances_provenance(dataset)
+    semantic_dir.mkdir(parents=True, exist_ok=True)
+    merged.serialize(destination=semantic_dir / "current.ttl", format="turtle", encoding="utf-8")
+    provenance.serialize(destination=provenance_ttl, format="turtle", encoding="utf-8")
+
     report = {
         "status": "pass",
         "generated_at": datetime.now(timezone.utc).isoformat(),

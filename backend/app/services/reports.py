@@ -21,9 +21,6 @@ METRIC_LABELS = [
     ("properties", "属性 Property"),
     ("relations", "关系 Relation"),
     ("individuals", "实例 Individual"),
-    ("segment_fab", "实例 · 前段厂 (fab)"),
-    ("segment_ap", "实例 · 后段厂 (ap)"),
-    ("segment_cross", "实例 · 跨段通用"),
     ("axioms", "公理 Axiom"),
     ("rules", "推理规则 Rule"),
     ("knowledge_entries", "知识条目"),
@@ -295,7 +292,12 @@ def fixed_metrics_markdown(snapshot: dict) -> str:
         knowledge = int(totals.get("individuals_knowledge", 0))
         operational = int(totals.get("individuals_operational", 0))
         untagged = int(totals.get("individuals_untagged", 0))
-        lines.append(f"\n**注**：实例统计基于12个策展模块（{domain:,}个），按来源分类：知识实例 {knowledge:,}、产线数据 {operational:,}、未标注 {untagged:,}。")
+        lines.append(f"\n**注**：实例统计基于14个策展模块（{domain:,}个），按来源分类：知识实例 {knowledge:,}、产线数据 {operational:,}、未标注 {untagged:,}。")
+        # 级联"地基"脚注：源系统(sourceSystem)为一级维度，制造侧再按工艺段(processSegment)细分
+        manufacturing = int(totals.get("system_manufacturing", 0))
+        erp = int(totals.get("system_erp", 0))
+        if manufacturing or erp:
+            lines.append(f"**级联**：按源系统一级维度——制造/MES {manufacturing:,}、ERP(SAP FI+SD) {erp:,}；制造侧再按前段/后段工艺段细分。")
     # 『质量与验证』小节已按需求移除：门禁与来源对齐信息统一在『交叉验证结果』小节呈现，不再重复。
     lines.extend(["", _cross_validation_section(snapshot)])
     # 『本体领域覆盖』紧随交叉验证之后、明日计划之前；无数据时 section 返回空串即跳过。

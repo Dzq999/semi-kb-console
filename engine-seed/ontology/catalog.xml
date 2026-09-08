@@ -13,5 +13,7 @@
   <uri name="urn:pxai:semi:capacity-performance" uri="modules/capacity-performance.ttl"/>
   <uri name="urn:pxai:semi:business-simulation" uri="modules/business-simulation.ttl"/>
   <uri name="urn:pxai:semi:application-scenario" uri="modules/application-scenario.ttl"/>
+  <uri name="urn:pxai:semi:erp-financial" uri="modules/erp-financial.ttl"/>
+  <uri name="urn:pxai:semi:erp-sales-o2c" uri="modules/erp-sales-o2c.ttl"/>
   <uri name="urn:pxai:semi:generated-schema" uri="modules/generated.ttl"/>
 </catalog>

@@ -34,13 +34,17 @@ def _files(kind: str) -> list[Path]:
     return sorted(files)
 
 
-def _filter_semantic_ttl(source_path: Path, filtered: bool) -> bytes:
+def _filter_semantic_ttl(source_path: Path, filtered: bool, scope: str = "all") -> bytes:
     """过滤语义 TTL 文件，只保留有用的个体。
 
     filtered=True: 只保留策展领域模块的个体，删除噪声（owl:*、RDF.Statement、prov:Entity）和非策展模块个体
     filtered=False: 返回原始内容
 
-    策展模块个体：rdf:type 能归属到 12 个专业领域模块的实例（EQP、FAC、MAT 等）——归属经 subClassOf
+    scope（仅 filtered=True 时生效，源系统一级维度子图）：
+      "all"（默认）保留全部策展模块个体；"manufacturing" 只保留制造/MES 模块个体；
+      "erp" 只保留 ERP/SAP 模块个体。经 类→模块→源系统 两跳判定，与读侧级联同口径。
+
+    策展模块个体：rdf:type 能归属到策略领域模块的实例（EQP、FAC、MAT、ERP 等）——归属经 subClassOf
     祖先增强（generated/common 里声明、但上溯可达某策展领域根的类亦计入），排除业务推理层和系统元数据。
     """
     if not filtered or not source_path.name.endswith('.ttl'):
@@ -58,6 +62,9 @@ def _filter_semantic_ttl(source_path: Path, filtered: bool) -> bytes:
         # 噪声类型：与 semi_kb 头部计数/领域拆分共用同一口径
         noise_types = semi_kb._INSTANCE_NOISE_TYPES
 
+        # scope→允许的模块集合（None=全部策展模块）；源系统一级维度子图
+        allowed_modules = semi_kb._SOURCE_SYSTEM_MODULES.get(scope) if scope in semi_kb._SOURCE_SYSTEM_MODULES else None
+
         # 找出策展模块个体
         curated_individuals = set()
         for s, _, o in data.triples((None, RDF.type, None)):
@@ -65,6 +72,8 @@ def _filter_semantic_ttl(source_path: Path, filtered: bool) -> bytes:
                 continue
             module = class_to_module.get(o)
             if module and module in semi_kb._DOMAIN_MODULE_LABELS:
+                if allowed_modules is not None and module not in allowed_modules:
+                    continue
                 curated_individuals.add(s)
 
         # 创建过滤后的图
@@ -102,7 +111,9 @@ async def create_export(db: Session, job: ExportJob) -> None:
     db.commit()
 
     filtered = job.filtered if hasattr(job, 'filtered') else True  # 默认精简导出
-    suffix = f"-{job.kind}-filtered" if filtered else f"-{job.kind}"
+    scope = getattr(job, "scope", None) or "all"  # 源系统子图：all/manufacturing/erp
+    scope_tag = "" if scope == "all" else f"-{scope}"
+    suffix = f"-{job.kind}-filtered{scope_tag}" if filtered else f"-{job.kind}"
     target = settings.data_dir / "artifacts" / f"{job.id}{suffix}.zip"
 
     try:
@@ -125,6 +136,7 @@ async def create_export(db: Session, job: ExportJob) -> None:
             "created_at": datetime.now(timezone.utc).isoformat(),
             "kind": job.kind,
             "filtered": filtered,
+            "scope": scope,
             "files": []
         }
 
@@ -136,7 +148,7 @@ async def create_export(db: Session, job: ExportJob) -> None:
 
             # 对语义 TTL 文件应用过滤
             if filtered and 'knowledge/semantic' in archive_name and archive_name.endswith('.ttl'):
-                data = await asyncio.to_thread(_filter_semantic_ttl, path, filtered)
+                data = await asyncio.to_thread(_filter_semantic_ttl, path, filtered, scope)
             else:
                 data = await asyncio.to_thread(path.read_bytes)
 
