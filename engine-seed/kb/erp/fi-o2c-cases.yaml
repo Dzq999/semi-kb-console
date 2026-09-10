@@ -1,0 +1,85 @@
+# 知识库实例 · ERP 月结对账（FI）与订单到收款（SD/O2C）类异常处置
+# 通用 ERP/SAP 财务知识（model_prior），非本厂现场实测；归"知识"层，不点亮产线口径。
+default_provenance:
+  source_type: model_prior
+  ref: null
+  confidence: medium
+  created_at: "2026-09-10"
+  reviewed_by: null
+
+cases:
+  - id: kb.erp.gr_ir_mismatch_triage
+    domain: erp
+    title: GR/IR 暂估对账失败排查与清理
+    anomaly_ref: erp.anomaly.gr_ir_mismatch
+    severity: medium
+    symptoms:
+      - 月结时 GR/IR 暂估科目余额无法清零
+      - 存在已收货未开票或已开票未收货的挂账项
+      - 或价格/数量差异导致自动清账失败
+    possible_causes:
+      - cause_ref: erp.cause.invoice_not_received
+        likelihood: high
+        discriminator: >
+          挂账项为"已收货未开票"，采购订单已收货但供应商发票未到。查 GR/IR 明细的收货/发票
+          两侧余额——单边(仅收货)挂账即发票未达型，属时间差，催票流程可解，非差错。
+      - cause_ref: erp.cause.po_invoice_discrepancy
+        likelihood: medium
+        discriminator: >
+          收货与发票都在但金额/数量不符，系统挂起无法自动清。核对采购订单价、收货数量、
+          发票金额三者——两侧都有却清不掉，即差异型，需采购与应付协同处理。
+    detection:
+      - metric_ref: erp.metric.gr_ir_balance
+        signal: GR/IR 科目余额与账龄，按单边挂账/双边差异分层
+    actions:
+      - action_ref: erp.action.clear_gr_ir
+        order: 1
+        condition: >
+          发票未达型走催票后匹配清账；差异型人工核销或退回采购处理。长期挂账须专项清理，
+          否则月结反复受阻。
+    impact:
+      economic: >
+        GR/IR 未清直接卡住月结，是期末结账最常见的对账阻塞点。长期挂账还会虚增或虚减应付、
+        扭曲负债准确性，掩盖采购与应付流程的断点。
+    tags: [月结, GR/IR, 对账, FI, 排查]
+    notes: >
+      判别核心：单边挂账(发票未达，时间差)还是双边差异(价格/数量不符，需协同)。
+      看 GR/IR 明细两侧余额是否成对即可分流，处置路径完全不同。
+
+  - id: kb.erp.billing_block_triage
+    domain: erp
+    title: 开票冻结/信用超限排查与释放
+    anomaly_ref: erp.anomaly.billing_block
+    severity: medium
+    symptoms:
+      - 销售订单无法开票放行
+      - 订单带信用冻结或开票冻结标记
+      - 或交货尚未过账（PGI 未做）
+    possible_causes:
+      - cause_ref: erp.cause.credit_limit_exceeded
+        likelihood: high
+        discriminator: >
+          订单带信用冻结标记，客户未清应收+在途订单超授信额度。查客户信用敞口与额度——
+          敞口超限是信用管理自动冻结的签名，需信用侧介入，非物流问题。
+      - cause_ref: erp.cause.delivery_not_posted
+        likelihood: medium
+        discriminator: >
+          订单无信用冻结但交货单 PGI 未过账，货权未转移不能开票。查交货单状态——
+          物流未闭环型的特征是"信用正常、卡在发货过账"，与信用冻结的区分在单据状态。
+    detection:
+      - metric_ref: erp.metric.credit_exposure
+        signal: 客户信用敞口对授信额度的占用率，以及订单的冻结标记类型
+    actions:
+      - action_ref: erp.action.credit_review_release
+        order: 1
+        condition: >
+          信用超限型：复核授信、收款回补或审批提额后释放，释放前须评估坏账风险不可无条件放行。
+          交货未过账型：先完成 PGI 再开票，不属信用问题。
+    impact:
+      economic: >
+        开票受阻推迟收入确认与回款，直接拉长 DSO、占用营运资金。信用冻结型若无条件放行会累积
+        坏账风险，交货未过账型则是物流与开票流程脱节。
+    tags: [O2C, 开票, 信用管理, SD, 排查]
+    notes: >
+      先看订单冻结标记类型：信用冻结(敞口超限，信用侧处理)还是缺 PGI(物流未闭环，先发货)。
+      单据状态一看即分流，不要把物流问题当信用问题处理。

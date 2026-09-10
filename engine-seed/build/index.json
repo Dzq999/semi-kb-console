@@ -1,34 +1,57 @@
 {
-  "generated_at": "2026-08-30T18:16:40+00:00",
+  "generated_at": "2026-09-10T02:05:40+00:00",
   "meta_version": "1.0",
   "warning": "派生产物，请勿手工编辑；修改本体后重新运行 build_index.py",
   "stats": {
-    "total": 265,
-    "entities": 248,
-    "kb_cases": 17,
+    "total": 333,
+    "entities": 308,
+    "kb_cases": 25,
+    "vfab_datasets": 0,
     "by_type": {
-      "Action": 24,
-      "Anomaly": 19,
-      "Cause": 35,
+      "AccountsReceivable": 1,
+      "Action": 31,
+      "Anomaly": 25,
+      "BankAccount": 1,
+      "BillingDocument": 1,
+      "BusinessPartner": 2,
+      "Cause": 45,
+      "ChartOfAccounts": 1,
+      "CompanyCode": 1,
+      "ContractLiability": 1,
+      "CostCenter": 2,
+      "CreditManagement": 1,
+      "DeliveryDocument": 1,
       "Equipment": 35,
+      "FiscalPeriod": 1,
+      "FixedAsset": 1,
+      "GLAccount": 7,
       "Material": 8,
-      "Metric": 20,
+      "Metric": 25,
       "Parameter": 40,
-      "Playbook": 17,
+      "Playbook": 25,
+      "PricingCondition": 2,
       "Process": 45,
+      "ProfitCenter": 1,
+      "QuantityContract": 1,
+      "Quotation": 1,
+      "RevenueRecognitionKey": 2,
       "RiskNode": 1,
       "Route": 3,
+      "SalesOrder": 1,
+      "SalesOrderItem": 2,
       "Stage": 14,
-      "State": 4
+      "State": 4,
+      "TaxCode": 1
     },
     "by_domain": {
       "ap": 120,
       "core": 17,
-      "fab": 128
+      "erp": 66,
+      "fab": 130
     },
     "by_confidence": {
-      "high": 150,
-      "medium": 115
+      "high": 182,
+      "medium": 151
     }
   },
   "records": [
@@ -6267,6 +6290,1477 @@
       "file": "ontology/ap/entities/38-equipment.yaml"
     },
     {
+      "id": "erp.company.cc1000",
+      "kind": "entity",
+      "type": "CompanyCode",
+      "domain": "erp",
+      "name_zh": "公司代码 1000（晶圆制造主体）",
+      "name_en": "Company Code 1000",
+      "keywords": [
+        "公司代码 1000（晶圆制造主体）",
+        "Company Code 1000",
+        "法人主体",
+        "记账主体",
+        "Company Code",
+        "Company",
+        "Code",
+        "1000"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/erp/entities/50-financial-master.yaml"
+    },
+    {
+      "id": "erp.coa.ykint",
+      "kind": "entity",
+      "type": "ChartOfAccounts",
+      "domain": "erp",
+      "name_zh": "集团科目表 YKINT",
+      "name_en": "Chart of Accounts YKINT",
+      "keywords": [
+        "集团科目表 YKINT",
+        "Chart of Accounts YKINT",
+        "Chart",
+        "of",
+        "Accounts",
+        "YKINT"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/erp/entities/50-financial-master.yaml"
+    },
+    {
+      "id": "erp.gl.1001_cash",
+      "kind": "entity",
+      "type": "GLAccount",
+      "domain": "erp",
+      "name_zh": "库存现金（资产类）",
+      "name_en": "Cash on Hand",
+      "keywords": [
+        "库存现金（资产类）",
+        "Cash on Hand",
+        "Cash",
+        "on",
+        "Hand"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/erp/entities/50-financial-master.yaml"
+    },
+    {
+      "id": "erp.gl.1122_ar",
+      "kind": "entity",
+      "type": "GLAccount",
+      "domain": "erp",
+      "name_zh": "应收账款（资产类）",
+      "name_en": "Accounts Receivable",
+      "keywords": [
+        "应收账款（资产类）",
+        "Accounts Receivable",
+        "Accounts",
+        "Receivable"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/erp/entities/50-financial-master.yaml"
+    },
+    {
+      "id": "erp.gl.1405_inventory",
+      "kind": "entity",
+      "type": "GLAccount",
+      "domain": "erp",
+      "name_zh": "库存商品（资产类）",
+      "name_en": "Finished Goods Inventory",
+      "keywords": [
+        "库存商品（资产类）",
+        "Finished Goods Inventory",
+        "Finished",
+        "Goods",
+        "Inventory"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/erp/entities/50-financial-master.yaml"
+    },
+    {
+      "id": "erp.gl.2221_output_tax",
+      "kind": "entity",
+      "type": "GLAccount",
+      "domain": "erp",
+      "name_zh": "应交税费—销项税额（负债类）",
+      "name_en": "Output VAT Payable",
+      "keywords": [
+        "应交税费—销项税额（负债类）",
+        "Output VAT Payable",
+        "Output",
+        "VAT",
+        "Payable"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/erp/entities/50-financial-master.yaml"
+    },
+    {
+      "id": "erp.gl.6001_revenue",
+      "kind": "entity",
+      "type": "GLAccount",
+      "domain": "erp",
+      "name_zh": "主营业务收入（收入类）",
+      "name_en": "Sales Revenue",
+      "keywords": [
+        "主营业务收入（收入类）",
+        "Sales Revenue",
+        "Sales",
+        "Revenue"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/erp/entities/50-financial-master.yaml"
+    },
+    {
+      "id": "erp.gl.6401_cogs",
+      "kind": "entity",
+      "type": "GLAccount",
+      "domain": "erp",
+      "name_zh": "主营业务成本（成本类）",
+      "name_en": "Cost of Goods Sold",
+      "keywords": [
+        "主营业务成本（成本类）",
+        "Cost of Goods Sold",
+        "Cost",
+        "of",
+        "Goods",
+        "Sold"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/erp/entities/50-financial-master.yaml"
+    },
+    {
+      "id": "erp.gl.2203_contract_liab",
+      "kind": "entity",
+      "type": "GLAccount",
+      "domain": "erp",
+      "name_zh": "合同负债—预收产能保证金（负债类）",
+      "name_en": "Contract Liability",
+      "keywords": [
+        "合同负债—预收产能保证金（负债类）",
+        "Contract Liability",
+        "Contract",
+        "Liability"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/erp/entities/50-financial-master.yaml"
+    },
+    {
+      "id": "erp.costcenter.fab_photo",
+      "kind": "entity",
+      "type": "CostCenter",
+      "domain": "erp",
+      "name_zh": "成本中心—黄光区",
+      "name_en": "Cost Center Photo Bay",
+      "keywords": [
+        "成本中心—黄光区",
+        "Cost Center Photo Bay",
+        "Cost",
+        "Center",
+        "Photo",
+        "Bay"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/erp/entities/50-financial-master.yaml"
+    },
+    {
+      "id": "erp.costcenter.fab_etch",
+      "kind": "entity",
+      "type": "CostCenter",
+      "domain": "erp",
+      "name_zh": "成本中心—蚀刻区",
+      "name_en": "Cost Center Etch Bay",
+      "keywords": [
+        "成本中心—蚀刻区",
+        "Cost Center Etch Bay",
+        "Cost",
+        "Center",
+        "Etch",
+        "Bay"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/erp/entities/50-financial-master.yaml"
+    },
+    {
+      "id": "erp.profitcenter.foundry",
+      "kind": "entity",
+      "type": "ProfitCenter",
+      "domain": "erp",
+      "name_zh": "利润中心—晶圆代工",
+      "name_en": "Profit Center Foundry",
+      "keywords": [
+        "利润中心—晶圆代工",
+        "Profit Center Foundry",
+        "Profit",
+        "Center",
+        "Foundry"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/erp/entities/50-financial-master.yaml"
+    },
+    {
+      "id": "erp.bp.customer_fabless_a",
+      "kind": "entity",
+      "type": "BusinessPartner",
+      "domain": "erp",
+      "name_zh": "业务伙伴—Fabless 客户 A",
+      "name_en": "Business Partner Fabless-A",
+      "keywords": [
+        "业务伙伴—Fabless 客户 A",
+        "Business Partner Fabless-A",
+        "客户主数据",
+        "BP",
+        "Business",
+        "Partner",
+        "Fabless"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/erp/entities/50-financial-master.yaml"
+    },
+    {
+      "id": "erp.bp.vendor_osat_b",
+      "kind": "entity",
+      "type": "BusinessPartner",
+      "domain": "erp",
+      "name_zh": "业务伙伴—OSAT 供应商 B",
+      "name_en": "Business Partner OSAT-B",
+      "keywords": [
+        "业务伙伴—OSAT 供应商 B",
+        "Business Partner OSAT-B",
+        "Business",
+        "Partner",
+        "OSAT"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/erp/entities/50-financial-master.yaml"
+    },
+    {
+      "id": "erp.tax.v17",
+      "kind": "entity",
+      "type": "TaxCode",
+      "domain": "erp",
+      "name_zh": "税码 V17（增值税销项 13%）",
+      "name_en": "Tax Code V17",
+      "keywords": [
+        "税码 V17（增值税销项 13%）",
+        "Tax Code V17",
+        "Tax",
+        "Code",
+        "V17"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/erp/entities/50-financial-master.yaml"
+    },
+    {
+      "id": "erp.period.2026_09",
+      "kind": "entity",
+      "type": "FiscalPeriod",
+      "domain": "erp",
+      "name_zh": "会计期间 2026 年第 9 期",
+      "name_en": "Fiscal Period 2026/09",
+      "keywords": [
+        "会计期间 2026 年第 9 期",
+        "Fiscal Period 2026/09",
+        "Fiscal",
+        "Period",
+        "2026",
+        "09"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/erp/entities/50-financial-master.yaml"
+    },
+    {
+      "id": "erp.bank.icbc_main",
+      "kind": "entity",
+      "type": "BankAccount",
+      "domain": "erp",
+      "name_zh": "银行账户—工行基本户",
+      "name_en": "Bank Account ICBC-Main",
+      "keywords": [
+        "银行账户—工行基本户",
+        "Bank Account ICBC-Main",
+        "Bank",
+        "Account",
+        "ICBC",
+        "Main"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/erp/entities/50-financial-master.yaml"
+    },
+    {
+      "id": "erp.asset.litho_scanner",
+      "kind": "entity",
+      "type": "FixedAsset",
+      "domain": "erp",
+      "name_zh": "固定资产—光刻机",
+      "name_en": "Fixed Asset Litho Scanner",
+      "keywords": [
+        "固定资产—光刻机",
+        "Fixed Asset Litho Scanner",
+        "Fixed",
+        "Asset",
+        "Litho",
+        "Scanner"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/erp/entities/50-financial-master.yaml"
+    },
+    {
+      "id": "erp.quotation.q2026_wafer_a",
+      "kind": "entity",
+      "type": "Quotation",
+      "domain": "erp",
+      "name_zh": "报价单—客户A 28nm wafer",
+      "name_en": "Quotation Wafer-A",
+      "keywords": [
+        "报价单—客户A 28nm wafer",
+        "Quotation Wafer-A",
+        "Quotation",
+        "Wafer"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/erp/entities/51-o2c-documents.yaml"
+    },
+    {
+      "id": "erp.pricing.pr00_wafer",
+      "kind": "entity",
+      "type": "PricingCondition",
+      "domain": "erp",
+      "name_zh": "定价条件—基础价 PR00（按 wafer 计价）",
+      "name_en": "Pricing Condition PR00",
+      "keywords": [
+        "定价条件—基础价 PR00（按 wafer 计价）",
+        "Pricing Condition PR00",
+        "Pricing",
+        "Condition",
+        "PR00"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/erp/entities/51-o2c-documents.yaml"
+    },
+    {
+      "id": "erp.pricing.nre_maskset",
+      "kind": "entity",
+      "type": "PricingCondition",
+      "domain": "erp",
+      "name_zh": "定价条件—NRE/掩膜费（一次性工程收入）",
+      "name_en": "Pricing Condition NRE",
+      "keywords": [
+        "定价条件—NRE/掩膜费（一次性工程收入）",
+        "Pricing Condition NRE",
+        "Pricing",
+        "Condition",
+        "NRE"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/erp/entities/51-o2c-documents.yaml"
+    },
+    {
+      "id": "erp.credit.customer_a_profile",
+      "kind": "entity",
+      "type": "CreditManagement",
+      "domain": "erp",
+      "name_zh": "信用管理—客户A 信用档案",
+      "name_en": "Credit Profile Customer-A",
+      "keywords": [
+        "信用管理—客户A 信用档案",
+        "Credit Profile Customer-A",
+        "Credit",
+        "Profile",
+        "Customer"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/erp/entities/51-o2c-documents.yaml"
+    },
+    {
+      "id": "erp.order.so2026_0001",
+      "kind": "entity",
+      "type": "SalesOrder",
+      "domain": "erp",
+      "name_zh": "销售订单 SO-2026-0001（MTO 晶圆代工）",
+      "name_en": "Sales Order SO-2026-0001",
+      "keywords": [
+        "销售订单 SO-2026-0001（MTO 晶圆代工）",
+        "Sales Order SO-2026-0001",
+        "销售订单",
+        "SO",
+        "Sales",
+        "Order",
+        "2026",
+        "0001"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/erp/entities/51-o2c-documents.yaml"
+    },
+    {
+      "id": "erp.orderitem.so0001_10",
+      "kind": "entity",
+      "type": "SalesOrderItem",
+      "domain": "erp",
+      "name_zh": "订单行 0001/10（wafer 主行）",
+      "name_en": "SO Item 0001/10",
+      "keywords": [
+        "订单行 0001/10（wafer 主行）",
+        "SO Item 0001/10",
+        "SO",
+        "Item",
+        "0001",
+        "10"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/erp/entities/51-o2c-documents.yaml"
+    },
+    {
+      "id": "erp.orderitem.so0001_20",
+      "kind": "entity",
+      "type": "SalesOrderItem",
+      "domain": "erp",
+      "name_zh": "订单行 0001/20（NRE 工程行）",
+      "name_en": "SO Item 0001/20",
+      "keywords": [
+        "订单行 0001/20（NRE 工程行）",
+        "SO Item 0001/20",
+        "SO",
+        "Item",
+        "0001",
+        "20"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/erp/entities/51-o2c-documents.yaml"
+    },
+    {
+      "id": "erp.revreckey.point_in_time",
+      "kind": "entity",
+      "type": "RevenueRecognitionKey",
+      "domain": "erp",
+      "name_zh": "收入确认键—时点确认（标准产品）",
+      "name_en": "Rev Rec Key Point-in-Time",
+      "keywords": [
+        "收入确认键—时点确认（标准产品）",
+        "Rev Rec Key Point-in-Time",
+        "Rev",
+        "Rec",
+        "Key",
+        "Point",
+        "in",
+        "Time"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/erp/entities/51-o2c-documents.yaml"
+    },
+    {
+      "id": "erp.revreckey.contract_liability",
+      "kind": "entity",
+      "type": "RevenueRecognitionKey",
+      "domain": "erp",
+      "name_zh": "收入确认键—合同负债（产能保证金）",
+      "name_en": "Rev Rec Key Contract-Liability",
+      "keywords": [
+        "收入确认键—合同负债（产能保证金）",
+        "Rev Rec Key Contract-Liability",
+        "Rev",
+        "Rec",
+        "Key",
+        "Contract",
+        "Liability"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/erp/entities/51-o2c-documents.yaml"
+    },
+    {
+      "id": "erp.contract.capacity_reserve_a",
+      "kind": "entity",
+      "type": "QuantityContract",
+      "domain": "erp",
+      "name_zh": "数量合同—客户A 年度产能预约",
+      "name_en": "Quantity Contract Capacity-A",
+      "keywords": [
+        "数量合同—客户A 年度产能预约",
+        "Quantity Contract Capacity-A",
+        "Quantity",
+        "Contract",
+        "Capacity"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/erp/entities/51-o2c-documents.yaml"
+    },
+    {
+      "id": "erp.delivery.dn2026_0001",
+      "kind": "entity",
+      "type": "DeliveryDocument",
+      "domain": "erp",
+      "name_zh": "交货单 DN-2026-0001",
+      "name_en": "Delivery DN-2026-0001",
+      "keywords": [
+        "交货单 DN-2026-0001",
+        "Delivery DN-2026-0001",
+        "Delivery",
+        "DN",
+        "2026",
+        "0001"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/erp/entities/51-o2c-documents.yaml"
+    },
+    {
+      "id": "erp.billing.vf2026_0001",
+      "kind": "entity",
+      "type": "BillingDocument",
+      "domain": "erp",
+      "name_zh": "发票 VF-2026-0001（标准发票）",
+      "name_en": "Billing VF-2026-0001",
+      "keywords": [
+        "发票 VF-2026-0001（标准发票）",
+        "Billing VF-2026-0001",
+        "Billing",
+        "VF",
+        "2026",
+        "0001"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/erp/entities/51-o2c-documents.yaml"
+    },
+    {
+      "id": "erp.ar.ar2026_0001",
+      "kind": "entity",
+      "type": "AccountsReceivable",
+      "domain": "erp",
+      "name_zh": "应收账款—客户A VF0001",
+      "name_en": "AR Customer-A VF0001",
+      "keywords": [
+        "应收账款—客户A VF0001",
+        "AR Customer-A VF0001",
+        "AR",
+        "Customer",
+        "VF0001"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/erp/entities/51-o2c-documents.yaml"
+    },
+    {
+      "id": "erp.contractliab.cl2026_a",
+      "kind": "entity",
+      "type": "ContractLiability",
+      "domain": "erp",
+      "name_zh": "合同负债—客户A 产能保证金",
+      "name_en": "Contract Liability Customer-A",
+      "keywords": [
+        "合同负债—客户A 产能保证金",
+        "Contract Liability Customer-A",
+        "Contract",
+        "Liability",
+        "Customer"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [],
+      "confidence": "high",
+      "source_type": "model_prior",
+      "file": "ontology/erp/entities/51-o2c-documents.yaml"
+    },
+    {
+      "id": "erp.anomaly.cost_variance_excursion",
+      "kind": "entity",
+      "type": "Anomaly",
+      "domain": "erp",
+      "name_zh": "成本差异超标",
+      "name_en": "Cost Variance Excursion",
+      "keywords": [
+        "成本差异超标",
+        "Cost Variance Excursion",
+        "Cost",
+        "Variance",
+        "Excursion"
+      ],
+      "stage": null,
+      "severity": "high",
+      "unit": null,
+      "affects": [
+        "unit_cost",
+        "gross_margin"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/erp/entities/53-anomalies.yaml"
+    },
+    {
+      "id": "erp.anomaly.depreciation_error",
+      "kind": "entity",
+      "type": "Anomaly",
+      "domain": "erp",
+      "name_zh": "折旧计提异常",
+      "name_en": "Depreciation Posting Error",
+      "keywords": [
+        "折旧计提异常",
+        "Depreciation Posting Error",
+        "Depreciation",
+        "Posting",
+        "Error"
+      ],
+      "stage": null,
+      "severity": "medium",
+      "unit": null,
+      "affects": [
+        "asset_value",
+        "period_expense"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/erp/entities/53-anomalies.yaml"
+    },
+    {
+      "id": "erp.anomaly.inventory_writedown",
+      "kind": "entity",
+      "type": "Anomaly",
+      "domain": "erp",
+      "name_zh": "存货跌价",
+      "name_en": "Inventory Write-down",
+      "keywords": [
+        "存货跌价",
+        "Inventory Write-down",
+        "Inventory",
+        "Write",
+        "down"
+      ],
+      "stage": null,
+      "severity": "high",
+      "unit": null,
+      "affects": [
+        "inventory_value",
+        "gross_margin"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/erp/entities/53-anomalies.yaml"
+    },
+    {
+      "id": "erp.anomaly.gr_ir_mismatch",
+      "kind": "entity",
+      "type": "Anomaly",
+      "domain": "erp",
+      "name_zh": "GR/IR 暂估对账失败",
+      "name_en": "GR/IR Reconciliation Failure",
+      "keywords": [
+        "GR/IR 暂估对账失败",
+        "GR/IR Reconciliation Failure",
+        "GR",
+        "IR",
+        "Reconciliation",
+        "Failure"
+      ],
+      "stage": null,
+      "severity": "medium",
+      "unit": null,
+      "affects": [
+        "payables_accuracy",
+        "period_close"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/erp/entities/53-anomalies.yaml"
+    },
+    {
+      "id": "erp.anomaly.billing_block",
+      "kind": "entity",
+      "type": "Anomaly",
+      "domain": "erp",
+      "name_zh": "开票冻结/信用超限",
+      "name_en": "Billing Block / Credit Exceeded",
+      "keywords": [
+        "开票冻结/信用超限",
+        "Billing Block / Credit Exceeded",
+        "Billing",
+        "Block",
+        "Credit",
+        "Exceeded"
+      ],
+      "stage": null,
+      "severity": "medium",
+      "unit": null,
+      "affects": [
+        "revenue_recognition",
+        "dso"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/erp/entities/53-anomalies.yaml"
+    },
+    {
+      "id": "erp.anomaly.yield_cost_impact",
+      "kind": "entity",
+      "type": "Anomaly",
+      "domain": "erp",
+      "name_zh": "良率下降致单位成本上升",
+      "name_en": "Yield-Driven Unit Cost Increase",
+      "keywords": [
+        "良率下降致单位成本上升",
+        "Yield-Driven Unit Cost Increase",
+        "Yield",
+        "Driven",
+        "Unit",
+        "Cost",
+        "Increase"
+      ],
+      "stage": null,
+      "severity": "high",
+      "unit": null,
+      "affects": [
+        "unit_cost",
+        "gross_margin"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/erp/entities/53-anomalies.yaml"
+    },
+    {
+      "id": "erp.cause.standard_cost_outdated",
+      "kind": "entity",
+      "type": "Cause",
+      "domain": "erp",
+      "name_zh": "标准成本过时",
+      "name_en": "Outdated Standard Cost",
+      "keywords": [
+        "标准成本过时",
+        "Outdated Standard Cost",
+        "Outdated",
+        "Standard",
+        "Cost"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "unit_cost"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/erp/entities/54-causes-actions.yaml"
+    },
+    {
+      "id": "erp.cause.purchase_price_swing",
+      "kind": "entity",
+      "type": "Cause",
+      "domain": "erp",
+      "name_zh": "采购实际价波动",
+      "name_en": "Actual Purchase Price Swing",
+      "keywords": [
+        "采购实际价波动",
+        "Actual Purchase Price Swing",
+        "Actual",
+        "Purchase",
+        "Price",
+        "Swing"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "unit_cost"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/erp/entities/54-causes-actions.yaml"
+    },
+    {
+      "id": "erp.cause.overhead_allocation_drift",
+      "kind": "entity",
+      "type": "Cause",
+      "domain": "erp",
+      "name_zh": "制造费用分摊基准失真",
+      "name_en": "Overhead Allocation Base Drift",
+      "keywords": [
+        "制造费用分摊基准失真",
+        "Overhead Allocation Base Drift",
+        "Overhead",
+        "Allocation",
+        "Base",
+        "Drift"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "unit_cost"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/erp/entities/54-causes-actions.yaml"
+    },
+    {
+      "id": "erp.cause.asset_master_error",
+      "kind": "entity",
+      "type": "Cause",
+      "domain": "erp",
+      "name_zh": "资产主数据错误",
+      "name_en": "Asset Master Data Error",
+      "keywords": [
+        "资产主数据错误",
+        "Asset Master Data Error",
+        "Asset",
+        "Master",
+        "Data",
+        "Error"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "period_expense",
+        "asset_value"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/erp/entities/54-causes-actions.yaml"
+    },
+    {
+      "id": "erp.cause.capitalization_delay",
+      "kind": "entity",
+      "type": "Cause",
+      "domain": "erp",
+      "name_zh": "资本化时点延迟",
+      "name_en": "Capitalization Timing Delay",
+      "keywords": [
+        "资本化时点延迟",
+        "Capitalization Timing Delay",
+        "Capitalization",
+        "Timing",
+        "Delay"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "period_expense"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/erp/entities/54-causes-actions.yaml"
+    },
+    {
+      "id": "erp.cause.inventory_obsolescence",
+      "kind": "entity",
+      "type": "Cause",
+      "domain": "erp",
+      "name_zh": "存货呆滞",
+      "name_en": "Inventory Obsolescence",
+      "keywords": [
+        "存货呆滞",
+        "Inventory Obsolescence",
+        "Inventory",
+        "Obsolescence"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "inventory_value"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/erp/entities/54-causes-actions.yaml"
+    },
+    {
+      "id": "erp.cause.invoice_not_received",
+      "kind": "entity",
+      "type": "Cause",
+      "domain": "erp",
+      "name_zh": "发票未达",
+      "name_en": "Invoice Not Received",
+      "keywords": [
+        "发票未达",
+        "Invoice Not Received",
+        "Invoice",
+        "Not",
+        "Received"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "payables_accuracy"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/erp/entities/54-causes-actions.yaml"
+    },
+    {
+      "id": "erp.cause.po_invoice_discrepancy",
+      "kind": "entity",
+      "type": "Cause",
+      "domain": "erp",
+      "name_zh": "采购订单与发票差异",
+      "name_en": "PO-Invoice Price/Qty Discrepancy",
+      "keywords": [
+        "采购订单与发票差异",
+        "PO-Invoice Price/Qty Discrepancy",
+        "PO",
+        "Invoice",
+        "Price",
+        "Qty",
+        "Discrepancy"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "payables_accuracy"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/erp/entities/54-causes-actions.yaml"
+    },
+    {
+      "id": "erp.cause.credit_limit_exceeded",
+      "kind": "entity",
+      "type": "Cause",
+      "domain": "erp",
+      "name_zh": "客户信用额度超限",
+      "name_en": "Customer Credit Limit Exceeded",
+      "keywords": [
+        "客户信用额度超限",
+        "Customer Credit Limit Exceeded",
+        "Customer",
+        "Credit",
+        "Limit",
+        "Exceeded"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "dso"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/erp/entities/54-causes-actions.yaml"
+    },
+    {
+      "id": "erp.cause.delivery_not_posted",
+      "kind": "entity",
+      "type": "Cause",
+      "domain": "erp",
+      "name_zh": "交货未过账（PGI 未做）",
+      "name_en": "Delivery Not Posted (PGI Pending)",
+      "keywords": [
+        "交货未过账（PGI 未做）",
+        "Delivery Not Posted (PGI Pending)",
+        "Delivery",
+        "Not",
+        "Posted",
+        "PGI",
+        "Pending"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "revenue_recognition"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/erp/entities/54-causes-actions.yaml"
+    },
+    {
+      "id": "erp.action.revalue_standard_cost",
+      "kind": "entity",
+      "type": "Action",
+      "domain": "erp",
+      "name_zh": "重估标准成本",
+      "name_en": "Revalue Standard Cost",
+      "keywords": [
+        "重估标准成本",
+        "Revalue Standard Cost",
+        "Revalue",
+        "Standard",
+        "Cost"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "unit_cost"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/erp/entities/54-causes-actions.yaml"
+    },
+    {
+      "id": "erp.action.variance_analysis",
+      "kind": "entity",
+      "type": "Action",
+      "domain": "erp",
+      "name_zh": "差异分解分析",
+      "name_en": "Cost Variance Decomposition",
+      "keywords": [
+        "差异分解分析",
+        "Cost Variance Decomposition",
+        "Cost",
+        "Variance",
+        "Decomposition"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "gross_margin"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/erp/entities/54-causes-actions.yaml"
+    },
+    {
+      "id": "erp.action.recalc_allocation_rate",
+      "kind": "entity",
+      "type": "Action",
+      "domain": "erp",
+      "name_zh": "重算分摊率",
+      "name_en": "Recalculate Allocation Rate",
+      "keywords": [
+        "重算分摊率",
+        "Recalculate Allocation Rate",
+        "Recalculate",
+        "Allocation",
+        "Rate"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "unit_cost"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/erp/entities/54-causes-actions.yaml"
+    },
+    {
+      "id": "erp.action.correct_asset_master",
+      "kind": "entity",
+      "type": "Action",
+      "domain": "erp",
+      "name_zh": "修正资产主数据",
+      "name_en": "Correct Asset Master Data",
+      "keywords": [
+        "修正资产主数据",
+        "Correct Asset Master Data",
+        "Correct",
+        "Asset",
+        "Master",
+        "Data"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "period_expense"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/erp/entities/54-causes-actions.yaml"
+    },
+    {
+      "id": "erp.action.provision_writedown",
+      "kind": "entity",
+      "type": "Action",
+      "domain": "erp",
+      "name_zh": "计提跌价准备",
+      "name_en": "Provision for Write-down",
+      "keywords": [
+        "计提跌价准备",
+        "Provision for Write-down",
+        "Provision",
+        "for",
+        "Write",
+        "down"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "gross_margin"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/erp/entities/54-causes-actions.yaml"
+    },
+    {
+      "id": "erp.action.clear_gr_ir",
+      "kind": "entity",
+      "type": "Action",
+      "domain": "erp",
+      "name_zh": "清理 GR/IR 暂估",
+      "name_en": "Clear GR/IR Balance",
+      "keywords": [
+        "清理 GR/IR 暂估",
+        "Clear GR/IR Balance",
+        "Clear",
+        "GR",
+        "IR",
+        "Balance"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "period_close"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/erp/entities/54-causes-actions.yaml"
+    },
+    {
+      "id": "erp.action.credit_review_release",
+      "kind": "entity",
+      "type": "Action",
+      "domain": "erp",
+      "name_zh": "信用复核并释放",
+      "name_en": "Credit Review & Release",
+      "keywords": [
+        "信用复核并释放",
+        "Credit Review & Release",
+        "Credit",
+        "Review",
+        "Release"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": null,
+      "affects": [
+        "dso"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/erp/entities/54-causes-actions.yaml"
+    },
+    {
+      "id": "erp.metric.cost_variance_rate",
+      "kind": "entity",
+      "type": "Metric",
+      "domain": "erp",
+      "name_zh": "成本差异率",
+      "name_en": "Cost Variance Rate",
+      "keywords": [
+        "成本差异率",
+        "Cost Variance Rate",
+        "Cost",
+        "Variance",
+        "Rate"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": "%",
+      "affects": [],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/erp/entities/54-causes-actions.yaml"
+    },
+    {
+      "id": "erp.metric.net_book_value",
+      "kind": "entity",
+      "type": "Metric",
+      "domain": "erp",
+      "name_zh": "资产净值",
+      "name_en": "Net Book Value",
+      "keywords": [
+        "资产净值",
+        "Net Book Value",
+        "Net",
+        "Book",
+        "Value"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": "金额",
+      "affects": [],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/erp/entities/54-causes-actions.yaml"
+    },
+    {
+      "id": "erp.metric.inventory_turnover",
+      "kind": "entity",
+      "type": "Metric",
+      "domain": "erp",
+      "name_zh": "存货周转率",
+      "name_en": "Inventory Turnover",
+      "keywords": [
+        "存货周转率",
+        "Inventory Turnover",
+        "Inventory",
+        "Turnover"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": "次/期",
+      "affects": [],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/erp/entities/54-causes-actions.yaml"
+    },
+    {
+      "id": "erp.metric.gr_ir_balance",
+      "kind": "entity",
+      "type": "Metric",
+      "domain": "erp",
+      "name_zh": "GR/IR 暂估余额",
+      "name_en": "GR/IR Balance",
+      "keywords": [
+        "GR/IR 暂估余额",
+        "GR/IR Balance",
+        "GR",
+        "IR",
+        "Balance"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": "金额",
+      "affects": [],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/erp/entities/54-causes-actions.yaml"
+    },
+    {
+      "id": "erp.metric.credit_exposure",
+      "kind": "entity",
+      "type": "Metric",
+      "domain": "erp",
+      "name_zh": "客户信用敞口",
+      "name_en": "Customer Credit Exposure",
+      "keywords": [
+        "客户信用敞口",
+        "Customer Credit Exposure",
+        "Customer",
+        "Credit",
+        "Exposure"
+      ],
+      "stage": null,
+      "severity": null,
+      "unit": "金额",
+      "affects": [],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "ontology/erp/entities/54-causes-actions.yaml"
+    },
+    {
+      "id": "kb.fab.equipment_down_triage",
+      "kind": "kb_case",
+      "type": "Playbook",
+      "domain": "fab",
+      "name_zh": "设备非计划停机通用排查与处置",
+      "name_en": null,
+      "keywords": [
+        "设备非计划停机通用排查与处置",
+        "设备停机",
+        "非计划停机",
+        "OEE",
+        "排程"
+      ],
+      "anomaly_ref": "core.anomaly.equipment_down",
+      "detected_at_ref": null,
+      "severity": "high",
+      "cause_refs": [
+        "fab.cause.pm_overdue",
+        "fab.cause.reticle_stage_error",
+        "fab.cause.light_source_degradation",
+        "fab.cause.env_excursion"
+      ],
+      "action_refs": [
+        "fab.action.dispatch_field_service",
+        "fab.action.skip_ahead",
+        "fab.action.hold_lot"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "kb/fab/core-anomaly-cases.yaml"
+    },
+    {
+      "id": "kb.fab.quality_excursion_triage",
+      "kind": "kb_case",
+      "type": "Playbook",
+      "domain": "fab",
+      "name_zh": "品质异常突变通用排查与处置",
+      "name_en": null,
+      "keywords": [
+        "品质异常突变通用排查与处置",
+        "品质异常",
+        "良率",
+        "突变",
+        "排查",
+        "抽样"
+      ],
+      "anomaly_ref": "core.anomaly.quality_excursion",
+      "detected_at_ref": null,
+      "severity": "critical",
+      "cause_refs": [
+        "fab.cause.recipe_misload",
+        "fab.cause.beam_current_drift",
+        "fab.cause.chamber_wall_condition",
+        "fab.cause.env_excursion"
+      ],
+      "action_refs": [
+        "fab.action.hold_lot",
+        "fab.action.expand_sampling",
+        "fab.action.recipe_adjust"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "kb/fab/core-anomaly-cases.yaml"
+    },
+    {
       "id": "kb.fab.particle_excursion_triage",
       "kind": "kb_case",
       "type": "Playbook",
@@ -6812,6 +8306,182 @@
       "confidence": "medium",
       "source_type": "web",
       "file": "kb/ap/package-test-cases.yaml"
+    },
+    {
+      "id": "kb.erp.depreciation_error_triage",
+      "kind": "kb_case",
+      "type": "Playbook",
+      "domain": "erp",
+      "name_zh": "折旧计提异常排查与处置",
+      "name_en": null,
+      "keywords": [
+        "折旧计提异常排查与处置",
+        "资产折旧",
+        "FI-AA",
+        "主数据",
+        "排查"
+      ],
+      "anomaly_ref": "erp.anomaly.depreciation_error",
+      "detected_at_ref": null,
+      "severity": "medium",
+      "cause_refs": [
+        "erp.cause.asset_master_error",
+        "erp.cause.capitalization_delay"
+      ],
+      "action_refs": [
+        "erp.action.correct_asset_master"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "kb/erp/asset-inventory-cases.yaml"
+    },
+    {
+      "id": "kb.erp.inventory_writedown_triage",
+      "kind": "kb_case",
+      "type": "Playbook",
+      "domain": "erp",
+      "name_zh": "存货跌价识别与计提",
+      "name_en": null,
+      "keywords": [
+        "存货跌价识别与计提",
+        "存货计价",
+        "MM-IM",
+        "跌价",
+        "呆滞",
+        "排查"
+      ],
+      "anomaly_ref": "erp.anomaly.inventory_writedown",
+      "detected_at_ref": null,
+      "severity": "high",
+      "cause_refs": [
+        "erp.cause.inventory_obsolescence",
+        "erp.cause.purchase_price_swing"
+      ],
+      "action_refs": [
+        "erp.action.provision_writedown"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "kb/erp/asset-inventory-cases.yaml"
+    },
+    {
+      "id": "kb.erp.cost_variance_triage",
+      "kind": "kb_case",
+      "type": "Playbook",
+      "domain": "erp",
+      "name_zh": "成本差异超标排查与处置",
+      "name_en": null,
+      "keywords": [
+        "成本差异超标排查与处置",
+        "成本核算",
+        "差异分析",
+        "CO",
+        "排查"
+      ],
+      "anomaly_ref": "erp.anomaly.cost_variance_excursion",
+      "detected_at_ref": null,
+      "severity": "high",
+      "cause_refs": [
+        "erp.cause.purchase_price_swing",
+        "erp.cause.standard_cost_outdated",
+        "erp.cause.overhead_allocation_drift"
+      ],
+      "action_refs": [
+        "erp.action.variance_analysis",
+        "erp.action.revalue_standard_cost",
+        "erp.action.recalc_allocation_rate"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "kb/erp/cost-controlling-cases.yaml"
+    },
+    {
+      "id": "kb.erp.yield_cost_impact_triage",
+      "kind": "kb_case",
+      "type": "Playbook",
+      "domain": "erp",
+      "name_zh": "良率下降致单位成本上升排查（制造→财务跨域）",
+      "name_en": null,
+      "keywords": [
+        "良率下降致单位成本上升排查（制造→财务跨域）",
+        "成本核算",
+        "良率",
+        "跨域",
+        "单位成本",
+        "排查"
+      ],
+      "anomaly_ref": "erp.anomaly.yield_cost_impact",
+      "detected_at_ref": null,
+      "severity": "high",
+      "cause_refs": [
+        "core.anomaly.quality_excursion",
+        "erp.cause.overhead_allocation_drift"
+      ],
+      "action_refs": [
+        "erp.action.variance_analysis",
+        "erp.action.revalue_standard_cost"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "kb/erp/cost-controlling-cases.yaml"
+    },
+    {
+      "id": "kb.erp.gr_ir_mismatch_triage",
+      "kind": "kb_case",
+      "type": "Playbook",
+      "domain": "erp",
+      "name_zh": "GR/IR 暂估对账失败排查与清理",
+      "name_en": null,
+      "keywords": [
+        "GR/IR 暂估对账失败排查与清理",
+        "月结",
+        "GR/IR",
+        "对账",
+        "FI",
+        "排查"
+      ],
+      "anomaly_ref": "erp.anomaly.gr_ir_mismatch",
+      "detected_at_ref": null,
+      "severity": "medium",
+      "cause_refs": [
+        "erp.cause.invoice_not_received",
+        "erp.cause.po_invoice_discrepancy"
+      ],
+      "action_refs": [
+        "erp.action.clear_gr_ir"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "kb/erp/fi-o2c-cases.yaml"
+    },
+    {
+      "id": "kb.erp.billing_block_triage",
+      "kind": "kb_case",
+      "type": "Playbook",
+      "domain": "erp",
+      "name_zh": "开票冻结/信用超限排查与释放",
+      "name_en": null,
+      "keywords": [
+        "开票冻结/信用超限排查与释放",
+        "O2C",
+        "开票",
+        "信用管理",
+        "SD",
+        "排查"
+      ],
+      "anomaly_ref": "erp.anomaly.billing_block",
+      "detected_at_ref": null,
+      "severity": "medium",
+      "cause_refs": [
+        "erp.cause.credit_limit_exceeded",
+        "erp.cause.delivery_not_posted"
+      ],
+      "action_refs": [
+        "erp.action.credit_review_release"
+      ],
+      "confidence": "medium",
+      "source_type": "model_prior",
+      "file": "kb/erp/fi-o2c-cases.yaml"
     }
   ]
 }

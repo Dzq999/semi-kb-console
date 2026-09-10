@@ -1,0 +1,190 @@
+# erp 层 · 财务/成本类根因、处置动作与经营指标（知识层锚点，供 kb/erp 诊断案例引用）
+# 全部 model_prior：通用 ERP/SAP 财务知识，非本厂现场实测。归"知识"层（非 operational）。
+default_provenance:
+  source_type: model_prior
+  ref: null
+  confidence: medium
+  created_at: "2026-09-10"
+  reviewed_by: null
+
+entities:
+  # ---------------- 根因 ----------------
+  - id: erp.cause.standard_cost_outdated
+    type: Cause
+    name_zh: 标准成本过时
+    name_en: Outdated Standard Cost
+    domain: erp
+    description: 标准成本未随料价/工艺更新，导致差异系统性偏大。全线同向差异是其签名。
+    economic_hooks: {affects: [unit_cost], note: 标准成本重估周期过长的必然结果}
+
+  - id: erp.cause.purchase_price_swing
+    type: Cause
+    name_zh: 采购实际价波动
+    name_en: Actual Purchase Price Swing
+    domain: erp
+    description: 原材料/委外实际采购价偏离标准，形成价差（PPV）。与量差的区分在于是否随用量放大。
+    economic_hooks: {affects: [unit_cost], note: 硅片/靶材/化学品行情波动的直接传导}
+
+  - id: erp.cause.overhead_allocation_drift
+    type: Cause
+    name_zh: 制造费用分摊基准失真
+    name_en: Overhead Allocation Base Drift
+    domain: erp
+    description: >
+      成本中心费用按失真基准（工时/机时）分摊到成本对象，使单一成本中心差异异常。
+      特征是差异集中于特定成本中心而非全线。
+    economic_hooks: {affects: [unit_cost], note: 需重算分摊率，否则成本对象间交叉补贴}
+
+  - id: erp.cause.asset_master_error
+    type: Cause
+    name_zh: 资产主数据错误
+    name_en: Asset Master Data Error
+    domain: erp
+    description: 折旧方法/使用年限/残值设置错误，使折旧计提系统性偏差。全类资产同向偏差为其签名。
+    economic_hooks: {affects: [period_expense, asset_value], note: 主数据错误影响整个资产类}
+
+  - id: erp.cause.capitalization_delay
+    type: Cause
+    name_zh: 资本化时点延迟
+    name_en: Capitalization Timing Delay
+    domain: erp
+    description: 在建工程转固延迟，折旧起始期错位，表现为单项资产折旧异常。
+    economic_hooks: {affects: [period_expense], note: 与主数据错误的区分：仅单项、且与转固时点相关}
+
+  - id: erp.cause.inventory_obsolescence
+    type: Cause
+    name_zh: 存货呆滞
+    name_en: Inventory Obsolescence
+    domain: erp
+    description: 特定料号长期积压、周转恶化，制程迭代后可变现净值下降。伴随周转率单调下滑。
+    economic_hooks: {affects: [inventory_value], note: 半导体制程换代是呆滞主因}
+
+  - id: erp.cause.invoice_not_received
+    type: Cause
+    name_zh: 发票未达
+    name_en: Invoice Not Received
+    domain: erp
+    description: 已收货但供应商发票未到，GR/IR 暂估挂账。是月结 GR/IR 未清最常见成因。
+    economic_hooks: {affects: [payables_accuracy], note: 催票流程可解，属时间差非差错}
+
+  - id: erp.cause.po_invoice_discrepancy
+    type: Cause
+    name_zh: 采购订单与发票差异
+    name_en: PO-Invoice Price/Qty Discrepancy
+    domain: erp
+    description: 发票价格或数量与采购订单不符，触发差异挂起无法自动清账。
+    economic_hooks: {affects: [payables_accuracy], note: 需采购与应付协同处理差异}
+
+  - id: erp.cause.credit_limit_exceeded
+    type: Cause
+    name_zh: 客户信用额度超限
+    name_en: Customer Credit Limit Exceeded
+    domain: erp
+    description: 客户未清应收+在途订单超过授信额度，信用管理自动冻结开票。
+    economic_hooks: {affects: [dso], note: 需信用复核或收款回补额度}
+
+  - id: erp.cause.delivery_not_posted
+    type: Cause
+    name_zh: 交货未过账（PGI 未做）
+    name_en: Delivery Not Posted (PGI Pending)
+    domain: erp
+    description: 发货过账（Post Goods Issue）未完成，销售订单无货权转移不能开票。
+    economic_hooks: {affects: [revenue_recognition], note: 物流未闭环，与信用冻结的区分在单据状态}
+
+  # ---------------- 处置动作 ----------------
+  - id: erp.action.revalue_standard_cost
+    type: Action
+    name_zh: 重估标准成本
+    name_en: Revalue Standard Cost
+    domain: erp
+    description: 按最新料价/工艺重跑标准成本估算，收敛系统性差异。需评估存货重估影响。
+    economic_hooks: {affects: [unit_cost], note: 重估会一次性调整在库存货估值，须在期末前评估}
+
+  - id: erp.action.variance_analysis
+    type: Action
+    name_zh: 差异分解分析
+    name_en: Cost Variance Decomposition
+    domain: erp
+    description: 把总差异拆成价差/量差/效率差分别归因，定位可控与不可控部分。
+    economic_hooks: {affects: [gross_margin], note: 分解是精准处置的前提，先分类再施策}
+
+  - id: erp.action.recalc_allocation_rate
+    type: Action
+    name_zh: 重算分摊率
+    name_en: Recalculate Allocation Rate
+    domain: erp
+    description: 校正成本中心到成本对象的分摊基准与费率，消除交叉补贴。
+    economic_hooks: {affects: [unit_cost], note: 仅治分摊型差异，对价差量差无效}
+
+  - id: erp.action.correct_asset_master
+    type: Action
+    name_zh: 修正资产主数据
+    name_en: Correct Asset Master Data
+    domain: erp
+    description: 修正折旧方法/年限/残值并重算折旧，必要时冲正错误期间计提。
+    economic_hooks: {affects: [period_expense], note: 跨期修正需走以前年度调整，注意审计留痕}
+
+  - id: erp.action.provision_writedown
+    type: Action
+    name_zh: 计提跌价准备
+    name_en: Provision for Write-down
+    domain: erp
+    description: 按成本与可变现净值孰低计提存货跌价准备，冲减存货账面。
+    economic_hooks: {affects: [gross_margin], note: 计提影响当期损益，需与呆滞处置联动}
+
+  - id: erp.action.clear_gr_ir
+    type: Action
+    name_zh: 清理 GR/IR 暂估
+    name_en: Clear GR/IR Balance
+    domain: erp
+    description: 匹配收货与发票完成自动清账；差异项人工核销或退回采购处理。
+    economic_hooks: {affects: [period_close], note: 月结前的必清项，长期挂账需专项清理}
+
+  - id: erp.action.credit_review_release
+    type: Action
+    name_zh: 信用复核并释放
+    name_en: Credit Review & Release
+    domain: erp
+    description: 复核客户授信与敞口，收款回补或审批提额后释放开票冻结。
+    economic_hooks: {affects: [dso], note: 释放前须评估坏账风险，不可无条件放行}
+
+  # ---------------- 经营指标 ----------------
+  - id: erp.metric.cost_variance_rate
+    type: Metric
+    name_zh: 成本差异率
+    name_en: Cost Variance Rate
+    domain: erp
+    unit: "%"
+    description: 实际成本对标准成本的偏离比例，价差/量差/效率差之和占标准成本的百分比。
+
+  - id: erp.metric.net_book_value
+    type: Metric
+    name_zh: 资产净值
+    name_en: Net Book Value
+    domain: erp
+    unit: 金额
+    description: 资产原值减累计折旧。自检约束：累计折旧不得超过原值（净值≥残值）。
+
+  - id: erp.metric.inventory_turnover
+    type: Metric
+    name_zh: 存货周转率
+    name_en: Inventory Turnover
+    domain: erp
+    unit: 次/期
+    description: 销售成本除以平均存货。周转单调下滑是呆滞与跌价风险的先行信号。
+
+  - id: erp.metric.gr_ir_balance
+    type: Metric
+    name_zh: GR/IR 暂估余额
+    name_en: GR/IR Balance
+    domain: erp
+    unit: 金额
+    description: 收货/发票暂估科目余额。月结目标为清零，长期非零即对账阻塞。
+
+  - id: erp.metric.credit_exposure
+    type: Metric
+    name_zh: 客户信用敞口
+    name_en: Customer Credit Exposure
+    domain: erp
+    unit: 金额
+    description: 客户未清应收加在途订单金额，对比授信额度触发信用管理。

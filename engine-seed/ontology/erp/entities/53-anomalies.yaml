@@ -1,0 +1,95 @@
+# erp 层 · 财务/成本类异常模式（知识层锚点，供 kb/erp 诊断案例引用）
+# 全部 model_prior：来自通用 ERP/SAP 财务知识，非本厂现场实测。经 sourceType 归"ERP"源系统，
+# 归"知识"层（非 operational），未导入真实财务数据前不点亮产线口径。
+default_provenance:
+  source_type: model_prior
+  ref: null
+  confidence: medium
+  created_at: "2026-09-10"
+  reviewed_by: null
+
+entities:
+  - id: erp.anomaly.cost_variance_excursion
+    type: Anomaly
+    name_zh: 成本差异超标
+    name_en: Cost Variance Excursion
+    domain: erp
+    severity: high
+    description: >
+      实际成本对标准成本的差异（价差/量差/效率差）超出管控界限。判别要点在差异分解：
+      全线料成本同向上升指向实际采购价波动或标准成本过时；单位成本随产出下降而升指向
+      良率吸收；仅特定成本中心异常指向制造费用分摊基准失真。
+    metrics: [erp.metric.cost_variance_rate]
+    economic_hooks:
+      affects: [unit_cost, gross_margin]
+      note: 差异越晚识别，错误标准成本沉淀进存货估值的金额越大
+
+  - id: erp.anomaly.depreciation_error
+    type: Anomaly
+    name_zh: 折旧计提异常
+    name_en: Depreciation Posting Error
+    domain: erp
+    severity: medium
+    description: >
+      折旧计提金额偏离预期，或累计折旧逼近/超过资产原值。判别要点：全类资产同向偏差指向
+      折旧方法或年限主数据错误；单项资产异常指向资本化时点（在建工程转固延迟）或残值设置。
+    metrics: [erp.metric.net_book_value]
+    economic_hooks:
+      affects: [asset_value, period_expense]
+      note: 累计折旧超原值触发 SHACL 自检回滚，是资产主数据错误的强信号
+
+  - id: erp.anomaly.inventory_writedown
+    type: Anomaly
+    name_zh: 存货跌价
+    name_en: Inventory Write-down
+    domain: erp
+    severity: high
+    description: >
+      存货可变现净值（NRV）低于账面成本，须计提跌价准备。判别要点：市价普跌指向外部
+      行情；特定料号积压且周转恶化指向呆滞；伴随大额报废指向产线良率损失冲减。
+    metrics: [erp.metric.inventory_turnover]
+    economic_hooks:
+      affects: [inventory_value, gross_margin]
+      note: 半导体存货易受制程迭代减值，呆滞识别越晚跌价缺口越大
+
+  - id: erp.anomaly.gr_ir_mismatch
+    type: Anomaly
+    name_zh: GR/IR 暂估对账失败
+    name_en: GR/IR Reconciliation Failure
+    domain: erp
+    severity: medium
+    description: >
+      月结时收货/发票暂估科目（GR/IR）余额无法清零。判别要点：已收货未开票指向发票未到；
+      价格或数量不符指向采购订单与发票差异；长期挂账指向单据遗漏需人工清账。
+    metrics: [erp.metric.gr_ir_balance]
+    economic_hooks:
+      affects: [payables_accuracy, period_close]
+      note: GR/IR 未清直接卡住月结，是期末结账最常见的对账阻塞点
+
+  - id: erp.anomaly.billing_block
+    type: Anomaly
+    name_zh: 开票冻结/信用超限
+    name_en: Billing Block / Credit Exceeded
+    domain: erp
+    severity: medium
+    description: >
+      销售订单无法开票放行。判别要点：客户敞口超信用额度指向信用管理冻结；交货未过账（PGI）
+      指向物流未完成；单据带人工开票冻结指向审批未释放。
+    metrics: [erp.metric.credit_exposure]
+    economic_hooks:
+      affects: [revenue_recognition, dso]
+      note: 开票受阻推迟收入确认与回款，直接拉长 DSO
+
+  - id: erp.anomaly.yield_cost_impact
+    type: Anomaly
+    name_zh: 良率下降致单位成本上升
+    name_en: Yield-Driven Unit Cost Increase
+    domain: erp
+    severity: high
+    description: >
+      产线良率下降经成本吸收传导为单位成本上升——跨源系统（制造→ERP）的经营影响。判别要点：
+      单位成本升幅与良率降幅同步且产量下降指向固定成本稀释不足；仅料成本升则回到采购价差。
+    metrics: [core.metric.yield, erp.metric.cost_variance_rate]
+    economic_hooks:
+      affects: [unit_cost, gross_margin]
+      note: 这是"良率是财务问题"的接点——良率每降一档，固定制造费用摊到更少良品上

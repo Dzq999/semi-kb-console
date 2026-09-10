@@ -1,0 +1,101 @@
+# 知识库实例 · ERP 成本核算（CO）类异常处置
+# 内容为通用 ERP/SAP 财务知识（model_prior），非本厂现场实测；归"知识"层，不点亮产线口径。
+# discriminator 记录"如何在多个候选根因间做判别"——ERP 侧同样是最有价值的经验字段。
+default_provenance:
+  source_type: model_prior
+  ref: null
+  confidence: medium
+  created_at: "2026-09-10"
+  reviewed_by: null
+
+cases:
+  - id: kb.erp.cost_variance_triage
+    domain: erp
+    title: 成本差异超标排查与处置
+    anomaly_ref: erp.anomaly.cost_variance_excursion
+    severity: high
+    symptoms:
+      - 实际成本对标准成本差异率超出管控界限
+      - 差异集中于料成本、制造费用或效率某一类
+      - 或差异分布在特定成本中心而非全线
+    possible_causes:
+      - cause_ref: erp.cause.purchase_price_swing
+        likelihood: high
+        discriminator: >
+          价差随用量放大、且与硅片/靶材/化学品行情同步。查采购价格历史(PPV)，
+          若料价曲线与差异起点重合，即为采购价波动型。这是与标准过时型最关键的区分——
+          价格波动是短期的，标准过时是持续单向的。
+      - cause_ref: erp.cause.standard_cost_outdated
+        likelihood: high
+        discriminator: >
+          全线同向差异且持续存在，标准成本上次重估距今过久。查标准成本版本日期，
+          若差异跨多料号、多期稳定同向，基本可确认标准过时。
+      - cause_ref: erp.cause.overhead_allocation_drift
+        likelihood: medium
+        discriminator: >
+          差异集中于单一成本中心，其余成本中心正常。调阅该成本中心的分摊基准(工时/机时)
+          与实际是否偏离——分摊失真只影响成本对象间分配，不改变总成本，这是判别关键。
+    detection:
+      - metric_ref: erp.metric.cost_variance_rate
+        signal: 按价差/量差/效率差分层看差异率，以及按成本中心的分布形态
+    actions:
+      - action_ref: erp.action.variance_analysis
+        order: 1
+        condition: 先把总差异拆成价差/量差/效率差归因，区分可控与不可控，再决定处置方向
+      - action_ref: erp.action.revalue_standard_cost
+        order: 2
+        condition: >
+          确认为标准过时型后按最新料价工艺重估。注意重估会一次性调整在库存货估值，
+          须在期末前评估对当期损益的影响。
+      - action_ref: erp.action.recalc_allocation_rate
+        order: 3
+        condition: 仅当为分摊失真型时校正分摊率；对价差量差无效，用错方向会掩盖真实成因
+    impact:
+      economic: >
+        差异越晚识别，错误的标准成本沉淀进期末存货估值的金额越大，且会误导定价与产品盈利分析。
+        价差量差型影响当期毛利，分摊失真型则在成本对象间交叉补贴、扭曲单品盈利判断。
+    tags: [成本核算, 差异分析, CO, 排查]
+    notes: >
+      排查顺序：先做差异分解(价/量/效率)分类，再判断是价格波动(短期)、标准过时(持续单向)
+      还是分摊失真(集中单一成本中心)。三个判别做完成因基本锁定，处置动作各不相同、不可混用。
+
+  - id: kb.erp.yield_cost_impact_triage
+    domain: erp
+    title: 良率下降致单位成本上升排查（制造→财务跨域）
+    anomaly_ref: erp.anomaly.yield_cost_impact
+    severity: high
+    symptoms:
+      - 单位成本上升但料价与工时标准未变
+      - 升幅与产线良率降幅同步
+      - 良品产量下降、固定制造费用摊薄不足
+    possible_causes:
+      - cause_ref: core.anomaly.quality_excursion
+        likelihood: high
+        discriminator: >
+          单位成本升幅与良率降幅同步、且产量同步下降，指向良率损失经成本吸收传导。
+          这是"良率是财务问题"的接点：查产线良率趋势与单位成本趋势是否同期拐点。
+      - cause_ref: erp.cause.overhead_allocation_drift
+        likelihood: low
+        discriminator: >
+          若良率平稳而单位成本仍升，回到分摊基准失真的排查，而非良率吸收。
+          良率吸收型的特征是分母(良品数)变小，分摊失真型是分摊规则本身变了。
+    detection:
+      - metric_ref: core.metric.yield
+        signal: 产线良率趋势与单位成本趋势对齐比对，找同期拐点
+      - metric_ref: erp.metric.cost_variance_rate
+        signal: 效率差/产量差部分的差异率变化，量化良率对成本的传导
+    actions:
+      - action_ref: erp.action.variance_analysis
+        order: 1
+        condition: 分解出良率吸收(产量差)部分，与料价工时差异区分开
+      - action_ref: erp.action.revalue_standard_cost
+        order: 2
+        condition: 若良率标准本身已系统性改变，更新良率假设后重估标准成本
+    impact:
+      economic: >
+        良率每降一档，固定制造费用摊到更少良品上，单位成本非线性上升。这是连接产线质量与
+        财务毛利的关键链路——纯从财务侧看只见成本升，须回溯到产线良率才能根治。
+    tags: [成本核算, 良率, 跨域, 单位成本, 排查]
+    notes: >
+      本案例刻意跨源系统：anomaly 在 ERP、首要根因指向制造侧 quality_excursion。
+      它示范"财务异常的根在产线"——排查必须跨制造/ERP 两侧看趋势对齐，不能只在财务账内找。

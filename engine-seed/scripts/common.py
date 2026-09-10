@@ -105,7 +105,7 @@ def load_relations() -> list[dict]:
 def load_kb() -> list[dict]:
     """知识库实例：kb/<domain>/*.yaml，每文件含 cases 列表。"""
     cases: list[dict] = []
-    for domain in ("fab", "ap"):
+    for domain in ("fab", "ap", "erp"):
         d = ROOT / "kb" / domain
         if not d.is_dir():
             continue

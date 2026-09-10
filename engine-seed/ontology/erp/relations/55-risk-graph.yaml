@@ -1,0 +1,44 @@
+# erp 层 · 财务/成本风险图谱（根因-异常-处置）
+# 与 52-financial-o2c-graph.yaml（账务/单据结构关系）互补：本文件专注"异常怎么来、怎么治"。
+# 全 model_prior，供 kb/erp 诊断案例的 cause_ref/action_ref 落图，保证推理层 playbook 完整。
+default_provenance:
+  source_type: model_prior
+  ref: null
+  confidence: medium
+  created_at: "2026-09-10"
+  reviewed_by: null
+
+relations:
+  # ---- 成本差异超标 ----
+  - {from: erp.cause.standard_cost_outdated,    type: may_cause, to: erp.anomaly.cost_variance_excursion, likelihood: high,   note: 全线同向差异签名}
+  - {from: erp.cause.purchase_price_swing,      type: may_cause, to: erp.anomaly.cost_variance_excursion, likelihood: high,   note: 价差随用量放大}
+  - {from: erp.cause.overhead_allocation_drift, type: may_cause, to: erp.anomaly.cost_variance_excursion, likelihood: medium, note: 差异集中于单一成本中心}
+  - {from: erp.anomaly.cost_variance_excursion, type: mitigated_by, to: erp.action.variance_analysis,     note: 先分解后施策}
+  - {from: erp.anomaly.cost_variance_excursion, type: mitigated_by, to: erp.action.revalue_standard_cost, note: 治标准过时型}
+  - {from: erp.anomaly.cost_variance_excursion, type: mitigated_by, to: erp.action.recalc_allocation_rate, note: 治分摊失真型}
+
+  # ---- 折旧计提异常 ----
+  - {from: erp.cause.asset_master_error,   type: may_cause, to: erp.anomaly.depreciation_error, likelihood: high,   note: 全类资产同向偏差}
+  - {from: erp.cause.capitalization_delay, type: may_cause, to: erp.anomaly.depreciation_error, likelihood: medium, note: 仅单项、与转固时点相关}
+  - {from: erp.anomaly.depreciation_error, type: mitigated_by, to: erp.action.correct_asset_master, note: 修正主数据并重算}
+
+  # ---- 存货跌价 ----
+  - {from: erp.cause.inventory_obsolescence, type: may_cause, to: erp.anomaly.inventory_writedown, likelihood: high, note: 周转单调下滑}
+  - {from: erp.cause.purchase_price_swing,   type: may_cause, to: erp.anomaly.inventory_writedown, likelihood: low,  note: 市价普跌型减值}
+  - {from: erp.anomaly.inventory_writedown,  type: mitigated_by, to: erp.action.provision_writedown, note: 成本与NRV孰低计提}
+
+  # ---- GR/IR 暂估对账失败 ----
+  - {from: erp.cause.invoice_not_received,    type: may_cause, to: erp.anomaly.gr_ir_mismatch, likelihood: high,   note: 已收货未开票}
+  - {from: erp.cause.po_invoice_discrepancy,  type: may_cause, to: erp.anomaly.gr_ir_mismatch, likelihood: medium, note: 价格或数量不符挂起}
+  - {from: erp.anomaly.gr_ir_mismatch,        type: mitigated_by, to: erp.action.clear_gr_ir, note: 匹配清账，差异项人工核销}
+
+  # ---- 开票冻结/信用超限 ----
+  - {from: erp.cause.credit_limit_exceeded, type: may_cause, to: erp.anomaly.billing_block, likelihood: high,   note: 敞口超授信自动冻结}
+  - {from: erp.cause.delivery_not_posted,   type: may_cause, to: erp.anomaly.billing_block, likelihood: medium, note: PGI 未做无货权转移}
+  - {from: erp.anomaly.billing_block,        type: mitigated_by, to: erp.action.credit_review_release, note: 复核授信后释放}
+
+  # ---- 良率下降致单位成本上升（跨源系统：制造→ERP）----
+  - {from: core.anomaly.quality_excursion,   type: may_cause, to: erp.anomaly.yield_cost_impact, likelihood: high, note: 良率损失经成本吸收传导}
+  - {from: erp.cause.overhead_allocation_drift, type: may_cause, to: erp.anomaly.yield_cost_impact, likelihood: low, note: 固定费用摊到更少良品}
+  - {from: erp.anomaly.yield_cost_impact,    type: mitigated_by, to: erp.action.variance_analysis,     note: 分解良率吸收部分}
+  - {from: erp.anomaly.yield_cost_impact,    type: mitigated_by, to: erp.action.revalue_standard_cost, note: 良率标准更新后重估}

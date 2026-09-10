@@ -1,0 +1,85 @@
+# 知识库实例 · ERP 资产折旧（FI-AA）与存货计价（MM-IM）类异常处置
+# 通用 ERP/SAP 财务知识（model_prior），非本厂现场实测；归"知识"层，不点亮产线口径。
+default_provenance:
+  source_type: model_prior
+  ref: null
+  confidence: medium
+  created_at: "2026-09-10"
+  reviewed_by: null
+
+cases:
+  - id: kb.erp.depreciation_error_triage
+    domain: erp
+    title: 折旧计提异常排查与处置
+    anomaly_ref: erp.anomaly.depreciation_error
+    severity: medium
+    symptoms:
+      - 折旧计提金额偏离预期
+      - 或累计折旧逼近/超过资产原值（净值将破残值线）
+      - 偏差集中于某资产类或某单项资产
+    possible_causes:
+      - cause_ref: erp.cause.asset_master_error
+        likelihood: high
+        discriminator: >
+          同一资产类下多项资产折旧同向偏差。查该资产类的折旧方法/使用年限/残值主数据——
+          全类同向是主数据错误的签名。若累计折旧已超原值，几乎可确认年限或方法设错。
+      - cause_ref: erp.cause.capitalization_delay
+        likelihood: medium
+        discriminator: >
+          仅单项资产异常且与在建工程转固时点相关。查该资产资本化日期与投产日期是否错位——
+          转固延迟使折旧起始期错位，特征是"仅这一项、且时点可追"，与全类主数据错误相区分。
+    detection:
+      - metric_ref: erp.metric.net_book_value
+        signal: 资产净值与累计折旧/原值比例，触发"累计折旧≤原值"自检约束
+    actions:
+      - action_ref: erp.action.correct_asset_master
+        order: 1
+        condition: >
+          修正折旧方法/年限/残值并重算。跨期错误需走以前年度调整、冲正错误期间计提，
+          注意审计留痕；不可直接改数不留轨迹。
+    impact:
+      economic: >
+        折旧错误直接影响当期费用与资产账面价值。累计折旧超原值会触发 SHACL 自检回滚，
+        是资产主数据错误的强信号——半导体设备原值高，年限设错的期间费用偏差可观。
+    tags: [资产折旧, FI-AA, 主数据, 排查]
+    notes: >
+      判别核心是"全类同向"(主数据错误) vs "单项且时点可追"(资本化延迟)。
+      先看偏差覆盖范围再看时点关联，两问做完即可分流到不同处置。
+
+  - id: kb.erp.inventory_writedown_triage
+    domain: erp
+    title: 存货跌价识别与计提
+    anomaly_ref: erp.anomaly.inventory_writedown
+    severity: high
+    symptoms:
+      - 存货可变现净值（NRV）低于账面成本
+      - 特定料号积压、周转率持续下滑
+      - 或伴随产线大额报废冲减
+    possible_causes:
+      - cause_ref: erp.cause.inventory_obsolescence
+        likelihood: high
+        discriminator: >
+          特定料号周转率单调下滑、库龄拉长，且制程已迭代到新节点。查库龄分布与周转趋势——
+          呆滞型的签名是"越积越久、市场已不需要"，是半导体存货减值的首因。
+      - cause_ref: erp.cause.purchase_price_swing
+        likelihood: low
+        discriminator: >
+          市价普跌导致 NRV 下降，但料号本身周转正常。与呆滞型的区分：呆滞是这批货卖不动，
+          市价型是能卖但售价跌破成本。看周转率是否正常即可分流。
+    detection:
+      - metric_ref: erp.metric.inventory_turnover
+        signal: 按料号的周转率与库龄分布，周转单调下滑是跌价先行信号
+    actions:
+      - action_ref: erp.action.provision_writedown
+        order: 1
+        condition: >
+          按成本与可变现净值孰低计提跌价准备，冲减存货账面。计提影响当期损益，
+          须与呆滞处置(变卖/报废)联动，避免只提准备不清库存。
+    impact:
+      economic: >
+        半导体存货受制程迭代快速减值，呆滞识别越晚跌价缺口越大。计提直接冲减当期毛利，
+        且大额跌价往往暴露前端投料计划与需求脱节的更深问题。
+    tags: [存货计价, MM-IM, 跌价, 呆滞, 排查]
+    notes: >
+      先用周转率/库龄把"卖不动(呆滞)"与"卖得动但跌价(市价)"分开，两者计提逻辑虽同、
+      但后续处置(变卖 vs 等待回暖)完全不同。

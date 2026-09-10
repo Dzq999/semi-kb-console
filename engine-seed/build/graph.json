@@ -1,23 +1,43 @@
 {
-  "generated_at": "2026-08-30T18:16:40+00:00",
+  "generated_at": "2026-09-10T02:05:40+00:00",
   "warning": "派生产物，请勿手工编辑；修改本体后重新运行 build_index.py",
   "stats": {
-    "nodes": 260,
-    "edges": 555,
-    "explicit": 251,
-    "derived": 304,
+    "nodes": 320,
+    "edges": 616,
+    "explicit": 305,
+    "derived": 311,
     "by_relation_type": {
+      "account_in_chart": 7,
       "analogous_to": 12,
-      "belongs_to": 90,
+      "belongs_to": 91,
+      "billing_for_delivery": 1,
+      "billing_in_period": 1,
+      "billing_uses_tax": 1,
       "blocks": 21,
+      "carries_forward_to": 1,
+      "contract_liability_posts_to": 1,
       "controls": 66,
+      "cost_center_in_profit_center": 2,
+      "delivery_for_order": 1,
       "detected_at": 17,
-      "may_cause": 94,
-      "measured_by": 100,
-      "mitigated_by": 46,
+      "generates_receivable": 1,
+      "has_order_item": 2,
+      "may_cause": 107,
+      "measured_by": 107,
+      "mitigated_by": 55,
+      "order_for_customer": 2,
+      "order_from_quotation": 1,
+      "order_item_for_product": 1,
+      "order_item_rev_rec_key": 2,
+      "order_under_credit_check": 1,
+      "outsources_to_vendor": 1,
       "performed_on": 50,
       "precedes": 47,
-      "refines": 12
+      "priced_by_condition": 2,
+      "quotation_for_customer": 1,
+      "receivable_settled_to_bank": 1,
+      "refines": 12,
+      "uses_chart_of_accounts": 1
     }
   },
   "routes": {
@@ -1831,6 +1851,14 @@
         "derived": true
       }
     ],
+    "core.anomaly.quality_excursion": [
+      {
+        "type": "may_cause",
+        "to": "erp.anomaly.yield_cost_impact",
+        "derived": false,
+        "likelihood": "high"
+      }
+    ],
     "core.anomaly.wip_bubble": [
       {
         "type": "measured_by",
@@ -1952,6 +1980,390 @@
         "type": "measured_by",
         "to": "core.metric.wip",
         "derived": true
+      }
+    ],
+    "erp.anomaly.billing_block": [
+      {
+        "type": "mitigated_by",
+        "to": "erp.action.credit_review_release",
+        "derived": false
+      },
+      {
+        "type": "measured_by",
+        "to": "erp.metric.credit_exposure",
+        "derived": true
+      }
+    ],
+    "erp.anomaly.cost_variance_excursion": [
+      {
+        "type": "mitigated_by",
+        "to": "erp.action.variance_analysis",
+        "derived": false
+      },
+      {
+        "type": "mitigated_by",
+        "to": "erp.action.revalue_standard_cost",
+        "derived": false
+      },
+      {
+        "type": "mitigated_by",
+        "to": "erp.action.recalc_allocation_rate",
+        "derived": false
+      },
+      {
+        "type": "measured_by",
+        "to": "erp.metric.cost_variance_rate",
+        "derived": true
+      }
+    ],
+    "erp.anomaly.depreciation_error": [
+      {
+        "type": "mitigated_by",
+        "to": "erp.action.correct_asset_master",
+        "derived": false
+      },
+      {
+        "type": "measured_by",
+        "to": "erp.metric.net_book_value",
+        "derived": true
+      }
+    ],
+    "erp.anomaly.gr_ir_mismatch": [
+      {
+        "type": "mitigated_by",
+        "to": "erp.action.clear_gr_ir",
+        "derived": false
+      },
+      {
+        "type": "measured_by",
+        "to": "erp.metric.gr_ir_balance",
+        "derived": true
+      }
+    ],
+    "erp.anomaly.inventory_writedown": [
+      {
+        "type": "mitigated_by",
+        "to": "erp.action.provision_writedown",
+        "derived": false
+      },
+      {
+        "type": "measured_by",
+        "to": "erp.metric.inventory_turnover",
+        "derived": true
+      }
+    ],
+    "erp.anomaly.yield_cost_impact": [
+      {
+        "type": "mitigated_by",
+        "to": "erp.action.variance_analysis",
+        "derived": false
+      },
+      {
+        "type": "mitigated_by",
+        "to": "erp.action.revalue_standard_cost",
+        "derived": false
+      },
+      {
+        "type": "measured_by",
+        "to": "core.metric.yield",
+        "derived": true
+      },
+      {
+        "type": "measured_by",
+        "to": "erp.metric.cost_variance_rate",
+        "derived": true
+      }
+    ],
+    "erp.ar.ar2026_0001": [
+      {
+        "type": "receivable_settled_to_bank",
+        "to": "erp.bank.icbc_main",
+        "derived": false
+      }
+    ],
+    "erp.asset.litho_scanner": [
+      {
+        "type": "belongs_to",
+        "to": "erp.company.cc1000",
+        "derived": false
+      }
+    ],
+    "erp.billing.vf2026_0001": [
+      {
+        "type": "billing_for_delivery",
+        "to": "erp.delivery.dn2026_0001",
+        "derived": false
+      },
+      {
+        "type": "generates_receivable",
+        "to": "erp.ar.ar2026_0001",
+        "derived": false
+      },
+      {
+        "type": "billing_uses_tax",
+        "to": "erp.tax.v17",
+        "derived": false
+      },
+      {
+        "type": "billing_in_period",
+        "to": "erp.period.2026_09",
+        "derived": false
+      }
+    ],
+    "erp.cause.asset_master_error": [
+      {
+        "type": "may_cause",
+        "to": "erp.anomaly.depreciation_error",
+        "derived": false,
+        "likelihood": "high"
+      }
+    ],
+    "erp.cause.capitalization_delay": [
+      {
+        "type": "may_cause",
+        "to": "erp.anomaly.depreciation_error",
+        "derived": false,
+        "likelihood": "medium"
+      }
+    ],
+    "erp.cause.credit_limit_exceeded": [
+      {
+        "type": "may_cause",
+        "to": "erp.anomaly.billing_block",
+        "derived": false,
+        "likelihood": "high"
+      }
+    ],
+    "erp.cause.delivery_not_posted": [
+      {
+        "type": "may_cause",
+        "to": "erp.anomaly.billing_block",
+        "derived": false,
+        "likelihood": "medium"
+      }
+    ],
+    "erp.cause.inventory_obsolescence": [
+      {
+        "type": "may_cause",
+        "to": "erp.anomaly.inventory_writedown",
+        "derived": false,
+        "likelihood": "high"
+      }
+    ],
+    "erp.cause.invoice_not_received": [
+      {
+        "type": "may_cause",
+        "to": "erp.anomaly.gr_ir_mismatch",
+        "derived": false,
+        "likelihood": "high"
+      }
+    ],
+    "erp.cause.overhead_allocation_drift": [
+      {
+        "type": "may_cause",
+        "to": "erp.anomaly.cost_variance_excursion",
+        "derived": false,
+        "likelihood": "medium"
+      },
+      {
+        "type": "may_cause",
+        "to": "erp.anomaly.yield_cost_impact",
+        "derived": false,
+        "likelihood": "low"
+      }
+    ],
+    "erp.cause.po_invoice_discrepancy": [
+      {
+        "type": "may_cause",
+        "to": "erp.anomaly.gr_ir_mismatch",
+        "derived": false,
+        "likelihood": "medium"
+      }
+    ],
+    "erp.cause.purchase_price_swing": [
+      {
+        "type": "may_cause",
+        "to": "erp.anomaly.cost_variance_excursion",
+        "derived": false,
+        "likelihood": "high"
+      },
+      {
+        "type": "may_cause",
+        "to": "erp.anomaly.inventory_writedown",
+        "derived": false,
+        "likelihood": "low"
+      }
+    ],
+    "erp.cause.standard_cost_outdated": [
+      {
+        "type": "may_cause",
+        "to": "erp.anomaly.cost_variance_excursion",
+        "derived": false,
+        "likelihood": "high"
+      }
+    ],
+    "erp.company.cc1000": [
+      {
+        "type": "uses_chart_of_accounts",
+        "to": "erp.coa.ykint",
+        "derived": false
+      },
+      {
+        "type": "outsources_to_vendor",
+        "to": "erp.bp.vendor_osat_b",
+        "derived": false
+      }
+    ],
+    "erp.contract.capacity_reserve_a": [
+      {
+        "type": "order_for_customer",
+        "to": "erp.bp.customer_fabless_a",
+        "derived": false
+      }
+    ],
+    "erp.contractliab.cl2026_a": [
+      {
+        "type": "contract_liability_posts_to",
+        "to": "erp.gl.2203_contract_liab",
+        "derived": false
+      }
+    ],
+    "erp.costcenter.fab_etch": [
+      {
+        "type": "cost_center_in_profit_center",
+        "to": "erp.profitcenter.foundry",
+        "derived": false
+      }
+    ],
+    "erp.costcenter.fab_photo": [
+      {
+        "type": "cost_center_in_profit_center",
+        "to": "erp.profitcenter.foundry",
+        "derived": false
+      }
+    ],
+    "erp.delivery.dn2026_0001": [
+      {
+        "type": "delivery_for_order",
+        "to": "erp.order.so2026_0001",
+        "derived": false
+      }
+    ],
+    "erp.gl.1001_cash": [
+      {
+        "type": "account_in_chart",
+        "to": "erp.coa.ykint",
+        "derived": false
+      }
+    ],
+    "erp.gl.1122_ar": [
+      {
+        "type": "account_in_chart",
+        "to": "erp.coa.ykint",
+        "derived": false
+      }
+    ],
+    "erp.gl.1405_inventory": [
+      {
+        "type": "account_in_chart",
+        "to": "erp.coa.ykint",
+        "derived": false
+      }
+    ],
+    "erp.gl.2203_contract_liab": [
+      {
+        "type": "account_in_chart",
+        "to": "erp.coa.ykint",
+        "derived": false
+      }
+    ],
+    "erp.gl.2221_output_tax": [
+      {
+        "type": "account_in_chart",
+        "to": "erp.coa.ykint",
+        "derived": false
+      }
+    ],
+    "erp.gl.6001_revenue": [
+      {
+        "type": "account_in_chart",
+        "to": "erp.coa.ykint",
+        "derived": false
+      },
+      {
+        "type": "carries_forward_to",
+        "to": "erp.gl.6401_cogs",
+        "derived": false
+      }
+    ],
+    "erp.gl.6401_cogs": [
+      {
+        "type": "account_in_chart",
+        "to": "erp.coa.ykint",
+        "derived": false
+      }
+    ],
+    "erp.order.so2026_0001": [
+      {
+        "type": "order_from_quotation",
+        "to": "erp.quotation.q2026_wafer_a",
+        "derived": false
+      },
+      {
+        "type": "order_for_customer",
+        "to": "erp.bp.customer_fabless_a",
+        "derived": false
+      },
+      {
+        "type": "order_under_credit_check",
+        "to": "erp.credit.customer_a_profile",
+        "derived": false
+      },
+      {
+        "type": "has_order_item",
+        "to": "erp.orderitem.so0001_10",
+        "derived": false
+      },
+      {
+        "type": "has_order_item",
+        "to": "erp.orderitem.so0001_20",
+        "derived": false
+      }
+    ],
+    "erp.orderitem.so0001_10": [
+      {
+        "type": "priced_by_condition",
+        "to": "erp.pricing.pr00_wafer",
+        "derived": false
+      },
+      {
+        "type": "order_item_rev_rec_key",
+        "to": "erp.revreckey.point_in_time",
+        "derived": false
+      },
+      {
+        "type": "order_item_for_product",
+        "to": "core.material.wafer",
+        "derived": false
+      }
+    ],
+    "erp.orderitem.so0001_20": [
+      {
+        "type": "priced_by_condition",
+        "to": "erp.pricing.nre_maskset",
+        "derived": false
+      },
+      {
+        "type": "order_item_rev_rec_key",
+        "to": "erp.revreckey.contract_liability",
+        "derived": false
+      }
+    ],
+    "erp.quotation.q2026_wafer_a": [
+      {
+        "type": "quotation_for_customer",
+        "to": "erp.bp.customer_fabless_a",
+        "derived": false
       }
     ],
     "fab.anomaly.cd_out_of_spec": [
@@ -4959,6 +5371,11 @@
     ],
     "core.material.wafer": [
       {
+        "type": "order_item_for_product",
+        "from": "erp.orderitem.so0001_10",
+        "derived": false
+      },
+      {
         "type": "performed_on",
         "from": "fab.process.wafer_start",
         "derived": true
@@ -5292,6 +5709,11 @@
         "type": "measured_by",
         "from": "ap.anomaly.ft_yield_drop",
         "derived": true
+      },
+      {
+        "type": "measured_by",
+        "from": "erp.anomaly.yield_cost_impact",
+        "derived": true
       }
     ],
     "core.param.cleanroom_temp": [
@@ -5305,6 +5727,392 @@
       {
         "type": "refines",
         "from": "fab.stage.photo",
+        "derived": false
+      }
+    ],
+    "erp.action.clear_gr_ir": [
+      {
+        "type": "mitigated_by",
+        "from": "erp.anomaly.gr_ir_mismatch",
+        "derived": false
+      }
+    ],
+    "erp.action.correct_asset_master": [
+      {
+        "type": "mitigated_by",
+        "from": "erp.anomaly.depreciation_error",
+        "derived": false
+      }
+    ],
+    "erp.action.credit_review_release": [
+      {
+        "type": "mitigated_by",
+        "from": "erp.anomaly.billing_block",
+        "derived": false
+      }
+    ],
+    "erp.action.provision_writedown": [
+      {
+        "type": "mitigated_by",
+        "from": "erp.anomaly.inventory_writedown",
+        "derived": false
+      }
+    ],
+    "erp.action.recalc_allocation_rate": [
+      {
+        "type": "mitigated_by",
+        "from": "erp.anomaly.cost_variance_excursion",
+        "derived": false
+      }
+    ],
+    "erp.action.revalue_standard_cost": [
+      {
+        "type": "mitigated_by",
+        "from": "erp.anomaly.cost_variance_excursion",
+        "derived": false
+      },
+      {
+        "type": "mitigated_by",
+        "from": "erp.anomaly.yield_cost_impact",
+        "derived": false
+      }
+    ],
+    "erp.action.variance_analysis": [
+      {
+        "type": "mitigated_by",
+        "from": "erp.anomaly.cost_variance_excursion",
+        "derived": false
+      },
+      {
+        "type": "mitigated_by",
+        "from": "erp.anomaly.yield_cost_impact",
+        "derived": false
+      }
+    ],
+    "erp.anomaly.billing_block": [
+      {
+        "type": "may_cause",
+        "from": "erp.cause.credit_limit_exceeded",
+        "derived": false,
+        "likelihood": "high"
+      },
+      {
+        "type": "may_cause",
+        "from": "erp.cause.delivery_not_posted",
+        "derived": false,
+        "likelihood": "medium"
+      }
+    ],
+    "erp.anomaly.cost_variance_excursion": [
+      {
+        "type": "may_cause",
+        "from": "erp.cause.standard_cost_outdated",
+        "derived": false,
+        "likelihood": "high"
+      },
+      {
+        "type": "may_cause",
+        "from": "erp.cause.purchase_price_swing",
+        "derived": false,
+        "likelihood": "high"
+      },
+      {
+        "type": "may_cause",
+        "from": "erp.cause.overhead_allocation_drift",
+        "derived": false,
+        "likelihood": "medium"
+      }
+    ],
+    "erp.anomaly.depreciation_error": [
+      {
+        "type": "may_cause",
+        "from": "erp.cause.asset_master_error",
+        "derived": false,
+        "likelihood": "high"
+      },
+      {
+        "type": "may_cause",
+        "from": "erp.cause.capitalization_delay",
+        "derived": false,
+        "likelihood": "medium"
+      }
+    ],
+    "erp.anomaly.gr_ir_mismatch": [
+      {
+        "type": "may_cause",
+        "from": "erp.cause.invoice_not_received",
+        "derived": false,
+        "likelihood": "high"
+      },
+      {
+        "type": "may_cause",
+        "from": "erp.cause.po_invoice_discrepancy",
+        "derived": false,
+        "likelihood": "medium"
+      }
+    ],
+    "erp.anomaly.inventory_writedown": [
+      {
+        "type": "may_cause",
+        "from": "erp.cause.inventory_obsolescence",
+        "derived": false,
+        "likelihood": "high"
+      },
+      {
+        "type": "may_cause",
+        "from": "erp.cause.purchase_price_swing",
+        "derived": false,
+        "likelihood": "low"
+      }
+    ],
+    "erp.anomaly.yield_cost_impact": [
+      {
+        "type": "may_cause",
+        "from": "core.anomaly.quality_excursion",
+        "derived": false,
+        "likelihood": "high"
+      },
+      {
+        "type": "may_cause",
+        "from": "erp.cause.overhead_allocation_drift",
+        "derived": false,
+        "likelihood": "low"
+      }
+    ],
+    "erp.ar.ar2026_0001": [
+      {
+        "type": "generates_receivable",
+        "from": "erp.billing.vf2026_0001",
+        "derived": false
+      }
+    ],
+    "erp.bank.icbc_main": [
+      {
+        "type": "receivable_settled_to_bank",
+        "from": "erp.ar.ar2026_0001",
+        "derived": false
+      }
+    ],
+    "erp.bp.customer_fabless_a": [
+      {
+        "type": "quotation_for_customer",
+        "from": "erp.quotation.q2026_wafer_a",
+        "derived": false
+      },
+      {
+        "type": "order_for_customer",
+        "from": "erp.order.so2026_0001",
+        "derived": false
+      },
+      {
+        "type": "order_for_customer",
+        "from": "erp.contract.capacity_reserve_a",
+        "derived": false
+      }
+    ],
+    "erp.bp.vendor_osat_b": [
+      {
+        "type": "outsources_to_vendor",
+        "from": "erp.company.cc1000",
+        "derived": false
+      }
+    ],
+    "erp.coa.ykint": [
+      {
+        "type": "uses_chart_of_accounts",
+        "from": "erp.company.cc1000",
+        "derived": false
+      },
+      {
+        "type": "account_in_chart",
+        "from": "erp.gl.1001_cash",
+        "derived": false
+      },
+      {
+        "type": "account_in_chart",
+        "from": "erp.gl.1122_ar",
+        "derived": false
+      },
+      {
+        "type": "account_in_chart",
+        "from": "erp.gl.6001_revenue",
+        "derived": false
+      },
+      {
+        "type": "account_in_chart",
+        "from": "erp.gl.6401_cogs",
+        "derived": false
+      },
+      {
+        "type": "account_in_chart",
+        "from": "erp.gl.1405_inventory",
+        "derived": false
+      },
+      {
+        "type": "account_in_chart",
+        "from": "erp.gl.2221_output_tax",
+        "derived": false
+      },
+      {
+        "type": "account_in_chart",
+        "from": "erp.gl.2203_contract_liab",
+        "derived": false
+      }
+    ],
+    "erp.company.cc1000": [
+      {
+        "type": "belongs_to",
+        "from": "erp.asset.litho_scanner",
+        "derived": false
+      }
+    ],
+    "erp.credit.customer_a_profile": [
+      {
+        "type": "order_under_credit_check",
+        "from": "erp.order.so2026_0001",
+        "derived": false
+      }
+    ],
+    "erp.delivery.dn2026_0001": [
+      {
+        "type": "billing_for_delivery",
+        "from": "erp.billing.vf2026_0001",
+        "derived": false
+      }
+    ],
+    "erp.gl.2203_contract_liab": [
+      {
+        "type": "contract_liability_posts_to",
+        "from": "erp.contractliab.cl2026_a",
+        "derived": false
+      }
+    ],
+    "erp.gl.6401_cogs": [
+      {
+        "type": "carries_forward_to",
+        "from": "erp.gl.6001_revenue",
+        "derived": false
+      }
+    ],
+    "erp.metric.cost_variance_rate": [
+      {
+        "type": "measured_by",
+        "from": "erp.anomaly.cost_variance_excursion",
+        "derived": true
+      },
+      {
+        "type": "measured_by",
+        "from": "erp.anomaly.yield_cost_impact",
+        "derived": true
+      }
+    ],
+    "erp.metric.credit_exposure": [
+      {
+        "type": "measured_by",
+        "from": "erp.anomaly.billing_block",
+        "derived": true
+      }
+    ],
+    "erp.metric.gr_ir_balance": [
+      {
+        "type": "measured_by",
+        "from": "erp.anomaly.gr_ir_mismatch",
+        "derived": true
+      }
+    ],
+    "erp.metric.inventory_turnover": [
+      {
+        "type": "measured_by",
+        "from": "erp.anomaly.inventory_writedown",
+        "derived": true
+      }
+    ],
+    "erp.metric.net_book_value": [
+      {
+        "type": "measured_by",
+        "from": "erp.anomaly.depreciation_error",
+        "derived": true
+      }
+    ],
+    "erp.order.so2026_0001": [
+      {
+        "type": "delivery_for_order",
+        "from": "erp.delivery.dn2026_0001",
+        "derived": false
+      }
+    ],
+    "erp.orderitem.so0001_10": [
+      {
+        "type": "has_order_item",
+        "from": "erp.order.so2026_0001",
+        "derived": false
+      }
+    ],
+    "erp.orderitem.so0001_20": [
+      {
+        "type": "has_order_item",
+        "from": "erp.order.so2026_0001",
+        "derived": false
+      }
+    ],
+    "erp.period.2026_09": [
+      {
+        "type": "billing_in_period",
+        "from": "erp.billing.vf2026_0001",
+        "derived": false
+      }
+    ],
+    "erp.pricing.nre_maskset": [
+      {
+        "type": "priced_by_condition",
+        "from": "erp.orderitem.so0001_20",
+        "derived": false
+      }
+    ],
+    "erp.pricing.pr00_wafer": [
+      {
+        "type": "priced_by_condition",
+        "from": "erp.orderitem.so0001_10",
+        "derived": false
+      }
+    ],
+    "erp.profitcenter.foundry": [
+      {
+        "type": "cost_center_in_profit_center",
+        "from": "erp.costcenter.fab_photo",
+        "derived": false
+      },
+      {
+        "type": "cost_center_in_profit_center",
+        "from": "erp.costcenter.fab_etch",
+        "derived": false
+      }
+    ],
+    "erp.quotation.q2026_wafer_a": [
+      {
+        "type": "order_from_quotation",
+        "from": "erp.order.so2026_0001",
+        "derived": false
+      }
+    ],
+    "erp.revreckey.contract_liability": [
+      {
+        "type": "order_item_rev_rec_key",
+        "from": "erp.orderitem.so0001_20",
+        "derived": false
+      }
+    ],
+    "erp.revreckey.point_in_time": [
+      {
+        "type": "order_item_rev_rec_key",
+        "from": "erp.orderitem.so0001_10",
+        "derived": false
+      }
+    ],
+    "erp.tax.v17": [
+      {
+        "type": "billing_uses_tax",
+        "from": "erp.billing.vf2026_0001",
         "derived": false
       }
     ],
@@ -8660,6 +9468,397 @@
       "derived": false
     },
     {
+      "from": "erp.company.cc1000",
+      "to": "erp.coa.ykint",
+      "type": "uses_chart_of_accounts",
+      "note": "公司代码采用集团科目表",
+      "derived": false
+    },
+    {
+      "from": "erp.gl.1001_cash",
+      "to": "erp.coa.ykint",
+      "type": "account_in_chart",
+      "note": "现金科目归属 YKINT",
+      "derived": false
+    },
+    {
+      "from": "erp.gl.1122_ar",
+      "to": "erp.coa.ykint",
+      "type": "account_in_chart",
+      "note": null,
+      "derived": false
+    },
+    {
+      "from": "erp.gl.6001_revenue",
+      "to": "erp.coa.ykint",
+      "type": "account_in_chart",
+      "note": null,
+      "derived": false
+    },
+    {
+      "from": "erp.gl.6401_cogs",
+      "to": "erp.coa.ykint",
+      "type": "account_in_chart",
+      "note": null,
+      "derived": false
+    },
+    {
+      "from": "erp.costcenter.fab_photo",
+      "to": "erp.profitcenter.foundry",
+      "type": "cost_center_in_profit_center",
+      "note": "黄光区成本中心归晶圆代工利润中心",
+      "derived": false
+    },
+    {
+      "from": "erp.costcenter.fab_etch",
+      "to": "erp.profitcenter.foundry",
+      "type": "cost_center_in_profit_center",
+      "note": null,
+      "derived": false
+    },
+    {
+      "from": "erp.gl.6001_revenue",
+      "to": "erp.gl.6401_cogs",
+      "type": "carries_forward_to",
+      "note": "损益类科目期末结转（示意收入成本配比）",
+      "derived": false
+    },
+    {
+      "from": "erp.asset.litho_scanner",
+      "to": "erp.company.cc1000",
+      "type": "belongs_to",
+      "note": "光刻机资产归公司代码 1000",
+      "derived": false
+    },
+    {
+      "from": "erp.quotation.q2026_wafer_a",
+      "to": "erp.bp.customer_fabless_a",
+      "type": "quotation_for_customer",
+      "note": "报价面向 Fabless 客户 A",
+      "derived": false
+    },
+    {
+      "from": "erp.order.so2026_0001",
+      "to": "erp.quotation.q2026_wafer_a",
+      "type": "order_from_quotation",
+      "note": "订单源自报价",
+      "derived": false
+    },
+    {
+      "from": "erp.order.so2026_0001",
+      "to": "erp.bp.customer_fabless_a",
+      "type": "order_for_customer",
+      "note": null,
+      "derived": false
+    },
+    {
+      "from": "erp.order.so2026_0001",
+      "to": "erp.credit.customer_a_profile",
+      "type": "order_under_credit_check",
+      "note": "订单受信用管控（三处检查点）",
+      "derived": false
+    },
+    {
+      "from": "erp.order.so2026_0001",
+      "to": "erp.orderitem.so0001_10",
+      "type": "has_order_item",
+      "note": null,
+      "derived": false
+    },
+    {
+      "from": "erp.order.so2026_0001",
+      "to": "erp.orderitem.so0001_20",
+      "type": "has_order_item",
+      "note": null,
+      "derived": false
+    },
+    {
+      "from": "erp.orderitem.so0001_10",
+      "to": "erp.pricing.pr00_wafer",
+      "type": "priced_by_condition",
+      "note": "wafer 主行按基础价 PR00 计价",
+      "derived": false
+    },
+    {
+      "from": "erp.orderitem.so0001_20",
+      "to": "erp.pricing.nre_maskset",
+      "type": "priced_by_condition",
+      "note": "NRE 行按掩膜费定价",
+      "derived": false
+    },
+    {
+      "from": "erp.orderitem.so0001_10",
+      "to": "erp.revreckey.point_in_time",
+      "type": "order_item_rev_rec_key",
+      "note": "wafer 时点确认",
+      "derived": false
+    },
+    {
+      "from": "erp.orderitem.so0001_20",
+      "to": "erp.revreckey.contract_liability",
+      "type": "order_item_rev_rec_key",
+      "note": "NRE 视合同条款可能走合同负债",
+      "derived": false
+    },
+    {
+      "from": "erp.delivery.dn2026_0001",
+      "to": "erp.order.so2026_0001",
+      "type": "delivery_for_order",
+      "note": null,
+      "derived": false
+    },
+    {
+      "from": "erp.billing.vf2026_0001",
+      "to": "erp.delivery.dn2026_0001",
+      "type": "billing_for_delivery",
+      "note": null,
+      "derived": false
+    },
+    {
+      "from": "erp.billing.vf2026_0001",
+      "to": "erp.ar.ar2026_0001",
+      "type": "generates_receivable",
+      "note": "开票过账生成客户未清项",
+      "derived": false
+    },
+    {
+      "from": "erp.contract.capacity_reserve_a",
+      "to": "erp.bp.customer_fabless_a",
+      "type": "order_for_customer",
+      "note": "数量合同锁定客户 A 年度产能",
+      "derived": false
+    },
+    {
+      "from": "erp.orderitem.so0001_10",
+      "to": "core.material.wafer",
+      "type": "order_item_for_product",
+      "note": "wafer 主行对应 28nm 逻辑产品（晶圆物料）",
+      "derived": false
+    },
+    {
+      "from": "erp.gl.1405_inventory",
+      "to": "erp.coa.ykint",
+      "type": "account_in_chart",
+      "note": "库存商品科目归属 YKINT",
+      "derived": false
+    },
+    {
+      "from": "erp.gl.2221_output_tax",
+      "to": "erp.coa.ykint",
+      "type": "account_in_chart",
+      "note": "销项税额科目归属 YKINT",
+      "derived": false
+    },
+    {
+      "from": "erp.gl.2203_contract_liab",
+      "to": "erp.coa.ykint",
+      "type": "account_in_chart",
+      "note": "合同负债科目归属 YKINT",
+      "derived": false
+    },
+    {
+      "from": "erp.billing.vf2026_0001",
+      "to": "erp.tax.v17",
+      "type": "billing_uses_tax",
+      "note": "开票行采用 17% 销项税码",
+      "derived": false
+    },
+    {
+      "from": "erp.billing.vf2026_0001",
+      "to": "erp.period.2026_09",
+      "type": "billing_in_period",
+      "note": "开票凭证过账于 2026 年 9 期",
+      "derived": false
+    },
+    {
+      "from": "erp.ar.ar2026_0001",
+      "to": "erp.bank.icbc_main",
+      "type": "receivable_settled_to_bank",
+      "note": "客户回款结算至工行主账户",
+      "derived": false
+    },
+    {
+      "from": "erp.company.cc1000",
+      "to": "erp.bp.vendor_osat_b",
+      "type": "outsources_to_vendor",
+      "note": "公司代码 1000 委外封测供应商 OSAT-B",
+      "derived": false
+    },
+    {
+      "from": "erp.contractliab.cl2026_a",
+      "to": "erp.gl.2203_contract_liab",
+      "type": "contract_liability_posts_to",
+      "note": "预收产能保证金过账至合同负债科目",
+      "derived": false
+    },
+    {
+      "from": "erp.cause.standard_cost_outdated",
+      "to": "erp.anomaly.cost_variance_excursion",
+      "type": "may_cause",
+      "note": "全线同向差异签名",
+      "derived": false,
+      "likelihood": "high"
+    },
+    {
+      "from": "erp.cause.purchase_price_swing",
+      "to": "erp.anomaly.cost_variance_excursion",
+      "type": "may_cause",
+      "note": "价差随用量放大",
+      "derived": false,
+      "likelihood": "high"
+    },
+    {
+      "from": "erp.cause.overhead_allocation_drift",
+      "to": "erp.anomaly.cost_variance_excursion",
+      "type": "may_cause",
+      "note": "差异集中于单一成本中心",
+      "derived": false,
+      "likelihood": "medium"
+    },
+    {
+      "from": "erp.anomaly.cost_variance_excursion",
+      "to": "erp.action.variance_analysis",
+      "type": "mitigated_by",
+      "note": "先分解后施策",
+      "derived": false
+    },
+    {
+      "from": "erp.anomaly.cost_variance_excursion",
+      "to": "erp.action.revalue_standard_cost",
+      "type": "mitigated_by",
+      "note": "治标准过时型",
+      "derived": false
+    },
+    {
+      "from": "erp.anomaly.cost_variance_excursion",
+      "to": "erp.action.recalc_allocation_rate",
+      "type": "mitigated_by",
+      "note": "治分摊失真型",
+      "derived": false
+    },
+    {
+      "from": "erp.cause.asset_master_error",
+      "to": "erp.anomaly.depreciation_error",
+      "type": "may_cause",
+      "note": "全类资产同向偏差",
+      "derived": false,
+      "likelihood": "high"
+    },
+    {
+      "from": "erp.cause.capitalization_delay",
+      "to": "erp.anomaly.depreciation_error",
+      "type": "may_cause",
+      "note": "仅单项、与转固时点相关",
+      "derived": false,
+      "likelihood": "medium"
+    },
+    {
+      "from": "erp.anomaly.depreciation_error",
+      "to": "erp.action.correct_asset_master",
+      "type": "mitigated_by",
+      "note": "修正主数据并重算",
+      "derived": false
+    },
+    {
+      "from": "erp.cause.inventory_obsolescence",
+      "to": "erp.anomaly.inventory_writedown",
+      "type": "may_cause",
+      "note": "周转单调下滑",
+      "derived": false,
+      "likelihood": "high"
+    },
+    {
+      "from": "erp.cause.purchase_price_swing",
+      "to": "erp.anomaly.inventory_writedown",
+      "type": "may_cause",
+      "note": "市价普跌型减值",
+      "derived": false,
+      "likelihood": "low"
+    },
+    {
+      "from": "erp.anomaly.inventory_writedown",
+      "to": "erp.action.provision_writedown",
+      "type": "mitigated_by",
+      "note": "成本与NRV孰低计提",
+      "derived": false
+    },
+    {
+      "from": "erp.cause.invoice_not_received",
+      "to": "erp.anomaly.gr_ir_mismatch",
+      "type": "may_cause",
+      "note": "已收货未开票",
+      "derived": false,
+      "likelihood": "high"
+    },
+    {
+      "from": "erp.cause.po_invoice_discrepancy",
+      "to": "erp.anomaly.gr_ir_mismatch",
+      "type": "may_cause",
+      "note": "价格或数量不符挂起",
+      "derived": false,
+      "likelihood": "medium"
+    },
+    {
+      "from": "erp.anomaly.gr_ir_mismatch",
+      "to": "erp.action.clear_gr_ir",
+      "type": "mitigated_by",
+      "note": "匹配清账，差异项人工核销",
+      "derived": false
+    },
+    {
+      "from": "erp.cause.credit_limit_exceeded",
+      "to": "erp.anomaly.billing_block",
+      "type": "may_cause",
+      "note": "敞口超授信自动冻结",
+      "derived": false,
+      "likelihood": "high"
+    },
+    {
+      "from": "erp.cause.delivery_not_posted",
+      "to": "erp.anomaly.billing_block",
+      "type": "may_cause",
+      "note": "PGI 未做无货权转移",
+      "derived": false,
+      "likelihood": "medium"
+    },
+    {
+      "from": "erp.anomaly.billing_block",
+      "to": "erp.action.credit_review_release",
+      "type": "mitigated_by",
+      "note": "复核授信后释放",
+      "derived": false
+    },
+    {
+      "from": "core.anomaly.quality_excursion",
+      "to": "erp.anomaly.yield_cost_impact",
+      "type": "may_cause",
+      "note": "良率损失经成本吸收传导",
+      "derived": false,
+      "likelihood": "high"
+    },
+    {
+      "from": "erp.cause.overhead_allocation_drift",
+      "to": "erp.anomaly.yield_cost_impact",
+      "type": "may_cause",
+      "note": "固定费用摊到更少良品",
+      "derived": false,
+      "likelihood": "low"
+    },
+    {
+      "from": "erp.anomaly.yield_cost_impact",
+      "to": "erp.action.variance_analysis",
+      "type": "mitigated_by",
+      "note": "分解良率吸收部分",
+      "derived": false
+    },
+    {
+      "from": "erp.anomaly.yield_cost_impact",
+      "to": "erp.action.revalue_standard_cost",
+      "type": "mitigated_by",
+      "note": "良率标准更新后重估",
+      "derived": false
+    },
+    {
       "from": "fab.process.wafer_start",
       "to": "fab.stage.diffusion",
       "type": "belongs_to",
@@ -10118,6 +11317,55 @@
     {
       "from": "ap.route.bga_flipchip_main",
       "to": "ap.metric.ft_yield",
+      "type": "measured_by",
+      "note": null,
+      "derived": true
+    },
+    {
+      "from": "erp.anomaly.cost_variance_excursion",
+      "to": "erp.metric.cost_variance_rate",
+      "type": "measured_by",
+      "note": null,
+      "derived": true
+    },
+    {
+      "from": "erp.anomaly.depreciation_error",
+      "to": "erp.metric.net_book_value",
+      "type": "measured_by",
+      "note": null,
+      "derived": true
+    },
+    {
+      "from": "erp.anomaly.inventory_writedown",
+      "to": "erp.metric.inventory_turnover",
+      "type": "measured_by",
+      "note": null,
+      "derived": true
+    },
+    {
+      "from": "erp.anomaly.gr_ir_mismatch",
+      "to": "erp.metric.gr_ir_balance",
+      "type": "measured_by",
+      "note": null,
+      "derived": true
+    },
+    {
+      "from": "erp.anomaly.billing_block",
+      "to": "erp.metric.credit_exposure",
+      "type": "measured_by",
+      "note": null,
+      "derived": true
+    },
+    {
+      "from": "erp.anomaly.yield_cost_impact",
+      "to": "core.metric.yield",
+      "type": "measured_by",
+      "note": null,
+      "derived": true
+    },
+    {
+      "from": "erp.anomaly.yield_cost_impact",
+      "to": "erp.metric.cost_variance_rate",
       "type": "measured_by",
       "note": null,
       "derived": true
