@@ -257,8 +257,14 @@ def check_kb(entities: dict, cases: list[dict], meta: dict) -> None:
         if cid in seen:
             add("error", "R013", f"知识库实例 ID 重复：{cid} ({where})")
         seen.add(cid)
-        if not pattern.match(str(cid)):
+        match = pattern.fullmatch(str(cid))
+        if not match:
             add("error", "R013", f"{cid} 不符合 kb id 规范 {kb['id_pattern']} ({where})")
+        else:
+            id_domain = str(cid).split(".", 2)[1]
+            if case.get("domain") != id_domain:
+                add("error", "R013",
+                    f"{cid} domain={case.get('domain')!r} 与 KB ID 域 '{id_domain}' 不一致 ({where})")
 
         for field in required - set(case):
             add("error", "R013", f"{cid} 缺少必填字段 '{field}' ({where})")

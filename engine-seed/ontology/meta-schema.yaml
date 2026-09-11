@@ -2,8 +2,8 @@
 # 定义"什么是合法的本体条目"。validate.py 以此为唯一裁判。
 # 修改本文件属于 schema 变更，config.yaml 中默认强制人工审核。
 
-meta_version: "1.0"
-updated_at: "2026-08-27"
+meta_version: "1.1"
+updated_at: "2026-09-10"
 
 # ---------------------------------------------------------------
 # ID 规范
@@ -143,10 +143,28 @@ derived_relations:
   - {from_field: materials,  relation: performed_on, direction: "entity -> value"}
   - {from_field: equipment,  relation: belongs_to,  direction: "value -> entity"}
 
-# 预留给第三层经营模型，本周只填不用
+# 经营传导词表是严格闭集：制造侧骨架 + ERP/SAP 财务经营语义。
+# 不在校验器中做静默 alias；cost_per_unit（历史制造词）与 unit_cost（可执行模型/ERP 词）均显式保留。
 economic_hooks_schema:
   affects:
-    allowed: [yield, cycle_time, equipment_oee, throughput, cost_per_unit, rework_rate, scrap_rate, capacity_commit]
+    allowed:
+      - yield
+      - cycle_time
+      - equipment_oee
+      - throughput
+      - cost_per_unit
+      - rework_rate
+      - scrap_rate
+      - capacity_commit
+      - unit_cost
+      - gross_margin
+      - asset_value
+      - period_expense
+      - inventory_value
+      - payables_accuracy
+      - period_close
+      - revenue_recognition
+      - dso
     note: "该实体波动会传导到哪些经营变量"
   note: {type: string, desc: "传导机制的一句话说明"}
 
@@ -201,7 +219,7 @@ validation_rules:
     desc: "confidence=low 的条目数量占比超过 40% 时提示（知识质量预警）"
     severity: warn
   - id: R013
-    desc: "知识库实例 ID 唯一、符合 kb_schema、字段齐全、provenance 合法"
+    desc: "知识库实例 ID 唯一、符合 kb_schema、ID 域与 domain 一致、字段齐全、provenance 合法"
     severity: error
   - id: R014
     desc: "知识库实例的所有 *_ref 指向已存在的本体实体，且类型匹配"
@@ -228,7 +246,7 @@ validation_rules:
 # 这条约束是"本体为唯一真源"的落地保障。
 # ---------------------------------------------------------------
 kb_schema:
-  id_pattern: '^kb\.(fab|ap)\.[a-z0-9_]+$'
+  id_pattern: '^kb\.(fab|ap|erp)\.[a-z0-9_]+$'
   required_fields: [id, domain, title, anomaly_ref, symptoms, possible_causes, detection, actions, impact, provenance]
   optional_fields: [detected_at_ref, severity, tags, notes]
   possible_causes_item:

@@ -13,8 +13,8 @@
 # 关系类型是否都存在且有实例——`Equipment` 声明了却零实例那种"声明与事实分离
 # 且分离不产生信号"的坑，靠这条挡。所以新增 in_scope 条目必须同时写 requires。
 
-meta_version: "1.0"
-updated_at: "2026-08-27"
+meta_version: "1.1"
+updated_at: "2026-09-10"
 
 # ---------------------------------------------------------------
 # 承诺能答的问题
@@ -210,7 +210,7 @@ in_scope:
     q: "某个异常或工序的波动会传导到哪些经营变量？"
     requires:
       entity_types: [Process, Anomaly]
-    answered_via: "economic_hooks.affects（8 个允许值之一）+ note 给传导机制"
+    answered_via: "economic_hooks.affects（取值受 economic_hooks_schema.affects.allowed 闭集约束）+ note 给传导机制"
     caveat: "只答传导到哪，答不出传导多少——见 out_of_scope OOS02"
     match_terms: ["经营变量", "传导", "影响什么", "影响哪些", "经营影响", "传导到",
                   "对成本", "成本影响", "影响成本", "对良率的影响", "对交期", "影响交期", "对产出"]
