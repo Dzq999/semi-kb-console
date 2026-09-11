@@ -515,6 +515,7 @@ def me(user: User = Depends(current_user), db: Session = Depends(get_db)) -> dic
         "llm_base_url": preference.llm_base_url,
         "model_catalog_url": preference.model_catalog_url,
         "llm_api_style": preference.llm_api_style,
+        "llm_stream_mode": preference.llm_stream_mode,
     }}
 
 
@@ -563,12 +564,12 @@ def update_llm_endpoint(payload: LlmEndpointUpdate, user: User = Depends(current
     # （仅允许 https 或 http://localhost，防 SSRF）。改后清模型目录缓存，避免旧端点结果残留。
     preference = db.get(UserPreference, user.id)
     data = payload.model_dump(exclude_unset=True)
-    for field in ("llm_base_url", "model_catalog_url", "llm_api_style"):
+    for field in ("llm_base_url", "model_catalog_url", "llm_api_style", "llm_stream_mode"):
         if field in data:
             setattr(preference, field, data[field])
     db.commit()
     model_cache.clear()
-    return {"llm_base_url": preference.llm_base_url, "model_catalog_url": preference.model_catalog_url, "llm_api_style": preference.llm_api_style}
+    return {"llm_base_url": preference.llm_base_url, "model_catalog_url": preference.model_catalog_url, "llm_api_style": preference.llm_api_style, "llm_stream_mode": preference.llm_stream_mode}
 
 
 @app.get("/api/credentials")

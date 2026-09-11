@@ -69,6 +69,7 @@ type User = {
     llm_base_url?: string | null;
     model_catalog_url?: string | null;
     llm_api_style?: string | null;
+    llm_stream_mode?: boolean | null;
   };
 };
 type DashboardData = {
@@ -4359,6 +4360,7 @@ function SettingsPage({
     llm_base_url: user.preferences.llm_base_url || "",
     model_catalog_url: user.preferences.model_catalog_url || "",
     llm_api_style: user.preferences.llm_api_style || "anthropic",
+    llm_stream_mode: user.preferences.llm_stream_mode ?? false,
   });
   const saveEndpoint = useMutation({
     mutationFn: () =>
@@ -4366,12 +4368,14 @@ function SettingsPage({
         llm_base_url: string | null;
         model_catalog_url: string | null;
         llm_api_style: string | null;
+        llm_stream_mode: boolean | null;
       }>("/api/users/me/preferences/llm-endpoint", {
         method: "PATCH",
         body: JSON.stringify({
           llm_base_url: endpoint.llm_base_url.trim() || null,
           model_catalog_url: endpoint.model_catalog_url.trim() || null,
           llm_api_style: endpoint.llm_api_style,
+          llm_stream_mode: endpoint.llm_stream_mode,
         }),
       }),
     onSuccess: async (data) => {
@@ -4379,6 +4383,7 @@ function SettingsPage({
         llm_base_url: data.llm_base_url || "",
         model_catalog_url: data.model_catalog_url || "",
         llm_api_style: data.llm_api_style || "anthropic",
+        llm_stream_mode: data.llm_stream_mode ?? false,
       });
       queryClient.invalidateQueries({ queryKey: ["models"] });
       try {
@@ -4516,6 +4521,24 @@ function SettingsPage({
               <option value="anthropic">Anthropic 原生 /v1/messages</option>
               <option value="openai">OpenAI 兼容 /v1/chat/completions</option>
             </select>
+          </label>
+          <label>
+            <span>调用模式</span>
+            <select
+              value={endpoint.llm_stream_mode ? "stream" : "non_stream"}
+              onChange={(event) =>
+                setEndpoint((prev) => ({
+                  ...prev,
+                  llm_stream_mode: event.target.value === "stream",
+                }))
+              }
+            >
+              <option value="non_stream">非流式（默认，整段返回）</option>
+              <option value="stream">流式 SSE（长响应更稳，规避中转超时断连）</option>
+            </select>
+            <small className="hint">
+              遇到大量 RemoteProtocolError / 响应被中转截断时改用流式：逐块接收、保持连接活跃，并在流未正常收尾时报错重试而非静默吞掉截断内容。
+            </small>
           </label>
           <div className="actions">
             <Button

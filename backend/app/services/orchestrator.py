@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 from ..config import settings
 from ..db import SessionLocal
 from ..models import AgentIteration, AgentRun, Run, RunEvent, RunRound
-from .llm import ExternalServiceError, LlmEndpoint, llm_service, user_api_key, user_llm_endpoint, web_research
+from .llm import ExternalServiceError, LlmEndpoint, llm_service, user_api_key, user_llm_endpoint, user_stream_mode, web_research
 from .semantic_pipeline import prompt_contract, round_candidate_files, round_directory, validate_and_store_agent_output
 from .semi_kb import SemiKbError, semi_kb
 
@@ -201,10 +201,16 @@ class RunOrchestrator:
                 return None
             # endpoint 未由上层传入时（如 langgraph 引擎路径自行解析 api_key、不透传端点），
             # 就地按本任务归属用户解析每用户覆盖，确保两条引擎路径都尊重用户自定义端点。
-            if endpoint is None:
+            # 流式开关同样每用户解析：agent_config 显式给出则优先（便于测试/覆盖），否则按用户偏好。
+            stream_mode = bool(agent_config.get("stream_mode")) if "stream_mode" in agent_config else None
+            if endpoint is None or stream_mode is None:
                 run = db.get(Run, run_id)
                 if run:
-                    endpoint = user_llm_endpoint(db, run.user_id)
+                    if endpoint is None:
+                        endpoint = user_llm_endpoint(db, run.user_id)
+                    if stream_mode is None:
+                        stream_mode = user_stream_mode(db, run.user_id)
+            stream_mode = bool(stream_mode)
             input_hash = str(agent_config.get("input_hash") or hashlib.sha256(json.dumps({"run": run_id, "round": round_number, "agent": agent_id, "gap": gap}, ensure_ascii=False, sort_keys=True).encode()).hexdigest())
             iteration = db.scalar(select(AgentIteration).where(AgentIteration.agent_id == agent_id, AgentIteration.round_number == round_number))
             previous_input_hash = iteration.input_hash if iteration else None
@@ -293,7 +299,12 @@ class RunOrchestrator:
                             self.emit(db, run_id, "model_response_reused", f"{agent.name} 复用崩溃前已保存的模型响应", {"agent_id": agent.id, "round": round_number, "attempt": attempt + 1})
                         else:
                             async with self.provider_semaphore:
-                                text = await llm_service.complete(api_key, agent.model_id, system, prompt, timeout_seconds=int(agent_config.get("timeout_seconds", 300)), endpoint=endpoint)
+                                timeout_s = int(agent_config.get("timeout_seconds", 300))
+                                if stream_mode:
+                                    # 流式聚合：保持连接活性，规避中转对长响应的空闲掐断；截断会显式上抛按网络重试。
+                                    text = await llm_service.complete_via_stream(api_key, agent.model_id, system, prompt, timeout_seconds=timeout_s, endpoint=endpoint)
+                                else:
+                                    text = await llm_service.complete(api_key, agent.model_id, system, prompt, timeout_seconds=timeout_s, endpoint=endpoint)
                             raw_path.write_text(text, encoding="utf-8")
                         parsed = _json_object(text)
                         output = validate_and_store_agent_output(

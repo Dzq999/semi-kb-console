@@ -30,6 +30,9 @@ class UserPreference(Base):
     llm_base_url: Mapped[str | None] = mapped_column(String(300), nullable=True)
     model_catalog_url: Mapped[str | None] = mapped_column(String(300), nullable=True)
     llm_api_style: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    # 研究 agent 的模型调用方式：False=非流式一次性取回（默认，历史行为）；True=流式聚合。
+    # 中转在长响应上易掐断（RemoteProtocolError），流式保持连接活性可规避；两者产物契约一致。
+    llm_stream_mode: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
 class EncryptedCredential(Base):

@@ -373,6 +373,34 @@ async def test_partial_publish_isolate_happy_path_single_check_publishes_all(aut
     assert not quarantine.exists() or not list(quarantine.glob("semantic-*.json"))
 
 
+def test_baseline_gate_failure_recognizes_only_non_candidate_shacl_focus_nodes():
+    """Legacy R011/R013 不是可豁免的 SHACL 基线；只能修基线，不能吞错误。"""
+    outputs = [{"semantic_files": []}]
+    legacy_error = (
+        "[ERROR R011] erp.anomaly.x economic_hooks.affects 含非法项 'ebitda'\n"
+        "[ERROR R013] kb.crm.x 不符合 kb id 规范"
+    )
+    assert RoundGraphEngine._is_baseline_gate_failure(legacy_error, outputs) is False
+
+    shacl_baseline = (
+        "Constraint Violation in MinCountConstraintComponent\n"
+        "Focus Node: <urn:pxai:semi:ExistingBaselineNode>"
+    )
+    assert RoundGraphEngine._is_baseline_gate_failure(shacl_baseline, outputs) is True
+
+
+def test_baseline_gate_failure_does_not_hide_candidate_focus_node(tmp_path):
+    """Focus Node 出现在本轮候选正文时必须按候选错误处理。"""
+    candidate = tmp_path / "semantic.json"
+    candidate.write_text('{"iri":"urn:pxai:semi:CandidateNode"}', encoding="utf-8")
+    error = (
+        "Constraint Violation in MinCountConstraintComponent\n"
+        "Focus Node: <urn:pxai:semi:CandidateNode>"
+    )
+    outputs = [{"semantic_files": [str(candidate)]}]
+    assert RoundGraphEngine._is_baseline_gate_failure(error, outputs) is False
+
+
 # --- execute_agent 网络重试的有界退避（Fix 4）------------------------------
 
 @pytest.mark.asyncio

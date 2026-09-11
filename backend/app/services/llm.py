@@ -65,7 +65,7 @@ _TRANSIENT_HTTP_ERRORS = (
     httpx.PoolTimeout,
 )
 _RETRYABLE_STATUS = frozenset({429, 500, 502, 503, 504})
-_HTTP_RETRIES = 2  # 初次调用之外的额外重试次数（共 3 次尝试）
+_HTTP_RETRIES = 3  # 初次调用之外的额外重试次数（共 4 次尝试）——中转首包前丢连接较频，多兜一次
 _HTTP_BACKOFF_BASE = 1.0
 _HTTP_BACKOFF_CAP = 8.0
 
@@ -73,6 +73,12 @@ _HTTP_BACKOFF_CAP = 8.0
 def user_api_key(db: Session, user_id: int) -> str | None:
     row = db.scalar(select(EncryptedCredential).where(EncryptedCredential.user_id == user_id, EncryptedCredential.kind == "llm_api_key"))
     return decrypt_secret(row.ciphertext) if row else settings.llm_api_key
+
+
+def user_stream_mode(db: Session, user_id: int) -> bool:
+    """该用户是否对研究 agent 启用流式聚合调用；缺省 False（非流式，历史行为）。"""
+    pref = db.get(UserPreference, user_id)
+    return bool(pref.llm_stream_mode) if pref else False
 
 
 class LlmService:
@@ -150,6 +156,68 @@ class LlmService:
         except json.JSONDecodeError as exc:
             raise ExternalServiceError("模型响应结构不兼容") from exc
 
+    async def complete_via_stream(self, api_key: str, model: str, system: str, user: str, temperature: float = 0.2, timeout_seconds: int = 300, max_tokens: int | None = None, endpoint: LlmEndpoint | None = None) -> str:
+        """流式聚合的一次性补全：与 complete() 契约相同（返回完整文本），但走 SSE。
+
+        为什么单列一条而不复用 stream_complete()：stream_complete 面向问答“逐字浮现”，在 aiter_lines
+        自然结束时就正常返回——若中转在生成中途【静默断流】而不发终止事件，它会把残缺文本当成功。
+        编排 agent 的产物要进候选/入库，绝不能把截断响应误当完整。故这里显式跟踪终止信号：
+          - anthropic：message_stop 事件，或 message_delta 里带 stop_reason
+          - openai   ：choices[].finish_reason 非空，或 [DONE] 哨兵
+        整段流结束后若从未见到任一终止信号，按“被中途掐断”上抛 RemoteProtocolError（可重试网络错误），
+        与非流式被掐时的显式失败语义对齐，交由 orchestrator 网络类重试处理，而非污染下游校验。
+
+        重试语义与 complete() 一致：仅在【首个增量到达前】重试连接/瞬时 5xx；一旦已收过增量，
+        中断无法从头重放，直接作为网络错误上抛（不吞、不半吐）。流式保持连接活性，规避中转对长响应
+        的空闲掐断（RemoteProtocolError），这正是本方法存在的理由。
+        """
+        endpoint = endpoint or _default_endpoint()
+        max_tokens = max_tokens or settings.llm_max_tokens
+        if endpoint.api_style == "anthropic":
+            url = f"{endpoint.base_url}/messages"
+            payload = {"model": model, "max_tokens": max_tokens, "system": system, "messages": [{"role": "user", "content": user}], "temperature": temperature, "stream": True}
+        else:
+            url = f"{endpoint.base_url}/chat/completions"
+            payload = {"model": model, "max_tokens": max_tokens, "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}], "temperature": temperature, "stream": True}
+        headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+        for attempt in range(_HTTP_RETRIES + 1):
+            chunks: list[str] = []
+            terminated = False
+            try:
+                async with httpx.AsyncClient(timeout=timeout_seconds, follow_redirects=True) as client:
+                    async with client.stream("POST", url, json=payload, headers=headers) as response:
+                        if response.status_code in _RETRYABLE_STATUS and attempt < _HTTP_RETRIES and not chunks:
+                            await self._backoff(attempt)
+                            continue
+                        if response.status_code >= 400:
+                            raise ExternalServiceError(f"模型流式调用失败：HTTP {response.status_code}")
+                        async for line in response.aiter_lines():
+                            piece, kind = self._parse_stream_line_terminal(line, endpoint.api_style)
+                            if piece:
+                                chunks.append(piece)
+                            if kind == "cut":
+                                # 预算耗尽/中转截断：累积文本必是残缺 JSON。按瞬时网络错误上抛，
+                                # 交 orchestrator 的网络类重试重跑（不把残缺响应塞进候选，也不污染 prompt）。
+                                raise httpx.RemoteProtocolError("响应被截断（stop_reason=max_tokens / finish_reason=length，疑似中转截断）")
+                            if kind == "ok":
+                                terminated = True
+                if not terminated:
+                    # 见到 EOF 却从未见终止事件：被中途掐断。构造成瞬时错误走本方法的重试。
+                    raise httpx.RemoteProtocolError("流在终止事件到达前结束（疑似中转掐断）")
+                text = "".join(chunks)
+                if not text.strip():
+                    raise ExternalServiceError("模型响应结构不兼容")
+                return text
+            except (*_TRANSIENT_HTTP_ERRORS, OSError) as exc:
+                # 已收过增量则无法从头重放；未收过且还有重试额度则退避重连。
+                if chunks or attempt >= _HTTP_RETRIES:
+                    raise ExternalServiceError(f"模型网络调用失败：{type(exc).__name__}") from exc
+                await self._backoff(attempt)
+                continue
+            except httpx.HTTPError as exc:
+                raise ExternalServiceError(f"模型网络调用失败：{type(exc).__name__}") from exc
+        raise ExternalServiceError("模型网络调用失败：无响应")
+
     async def stream_complete(self, api_key: str, model: str, system: str, user: str, temperature: float = 0.2, timeout_seconds: int = 180, max_tokens: int | None = None, endpoint: LlmEndpoint | None = None):
         """流式补全：逐段 yield 增量文本。用于问答汇总阶段的答案「逐字浮现」。
 
@@ -212,6 +280,56 @@ class LlmService:
             if isinstance(piece, str):
                 return piece
         return ""
+
+    @staticmethod
+    def _parse_stream_line_terminal(line: str, api_style: str) -> tuple[str, str]:
+        """同 _parse_stream_line 取增量文本，另返回终止类别："" | "ok" | "cut"。
+
+        "ok"  = 正常收尾（anthropic end_turn/stop_sequence、message_stop 事件；openai finish_reason=stop 等）
+        "cut" = 被截断（anthropic stop_reason=max_tokens；openai finish_reason=length）——预算耗尽或中转
+                中途截断，此时累积文本必然是残缺 JSON，绝不能当成功返回。
+        供 complete_via_stream 判定：见 "cut" 直接按网络类失败上抛重试，避免残缺响应污染候选。
+        不改动 _parse_stream_line（问答流式仍用它）。
+        """
+        if not line:
+            return "", ""
+        stripped = line.strip()
+        # anthropic SSE 先发一行 `event: message_stop`（无 data:）作为正常终止事件
+        if stripped.startswith("event:"):
+            return "", ("ok" if stripped[6:].strip() == "message_stop" else "")
+        if not line.startswith("data:"):
+            return "", ""
+        data = line[5:].strip()
+        if not data:
+            return "", ""
+        if data == "[DONE]":  # openai 正常终止哨兵
+            return "", "ok"
+        try:
+            obj = json.loads(data)
+        except json.JSONDecodeError:
+            return "", ""
+        if not isinstance(obj, dict):
+            return "", ""
+        if obj.get("type") == "message_stop":  # anthropic：终止事件也可能出现在 data 里
+            return "", "ok"
+        delta = obj.get("delta")
+        if isinstance(delta, dict):
+            if isinstance(delta.get("text"), str):
+                return delta["text"], ""
+            stop = delta.get("stop_reason")  # anthropic message_delta 携带 stop_reason 即已收尾
+            if stop:
+                return "", ("cut" if stop == "max_tokens" else "ok")
+        choices = obj.get("choices")
+        if isinstance(choices, list) and choices:
+            first = choices[0] or {}
+            finish = first.get("finish_reason")
+            kind = ("cut" if finish == "length" else "ok") if finish else ""
+            piece = (first.get("delta") or {}).get("content")
+            if isinstance(piece, str) and piece:
+                return piece, kind
+            if finish:  # openai：finish_reason 非空即收尾
+                return "", kind
+        return "", ""
 
     @staticmethod
     def _extract_text(data: dict) -> str:

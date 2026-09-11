@@ -238,6 +238,7 @@ class LlmEndpointUpdate(BaseModel):
     llm_base_url: str | None = Field(default=None, max_length=300)
     model_catalog_url: str | None = Field(default=None, max_length=300)
     llm_api_style: Literal["anthropic", "openai"] | None = None
+    llm_stream_mode: bool | None = None
 
     @field_validator("llm_base_url", "model_catalog_url")
     @classmethod

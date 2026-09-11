@@ -38,7 +38,9 @@ class Settings:
     wechat_api_base_url: str = os.getenv("WECHAT_API_BASE_URL", "https://api.weixin.qq.com").rstrip("/")
     wechat_account_name: str = os.getenv("WECHAT_ACCOUNT_NAME", "墨言yyy")
     max_agent_count: int = min(10, max(1, int(os.getenv("MAX_AGENT_COUNT", "10"))))
-    max_provider_concurrency: int = max(1, int(os.getenv("MAX_PROVIDER_CONCURRENCY", "5")))
+    # 默认 3：第三方中转（4sapi 等）在高并发下会成批丢连接/截断回包，实测 5 路并发即劣化。
+    # 稳定优先于速度；直连官方端点的用户可用 MAX_PROVIDER_CONCURRENCY 调回 5+。
+    max_provider_concurrency: int = max(1, int(os.getenv("MAX_PROVIDER_CONCURRENCY", "3")))
     research_result_limit: int = min(12, max(1, int(os.getenv("RESEARCH_RESULT_LIMIT", "6"))))
     evidence_chars_per_page: int = min(20_000, max(1_000, int(os.getenv("EVIDENCE_CHARS_PER_PAGE", "6000"))))
     timezone: str = os.getenv("SEMI_KB_TIMEZONE", "Asia/Shanghai")

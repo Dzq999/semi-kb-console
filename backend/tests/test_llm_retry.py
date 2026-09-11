@@ -72,10 +72,13 @@ async def test_retryable_status_then_success(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_exhausts_retries_then_raises(monkeypatch):
-    _install(monkeypatch, [httpx.RemoteProtocolError("d1"), httpx.ReadTimeout("d2"), httpx.ConnectError("d3")])
+    from app.services.llm import _HTTP_RETRIES
+    # 每次尝试都抛瞬时错误：共 1 初次 + _HTTP_RETRIES 次重试，全部耗尽后上抛。
+    script = [httpx.RemoteProtocolError(f"d{i}") for i in range(_HTTP_RETRIES + 1)]
+    _install(monkeypatch, script)
     with pytest.raises(ExternalServiceError):
         await _call()
-    assert _FakeClient.calls == 3  # 1 initial + 2 retries
+    assert _FakeClient.calls == _HTTP_RETRIES + 1
 
 
 @pytest.mark.asyncio
@@ -167,3 +170,103 @@ async def test_endpoint_override_beats_global_settings(monkeypatch):
     result = await LlmService().complete("key", "gpt-x", "sys", "user", endpoint=endpoint)
     assert result == "custom-ok"
     assert _CapturingClient.last_url == "https://proxy.example.com/v1/chat/completions"
+
+
+# ---- 流式补全 complete_via_stream：截断显式判失败，正常收尾才返回 ----
+
+class _StreamResponse:
+    def __init__(self, lines: list[str], status_code: int = 200):
+        self.status_code = status_code
+        self._lines = lines
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc):
+        return False
+
+    async def aiter_lines(self):
+        for line in self._lines:
+            yield line
+
+
+class _StreamClient:
+    """替身 httpx.AsyncClient：.stream() 回放一段脚本化 SSE 行序列。"""
+
+    script: list = []
+    calls: int = 0
+
+    def __init__(self, *args, **kwargs):
+        pass
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc):
+        return False
+
+    def stream(self, *args, **kwargs):
+        outcome = type(self).script[type(self).calls]
+        type(self).calls += 1
+        if isinstance(outcome, Exception):
+            raise outcome
+        return _StreamResponse(outcome)
+
+
+def _install_stream(monkeypatch, script):
+    _StreamClient.script = script
+    _StreamClient.calls = 0
+    monkeypatch.setattr(httpx, "AsyncClient", _StreamClient)
+
+
+async def _stream_call():
+    return await LlmService().complete_via_stream("key", "model", "sys", "user")
+
+
+_ANTH_TEXT = 'data: {"type":"content_block_delta","delta":{"type":"text_delta","text":"%s"}}'
+
+
+@pytest.mark.asyncio
+async def test_stream_clean_stop_returns_full_text(monkeypatch):
+    _install_stream(monkeypatch, [[
+        _ANTH_TEXT % "他",
+        _ANTH_TEXT % "好",
+        'data: {"type":"message_delta","delta":{"stop_reason":"end_turn"}}',
+        'event: message_stop',
+    ]])
+    assert await _stream_call() == "他好"
+    assert _StreamClient.calls == 1
+
+
+@pytest.mark.asyncio
+async def test_stream_max_tokens_cut_raises_not_partial(monkeypatch):
+    # 关键：中转在 max_tokens 处截断，累积文本是残缺 JSON —— 绝不能当成功返回。
+    # 每次尝试都截断 → 耗尽重试后上抛，而不是把残缺片段交回下游。
+    from app.services.llm import _HTTP_RETRIES
+    cut = [
+        _ANTH_TEXT % "{\\\"a\\\":1",
+        'data: {"type":"message_delta","delta":{"stop_reason":"max_tokens"}}',
+    ]
+    _install_stream(monkeypatch, [list(cut) for _ in range(_HTTP_RETRIES + 1)])
+    with pytest.raises(ExternalServiceError):
+        await _stream_call()
+
+
+@pytest.mark.asyncio
+async def test_stream_silent_eof_without_terminal_raises(monkeypatch):
+    # 只发文本、从不发终止事件（EOF 静默断流）→ 判失败，不把残缺文本当完整。
+    from app.services.llm import _HTTP_RETRIES
+    partial = [_ANTH_TEXT % "半截"]
+    _install_stream(monkeypatch, [list(partial) for _ in range(_HTTP_RETRIES + 1)])
+    with pytest.raises(ExternalServiceError):
+        await _stream_call()
+
+
+@pytest.mark.asyncio
+async def test_stream_openai_length_finish_is_cut(monkeypatch):
+    from app.services.llm import LlmEndpoint, _HTTP_RETRIES
+    ep = LlmEndpoint(base_url="https://p/v1", catalog_url="https://p/v1/models", api_style="openai")
+    cut = ['data: {"choices":[{"delta":{"content":"部分"},"finish_reason":"length"}]}']
+    _install_stream(monkeypatch, [list(cut) for _ in range(_HTTP_RETRIES + 1)])
+    with pytest.raises(ExternalServiceError):
+        await LlmService().complete_via_stream("key", "model", "sys", "user", endpoint=ep)
