@@ -552,3 +552,22 @@ code { color: #31557f; font-family: Consolas, monospace; font-size: 9px; }
   .og-node { animation: none; transition: none; }
   .react-flow__edge-path { animation: none !important; }
 }
+
+/* ---- 本体治理（Track C）---- */
+.page-sub { margin: 5px 0 0; color: #708097; font-size: 11px; line-height: 1.5; }
+.hint { margin: 8px 0 0; color: #8796aa; font-size: 10px; line-height: 1.5; }
+.gov-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 0 4px; }
+.gov-actions .hint { margin: 0; }
+.form-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 6px; }
+.form-actions .hint { margin: 0; }
+.settings-form small.muted, small.muted, .muted { color: #8796aa; font-weight: 400; }
+.err { color: #b72e41; }
+code.strike { text-decoration: line-through; color: #b72e41; opacity: .8; margin-right: 6px; }
+tr.row-muted { opacity: .5; }
+.status-tag.st-detected { color: #2864dc; background: #eaf1ff; }
+.status-tag.st-deprecated { color: #a15a13; background: #fff3e4; }
+.status-tag.st-merged { color: #147553; background: #e7f7f0; }
+.status-tag.st-resolved { color: #64748b; background: #f1f5f9; }
+.status-tag.st-succeeded { color: #147553; background: #e7f7f0; }
+.status-tag.st-running, .status-tag.st-queued { color: #2864dc; background: #eaf1ff; }
+.status-tag.st-failed { color: #b72e41; background: #ffedf0; }

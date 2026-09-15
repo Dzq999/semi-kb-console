@@ -252,3 +252,40 @@ class LlmEndpointUpdate(BaseModel):
         if not low.startswith(_ALLOWED_LLM_SCHEMES):
             raise ValueError("端点仅允许 https:// 或本地 http://localhost / http://127.0.0.1")
         return value.rstrip("/")
+
+
+# --------------------------------------------------------------------------- 本体治理（Track C）
+class GovernanceRunRequest(BaseModel):
+    """手动触发一次治理作业。kind=scan（检出同义，安全）/ merge（合并落盘，不可逆）。"""
+
+    kind: Literal["scan", "merge"] = "scan"
+    # merge 时必填：本次确认合并的候选 id 列表。scan 时忽略。
+    candidate_ids: list[int] = Field(default_factory=list, max_length=500)
+
+
+class GovernanceDeprecateRequest(BaseModel):
+    """人工把 detected 候选标记为 deprecated（起 grace 倒计时），可逆。"""
+
+    candidate_ids: list[int] = Field(min_length=1, max_length=500)
+    grace_days: int = Field(default=14, ge=0, le=365)
+
+
+class GovernanceScheduleUpdate(BaseModel):
+    """治理定时设置：Cron 五段式表达式驱动，只做扫描（+可选自动标记 deprecated），绝不自动合并。"""
+
+    enabled: bool = False
+    cron: str = Field(default="0 3 * * *", max_length=120)
+    auto_deprecate: bool = True
+    grace_days: int = Field(default=14, ge=0, le=365)
+
+    @field_validator("cron")
+    @classmethod
+    def validate_cron(cls, value: str) -> str:
+        value = value.strip()
+        # 用 APScheduler 自带 CronTrigger 校验五段式（分 时 日 月 周），零新依赖。
+        try:
+            from apscheduler.triggers.cron import CronTrigger
+            CronTrigger.from_crontab(value)
+        except Exception as exc:  # noqa: BLE001
+            raise ValueError(f"Cron 表达式非法（须五段式：分 时 日 月 周）：{exc}") from exc
+        return value
