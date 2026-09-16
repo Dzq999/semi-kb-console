@@ -3,6 +3,8 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import sys
+from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -11,9 +13,46 @@ from zoneinfo import ZoneInfo
 import jsonschema
 import yaml
 from rdflib import Graph, RDF, URIRef
-from rdflib.namespace import OWL
+from rdflib.namespace import OWL, RDFS
 
 from ..config import settings
+
+# B1b 生成时同义防增量：复用引擎侧 find_synonyms 的规范化逻辑（单一真源，避免
+# 「检测口径」与「生成时准入口径」漂移——正是这种漂移攒出了 201 组属性同义）。
+_FS = None
+
+
+def _fs():
+    """惰性导入 scripts/find_synonyms.py（backend 只引数据路径，此处按需入 sys.path）。"""
+    global _FS
+    if _FS is None:
+        scripts_dir = str(settings.engine_root / "scripts")
+        if scripts_dir not in sys.path:
+            sys.path.insert(0, scripts_dir)
+        import find_synonyms as _mod
+        _FS = _mod
+    return _FS
+
+
+_ODC = None
+
+
+def _odc():
+    """惰性导入 scripts/ontology_domain_classifier.py（B2 落位路由复用 A2 分类器）。"""
+    global _ODC
+    if _ODC is None:
+        scripts_dir = str(settings.engine_root / "scripts")
+        if scripts_dir not in sys.path:
+            sys.path.insert(0, scripts_dir)
+        import ontology_domain_classifier as _mod
+        _ODC = _mod
+    return _ODC
+
+
+# 生成时同义检测的三个独立桶：类 / 对象属性 / 数据属性 各自成域，永不跨桶自动合并
+# （对象↔数据属性同名须人工定夺 O/D，见 B1a 残留 5 组类型冲突簇）。
+_SYN_SECTIONS = ("classes", "object_properties", "datatype_properties")
+_SYN_BUCKET = {"classes": "class", "object_properties": "object_property", "datatype_properties": "datatype_property"}
 
 
 def round_directory(run_id: str, round_number: int) -> Path:
@@ -101,6 +140,12 @@ def _normalize_semantic_candidate(candidate: dict[str, Any]) -> tuple[dict[str, 
             if field in item and not isinstance(item[field], list):
                 item[field] = _as_list(item[field])
                 warnings.append(f"已将对象属性 {item.get('iri')} 的 {field} 规范化为数组")
+        # inverse_of 是可选项：模型常回空串/None 表示"无逆属性"，但 schema 的 pattern 只认合法 IRI，
+        # 空串会整条 agent 输出校验失败（曾致 FAC 研究整轮丢弃）。空值即视为未声明、直接剔除。
+        inv = item.get("inverse_of")
+        if "inverse_of" in item and (not isinstance(inv, str) or not inv.strip()):
+            item.pop("inverse_of", None)
+            warnings.append(f"已剔除对象属性 {item.get('iri')} 的空 inverse_of")
     for item in additions["datatype_properties"]:
         if "domain" in item and not isinstance(item["domain"], list):
             item["domain"] = _as_list(item["domain"])
@@ -179,17 +224,235 @@ def _semantic_contract() -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def _inventory() -> dict[str, set[str]]:
+def _inventory() -> dict[str, Any]:
     schema, data = Graph(), Graph()
+    generated = settings.engine_root / "ontology" / "modules" / "generated.ttl"
+    curated_iris: set[str] = set()
     for path in sorted((settings.engine_root / "ontology" / "modules").glob("*.ttl")):
+        before = set(schema.subjects()) if path == generated else None
         schema.parse(path, format="turtle")
+        if path != generated:
+            curated_iris |= {str(s) for s in schema.subjects() if isinstance(s, URIRef)}
     data_path = settings.engine_root / "knowledge" / "semantic" / "current.ttl"
     if data_path.is_file(): data.parse(data_path, format="turtle")
     classes = {str(item) for item in schema.subjects(RDF.type, OWL.Class)}
     object_properties = {str(item) for item in schema.subjects(RDF.type, OWL.ObjectProperty)}
     datatype_properties = {str(item) for item in schema.subjects(RDF.type, OWL.DatatypeProperty)}
     subjects = {str(item) for item in schema.subjects() if isinstance(item, URIRef)} | {str(item) for item in data.subjects() if isinstance(item, URIRef)}
-    return {"classes": classes, "object_properties": object_properties, "datatype_properties": datatype_properties, "subjects": subjects}
+
+    # B1b 同义索引：每桶 (localname 归一 / zh 标签归一) → {IRI}。zh 标签取自 schema。
+    fs = _fs()
+    zh_labels: dict[str, set[str]] = defaultdict(set)
+    for s, _, o in schema.triples((None, RDFS.label, None)):
+        if isinstance(s, URIRef) and getattr(o, "language", None) == "zh":
+            zh_labels[str(s)].add(str(o))
+    kind_of = {"classes": classes, "object_properties": object_properties, "datatype_properties": datatype_properties}
+    syn_index: dict[str, dict[str, dict[str, set[str]]]] = {}
+    for section, iris in kind_of.items():
+        by_uri: dict[str, set[str]] = defaultdict(set)
+        by_zh: dict[str, set[str]] = defaultdict(set)
+        for iri in iris:
+            by_uri[fs._norm_localname(iri)].add(iri)
+            for lbl in zh_labels.get(iri, ()):
+                nl = fs._norm_label(lbl)
+                if nl:
+                    by_zh[nl].add(iri)
+        syn_index[section] = {"uri": by_uri, "zh": by_zh}
+
+    # B2 落位校验：subClassOf 深度图（BFS 自根）。root=无 semi 父类的类（depth 0）。
+    children: dict[str, set[str]] = defaultdict(set)
+    has_parent: set[str] = set()
+    for s, _, o in schema.triples((None, RDFS.subClassOf, None)):
+        if isinstance(s, URIRef) and isinstance(o, URIRef) and str(s) in classes and str(o) in classes:
+            children[str(o)].add(str(s)); has_parent.add(str(s))
+    depth: dict[str, int] = {}
+    frontier = [c for c in classes if c not in has_parent]
+    for r in frontier:
+        depth[r] = 0
+    while frontier:
+        nxt = []
+        for x in frontier:
+            for ch in children.get(x, ()):
+                nd = depth[x] + 1
+                if ch not in depth or nd < depth[ch]:
+                    depth[ch] = nd; nxt.append(ch)
+        frontier = nxt
+    return {"classes": classes, "object_properties": object_properties, "datatype_properties": datatype_properties,
+            "subjects": subjects, "syn_index": syn_index, "curated": curated_iris, "depth": depth}
+
+
+def _rank_canonical(iri: str, curated: set[str], fs) -> tuple:
+    """规范类优先(策展模块>generated)，再 localname 最短，再字典序。与 find_synonyms 一致。"""
+    return (0 if iri in curated else 1, len(fs._local(iri)), iri)
+
+
+def _dedupe_synonym_additions(additions: dict, syn_index: dict, curated: set[str]) -> tuple[dict, dict[str, str], list[str]]:
+    """B1b 生成时同义防增量：把「与既有/本批已收术语同义」的新类/属性重定向到规范存活者。
+
+    策略（保守·分桶·无传递链，规避 B1a 曾出现的 token 误并）：
+      · uri_variant（归一 localname 撞既有）           → 自动重定向
+      · same_label_zh 撞【唯一】同桶规范           → 自动重定向
+      · same_label_zh 撞多个 / 跨桶同名           → 仅告警、保留（留人工/OD 定夺）
+    syn_index 会就地累加本批新收术语，使后续候选能重定向到前面候选新建的规范类。
+    返回 (重写后 additions, redirect_map[oldIRI→canonIRI], warnings)。
+    """
+    fs = _fs()
+    warnings: list[str] = []
+    redirect: dict[str, str] = {}
+    for section in _SYN_SECTIONS:
+        bucket = syn_index.setdefault(section, {"uri": defaultdict(set), "zh": defaultdict(set)})
+        kept: list[dict] = []
+        for item in additions.get(section) or []:
+            if not isinstance(item, dict):
+                continue
+            iri = str(item.get("iri") or "")
+            if not iri or iri in redirect:
+                continue
+            nl = fs._norm_localname(iri)
+            nz = fs._norm_label(item.get("label_zh") or "")
+            uri_hit = {x for x in bucket["uri"].get(nl, set()) if x != iri}
+            zh_hit = {x for x in bucket["zh"].get(nz, set()) if x != iri} if nz else set()
+            # 跨桶同名（zh 撞到别桶规范）——仅提示，绝不跨 O/D 自动并
+            cross = False
+            for other in _SYN_SECTIONS:
+                if other == section or not nz:
+                    continue
+                if syn_index.get(other, {}).get("zh", {}).get(nz):
+                    cross = True
+            target: str | None = None
+            if uri_hit:
+                target = min(uri_hit | {iri}, key=lambda x: _rank_canonical(x, curated, fs))
+            elif len(zh_hit) == 1:
+                target = min(zh_hit | {iri}, key=lambda x: _rank_canonical(x, curated, fs))
+            elif len(zh_hit) > 1:
+                warnings.append(f"B1b：新{_SYN_BUCKET[section]} {iri} 的中文名撞多个既有规范 {sorted(zh_hit)[:3]}，保留待人工核（未自动并）")
+            elif cross:
+                warnings.append(f"B1b：新{_SYN_BUCKET[section]} {iri} 中文名与其它属性桶重名，保留待 O/D 人工定夺")
+            if target and target != iri:
+                redirect[iri] = target
+                why = "同 localname 变体" if uri_hit else "同中文名"
+                warnings.append(f"B1b：新{_SYN_BUCKET[section]} {iri} 判为同义（{why}）→ 重定向至 {target}")
+                continue
+            # 收下：登记为本桶新规范，供后续候选与本批其余项比对
+            kept.append(item)
+            bucket["uri"][nl].add(iri)
+            if nz:
+                bucket["zh"][nz].add(iri)
+        if section in additions:
+            additions = {**additions, section: kept}
+    if redirect:
+        additions = _apply_synonym_redirect(additions, redirect)
+    return additions, redirect, warnings
+
+
+def _apply_synonym_redirect(additions: dict, redirect: dict[str, str]) -> dict:
+    """把 redirect 里的旧 IRI 在整份 additions 的所有引用位替换为规范 IRI（声明已在上游剔除）。"""
+    def r(v):
+        return redirect.get(v, v) if isinstance(v, str) else v
+
+    def rlist(vs):
+        out, seen = [], set()
+        for v in vs or []:
+            nv = r(v)
+            if nv not in seen:
+                seen.add(nv); out.append(nv)
+        return out
+
+    out = dict(additions)
+    for cls in out.get("classes") or []:
+        for f in ("subclass_of", "equivalent_to", "disjoint_with"):
+            if f in cls:
+                cls[f] = rlist(cls[f])
+        for res in cls.get("restrictions") or []:
+            if "on_property" in res: res["on_property"] = r(res["on_property"])
+            if "target_class" in res: res["target_class"] = r(res["target_class"])
+    for sec in ("object_properties", "datatype_properties"):
+        for prop in out.get(sec) or []:
+            for f in ("domain", "range"):
+                if f in prop: prop[f] = rlist(prop[f])
+            if prop.get("inverse_of"): prop["inverse_of"] = r(prop["inverse_of"])
+    for ind in out.get("individuals") or []:
+        if "types" in ind: ind["types"] = rlist(ind["types"])
+        if isinstance(ind.get("objects"), dict):
+            ind["objects"] = {r(p): rlist(vs) for p, vs in ind["objects"].items()}
+        if isinstance(ind.get("data"), dict):
+            ind["data"] = {r(p): vs for p, vs in ind["data"].items()}
+    for a in out.get("object_assertions") or []:
+        for f in ("subject", "predicate", "object"):
+            if f in a: a[f] = r(a[f])
+    for a in out.get("data_assertions") or []:
+        for f in ("subject", "predicate"):
+            if f in a: a[f] = r(a[f])
+    return out
+
+
+# B2：A2 已在这 4 个诊断 hub（depth 2）下建好 {Stem}{Hub} 领域桶（depth 3）。生成时
+# 新类若直挂 hub 就会重演 A2 修掉的扁平化——按同一分类器路由到对应桶，落到 depth 4。
+_FLAT_HUBS = {"Anomaly", "Cause", "Action", "DiagnosticPlaybook"}
+
+
+def _camel_stem(stem: str) -> str:
+    return "".join(part.capitalize() for part in stem.split("-"))
+
+
+def _enforce_placement(additions: dict, inventory: dict) -> tuple[dict, list[str]]:
+    """B2 落位防扁平：把直挂诊断 hub 的新类改挂到 {领域}{Hub} 桶（复用 A2 分类器/桶）。
+    无领域命中→留 hub+告警（诚实未映射，同 A2 的 2 个 stay-under-hub）；
+    路由后仍只有 depth≤1 浅父→告警（depth 守卫，不硬拒，避免误伤合法新顶层域）。"""
+    classes = additions.get("classes") or []
+    if not classes:
+        return additions, []
+    odc = _odc()
+    fs = _fs()
+    depth: dict[str, int] = inventory.get("depth") or {}
+    all_classes: set[str] = inventory.get("classes") or set()
+    warnings: list[str] = []
+    SEMI = "urn:pxai:semi:"
+    # 本批新建类也算「已知类」，其 depth = 父 depth+1（供批内多层新建判定）
+    batch_iris = {str(c.get("iri")) for c in classes if c.get("iri")}
+
+    def bucket_for(iri: str, labels: list[str], hub_local: str) -> str | None:
+        stem, _kw = odc.classify(fs._local(iri), labels)
+        if not stem:
+            return None
+        cand = SEMI + _camel_stem(stem) + hub_local
+        return cand if cand in all_classes else None
+
+    for cls in classes:
+        iri = str(cls.get("iri") or "")
+        parents = list(cls.get("subclass_of") or [])
+        if not iri or not parents:
+            continue
+        labels = [cls.get("label_zh")] if cls.get("label_zh") else []
+        changed = False
+        new_parents: list[str] = []
+        for p in parents:
+            hub_local = fs._local(p) if isinstance(p, str) else ""
+            if hub_local in _FLAT_HUBS and p in all_classes:
+                bucket = bucket_for(iri, labels, hub_local)
+                if bucket:
+                    new_parents.append(bucket); changed = True
+                    warnings.append(f"B2：新类 {iri} 直挂 hub {hub_local}（扁平）→ 改挂领域桶 {fs._local(bucket)}")
+                    continue
+                warnings.append(f"B2：新类 {iri} 直挂 hub {hub_local} 但无领域命中，留 hub 待人工（诚实未映射）")
+            new_parents.append(p)
+        # 去重保序
+        seen: set[str] = set(); dedup = []
+        for p in new_parents:
+            if p not in seen:
+                seen.add(p); dedup.append(p)
+        if changed:
+            cls["subclass_of"] = dedup
+        # depth 守卫：路由后，若所有父都是 depth≤1（根/近根）或未知浅父，告警
+        pd = []
+        for p in dedup:
+            if p in depth:
+                pd.append(depth[p])
+            elif p in batch_iris:
+                pd.append(2)  # 本批新类保守按 depth≥2 估（避免误报）
+        if pd and max(pd) < 2:
+            warnings.append(f"B2：新类 {iri} 仅挂浅父（depth≤1）{[fs._local(x) for x in dedup]}，可能过扁，建议挂领域类")
+    return additions, warnings
 
 
 def _sanitize_additions(additions: dict, allowed: dict[str, set[str]], claimed: set[str]) -> tuple[dict, list[str]]:
@@ -457,7 +720,11 @@ def validate_and_store_agent_output(
             confidence = "low"
         if source_type == "model_prior" and confidence == "high":
             confidence = "medium"
-        additions, warnings = _sanitize_additions(candidate.get("additions") or {}, allowed, claimed)
+        deduped, _redir, syn_warnings = _dedupe_synonym_additions(candidate.get("additions") or {}, inventory["syn_index"], inventory["curated"])
+        sanitization_warnings.extend(syn_warnings)
+        placed, place_warnings = _enforce_placement(deduped, inventory)
+        sanitization_warnings.extend(place_warnings)
+        additions, warnings = _sanitize_additions(placed, allowed, claimed)
         sanitization_warnings.extend(warnings)
         if not isinstance(additions, dict) or not any(additions.get(key) for key in additions):
             continue

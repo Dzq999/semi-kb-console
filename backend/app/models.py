@@ -438,3 +438,81 @@ class QaMessage(Base):
     grounded: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
     conversation: Mapped[QaConversation] = relationship(back_populates="messages")
+
+
+# --------------------------------------------------------------------------- 本体治理（Track C）
+class GovernanceJob(Base):
+    """一次本体治理作业（扫描 / 合并落盘）。仿 ExportJob 的轻量 job 行 + 心跳恢复惯例。
+
+    kind=scan：跑 find_synonyms，只写候选快照到 DB，不碰 gated 活文件（零门禁成本、可并发）。
+    kind=merge：人工确认后，跑 prune_synonyms 事务（merge+ref-fix+门禁），不可逆，需无活跃 run。
+    trigger=manual/cron：区分前端手动触发与定时触发；cron 永远只产 scan，绝不产 merge。
+    """
+
+    __tablename__ = "governance_jobs"
+    id: Mapped[str] = mapped_column(String(48), primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    kind: Mapped[str] = mapped_column(String(16), default="scan")       # scan / merge
+    trigger: Mapped[str] = mapped_column(String(16), default="manual")  # manual / cron
+    status: Mapped[str] = mapped_column(String(24), default="queued")   # queued/running/succeeded/failed
+    progress: Mapped[float] = mapped_column(Float, default=0)
+    stage: Mapped[str | None] = mapped_column(String(40), nullable=True)  # 当前阶段中文短语
+    # 本次作业涉及的候选簇快照（scan=全部检出；merge=本次确认合并的子集）。
+    candidates_json: Mapped[str] = mapped_column(Text, default="[]")
+    worker_id: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    heartbeat_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    attempt_count: Mapped[int] = mapped_column(Integer, default=0)
+    audit_path: Mapped[str | None] = mapped_column(Text, nullable=True)  # 引擎侧审计 JSON 相对路径
+    output: Mapped[str | None] = mapped_column(Text, nullable=True)      # 尾部日志（截断）
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class GovernanceCandidate(Base):
+    """一个同义簇候选的生命周期状态（detected→deprecated→merged/resolved），DB 侧真源。
+
+    生命周期只落 DB（可逆、零 blast radius）：deprecate 标记不写进 gated TTL，避免给 T-Box
+    属性挂 hasCurrentStatus 触发 OWL RL 过度推理。只有人工确认合并那一步才真正碰活文件。
+    cluster_key = kind + '|' + canonical，同一簇跨多次扫描幂等 upsert。
+    """
+
+    __tablename__ = "governance_candidates"
+    __table_args__ = (UniqueConstraint("cluster_key"),)
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    cluster_key: Mapped[str] = mapped_column(String(300), index=True)
+    kind: Mapped[str] = mapped_column(String(16), default="property")   # class / property
+    canonical: Mapped[str] = mapped_column(String(200))
+    canonical_module: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    merge_json: Mapped[str] = mapped_column(Text, default="[]")         # 待并 localname 列表
+    reason_json: Mapped[str] = mapped_column(Text, default="[]")        # uri_variant/same_label_zh...
+    label_zh: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    # detected（刚检出）/ deprecated（已标记+起 grace 倒计时）/ merged（已合并落盘）/
+    # resolved（已从扫描消失，无需处理，如被别的流程合并）。
+    status: Mapped[str] = mapped_column(String(16), default="detected", index=True)
+    detected_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    deprecated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    grace_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    merged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class GovernanceSchedule(Base):
+    """本体治理定时设置（Cron 表达式驱动，仿 BusinessBaselineSchedule 的每用户单行样式）。
+
+    治理边界：定时只做『扫描 + 自动标记 deprecated（可逆、只落 DB）』——把候选熟化进 grace 期；
+    真正的合并落盘（不可逆）永远由人在前端点确认，Cron 绝不自动触发 merge。
+    cron 为五段式表达式（分 时 日 月 周），由 APScheduler CronTrigger.from_crontab 解析算下次触发。
+    """
+
+    __tablename__ = "governance_schedules"
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), primary_key=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    cron: Mapped[str] = mapped_column(String(120), default="0 3 * * *")  # 默认每日 03:00
+    timezone: Mapped[str] = mapped_column(String(80), default="Asia/Shanghai")
+    # 定时扫描后是否自动把新检出候选标记为 deprecated（起 grace 倒计时）。关=只扫描不推进。
+    auto_deprecate: Mapped[bool] = mapped_column(Boolean, default=True)
+    grace_days: Mapped[int] = mapped_column(Integer, default=14)
+    next_run_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_run_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

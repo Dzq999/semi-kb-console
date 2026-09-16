@@ -163,8 +163,10 @@ def cmd_status(a) -> int:
 # ---------- check ----------
 
 def run_step(name: str, timeout: int = 1800) -> tuple[bool, float, str]:
+    # name 可带参数（如 "find_synonyms.py --check"）：首 token 为脚本，其余为 argv。
+    script, *step_args = name.split()
     t0 = time.monotonic()
-    r = subprocess.run([sys.executable, str(C.ROOT / "scripts" / name)],
+    r = subprocess.run([sys.executable, str(C.ROOT / "scripts" / script), *step_args],
                        capture_output=True, text=True, encoding="utf-8",
                        errors="replace", cwd=str(C.ROOT), timeout=timeout,
                        env={**os.environ, "PYTHONIOENCODING": "utf-8"})
@@ -186,6 +188,11 @@ def build_check_chain(has_pending: bool, skip_derived: bool) -> list[str]:
         "source_ingest.py",
         "vfab_ingest.py",
         "align_sources.py",
+        "vfab_cross_validate.py",
+        # 同义重复硬门禁：发现可自动合并的同义术语（类 + O/D 纯属性）即失败，须先合并。
+        # 只读 modules/*.ttl、秒级、无推理依赖；跨 O/D 撞名只告警不阻断（须人工建模定夺）。
+        # 位置在语义重步骤前，快速失败。B1b 生成时已防增量，此步兜底手工编辑/导入引入的同义。
+        "find_synonyms.py --check",
         "capability_validate.py",
         "validate.py",
     ]

@@ -377,14 +377,22 @@ class SemiKbAdapter:
             "strategy": "balanced" if balanced else "kind_iri_order",
         }
 
-    def business_context(self) -> dict:
-        models = []
+    def business_context(self, model_limit: int = 30) -> dict:
+        """经营模型上下文。模型全文按 model_limit 等距采样后注入，附全量计数/截断标记。
+
+        为什么截断：经营模型随 786+ 关系持续增长，全文注入会把单 agent prompt 撑到 170KB+，
+        使单次调用长达 15-19 分钟、并发下被中转掐断（RemoteProtocolError）。等距采样保持跨模型
+        覆盖面，agent 靠样本+总数即可参考经营口径，不需要全量。与 existing_candidate_ids 同构。
+        """
+        all_models = []
         for path in sorted((self.root / "business" / "models").glob("*.yaml")):
             try:
                 document = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
             except (OSError, yaml.YAMLError):
                 continue
-            models.append({"path": path.relative_to(self.root).as_posix(), "document": document})
+            all_models.append({"path": path.relative_to(self.root).as_posix(), "document": document})
+        models_total = len(all_models)
+        models = _evenly_sample(all_models, model_limit) if model_limit and models_total > model_limit else all_models
         scenarios = []
         for path in sorted((self.root / "simulation" / "scenarios").glob("*.yaml")):
             try:
@@ -392,9 +400,14 @@ class SemiKbAdapter:
             except (OSError, yaml.YAMLError):
                 continue
             scenarios.append({"path": path.relative_to(self.root).as_posix(), "document": document})
-        return {"models": models, "existing_scenario_examples": scenarios[:6]}
+        return {
+            "models": models,
+            "models_total": models_total,
+            "models_truncated": models_total > len(models),
+            "existing_scenario_examples": scenarios[:6],
+        }
 
-    def existing_candidate_ids(self, limit: int = 1500) -> dict:
+    def existing_candidate_ids(self, limit: int = 500) -> dict:
         """已入库的知识条目 ID 与自动规则 ID 清单，供 Agent 去重规避。
 
         知识条目 ID 是内容派生的语义 slug（非 run 作用域），自动规则 ID 亦为内容派生，
@@ -1250,6 +1263,58 @@ class SemiKbAdapter:
                 cross += 1
         return {"domain": len(domain_individuals), "by_segment": by_segment, "cross": cross}
 
+    def _class_ancestors(self, schema: Graph, cls, cache: dict) -> set:
+        """某类的全部祖先类（rdfs:subClassOf 传递闭包，不含自身），按类记忆化。"""
+        cached = cache.get(cls)
+        if cached is not None:
+            return cached
+        acc = {anc for anc in schema.transitive_objects(cls, RDFS.subClassOf) if anc != cls}
+        cache[cls] = acc
+        return acc
+
+    def _resolve_individual_system(self, types: set, class_to_module: dict,
+                                   module_to_system: dict, schema: Graph, anc_cache: dict) -> str | None:
+        """把一个策展领域个体的多个 rdf:type 解析到「唯一」源系统（最具体类型归属）。
+
+        个体常带冗余父类型：叶类型 + 其 subClassOf 祖先同时显式声明（如
+        SwitchgearPDInspectionWorkOrder 已 subClassOf ControllingArtifact/FacilityAction，
+        却又并列声明 Action/ControllingArtifact）。若按类型并集归属，跨模块桥接个体会被并入
+        多个源系统而重复计数，破坏一级维度的分区不变式。这里按 subClassOf 只保留「最具体」
+        类型——不作为同一个体其它声明类型祖先者——再映射源系统，使每个体恰好归一个系统
+        （与 _segment_split「每个体计一次」对齐）。仍余多系统（真正不相关的多重归类）时按
+        系统名排序取首个，保确定性。
+
+        入参 types 已是该个体命中策展模块的 rdf:type 集合。返回单一源系统；若这些叶类型的
+        模块都漏登源系统则返回 None（=unmapped）。
+        """
+        covered = set()
+        for t in types:
+            covered |= self._class_ancestors(schema, t, anc_cache)
+        leaves = {t for t in types if t not in covered} or set(types)
+        systems = {module_to_system.get(class_to_module.get(t)) for t in leaves}
+        systems.discard(None)
+        if not systems:
+            return None
+        if len(systems) == 1:
+            return next(iter(systems))
+        return sorted(systems)[0]
+
+    def _collect_domain_indiv_types(self, data: Graph, class_to_module: dict) -> dict:
+        """扫一遍 data 图，收集「策展领域个体 → 其命中策展模块的 rdf:type 集合」。
+
+        去噪口径与 _segment_split / domain_coverage 完全对齐（噪声类型剔除、只留能映射到
+        策展领域模块的类型）。源系统三处拆分（个体/关系/层级视图）与导出子图共用此收集口径。
+        """
+        noise = self._INSTANCE_NOISE_TYPES
+        indiv_types: dict = {}
+        for s, _, o in data.triples((None, RDF.type, None)):
+            if o in noise:
+                continue
+            module = class_to_module.get(o)
+            if module and module in self._DOMAIN_MODULE_LABELS:
+                indiv_types.setdefault(s, set()).add(o)
+        return indiv_types
+
     def _source_system_split(self, data: Graph) -> dict:
         """级联"地基"——把领域个体按一级维度 sourceSystem 拆分（制造/ERP，值开放可扩展）。
 
@@ -1258,40 +1323,30 @@ class SemiKbAdapter:
         （class_to_module + _SOURCE_SYSTEM_MODULES 反查）聚合，零数据侵入、完全可逆。
         去噪与统计基数与 _segment_split / domain_coverage 完全对齐（只数策展模块个体）。
 
+        每个体经 _resolve_individual_system「最具体类型归属」恰好归一个源系统，故这是干净分区：
+        sum(by_system.values()) + unmapped == domain。
+
         返回 {"domain": 总数, "by_system": {"manufacturing": n, "erp": m}, "unmapped": 未归属数}。
         unmapped 恒应为 0（每个策展模块都在 _SOURCE_SYSTEM_MODULES 里有归属）；非 0 即配置漏登，
         测试据此守护"新增领域模块必须同时登记源系统"这条级联不变式。
         """
-        noise = self._INSTANCE_NOISE_TYPES
-        _, class_to_module, _ = self._load_schema_graph()
-        # 模块 → 源系统 反查表（一个模块只属一个源系统）
+        schema, class_to_module, _ = self._load_schema_graph()
         module_to_system = {
             module: system
             for system, modules in self._SOURCE_SYSTEM_MODULES.items()
             for module in modules
         }
-        # 个体 → 其所属源系统集合（经类→模块→系统两跳；同一个体多类型时取并集）
-        indiv_systems: dict = {}
-        for s, _, o in data.triples((None, RDF.type, None)):
-            if o in noise:
-                continue
-            module = class_to_module.get(o)
-            if module and module in self._DOMAIN_MODULE_LABELS:
-                system = module_to_system.get(module)
-                if system:
-                    indiv_systems.setdefault(s, set()).add(system)
-                else:
-                    indiv_systems.setdefault(s, set())  # 已登记领域但漏登源系统 → unmapped
+        indiv_types = self._collect_domain_indiv_types(data, class_to_module)
+        anc_cache: dict = {}
         by_system: dict[str, int] = {}
         unmapped = 0
-        for _, systems in indiv_systems.items():
-            if systems:
-                # 理论上单系统；跨系统个体（若未来出现）计入每个命中系统
-                for system in systems:
-                    by_system[system] = by_system.get(system, 0) + 1
+        for _, types in indiv_types.items():
+            system = self._resolve_individual_system(types, class_to_module, module_to_system, schema, anc_cache)
+            if system:
+                by_system[system] = by_system.get(system, 0) + 1
             else:
                 unmapped += 1
-        return {"domain": len(indiv_systems), "by_system": by_system, "unmapped": unmapped}
+        return {"domain": len(indiv_types), "by_system": by_system, "unmapped": unmapped}
 
     def _dimension_system_splits(self, schema: Graph, data: Graph, class_to_module: dict,
                                  classes: set, object_properties: set, datatype_properties: set) -> dict:
@@ -1342,24 +1397,20 @@ class SemiKbAdapter:
                 prop_unmapped += 1
 
         # --- 关系维（个体 → 源系统两跳，按主语端点归属关系断言）---
-        noise = self._INSTANCE_NOISE_TYPES
-        indiv_systems: dict = {}
-        for s, _, o in data.triples((None, RDF.type, None)):
-            if o in noise:
-                continue
-            module = class_to_module.get(o)
-            if module and module in self._DOMAIN_MODULE_LABELS:
-                system = module_to_system.get(module)
-                if system:
-                    indiv_systems.setdefault(s, set()).add(system)
+        # 主语个体经「最具体类型归属」解析到唯一源系统，与个体维同口径，避免桥接主语的关系被重复计入多系统。
+        indiv_types = self._collect_domain_indiv_types(data, class_to_module)
+        anc_cache: dict = {}
+        indiv_system: dict = {
+            s: self._resolve_individual_system(types, class_to_module, module_to_system, schema, anc_cache)
+            for s, types in indiv_types.items()
+        }
         rel_by_system: dict[str, int] = {}
         rel_unmapped = 0
         for subject, predicate, obj in data:
             if predicate in object_properties and subject != obj:
-                systems = indiv_systems.get(subject)
-                if systems:
-                    for system in systems:
-                        rel_by_system[system] = rel_by_system.get(system, 0) + 1
+                system = indiv_system.get(subject)
+                if system:
+                    rel_by_system[system] = rel_by_system.get(system, 0) + 1
                 else:
                     rel_unmapped += 1
 
@@ -1379,7 +1430,6 @@ class SemiKbAdapter:
         同源同口径（系统 total == system_<sys>），前端可任选平铺卡或层级视图，数字一致。
         """
         self._ensure_root()
-        noise = self._INSTANCE_NOISE_TYPES
         schema, class_to_module, cached_stats = self._load_schema_graph()
         data = self._load_data_graph()
         module_to_system = {
@@ -1387,14 +1437,9 @@ class SemiKbAdapter:
             for system, modules in self._SOURCE_SYSTEM_MODULES.items()
             for module in modules
         }
-        # 个体 → (所属模块集合)：只保留策展领域个体
-        indiv_modules: dict = {}
-        for s, _, o in data.triples((None, RDF.type, None)):
-            if o in noise:
-                continue
-            module = class_to_module.get(o)
-            if module and module in self._DOMAIN_MODULE_LABELS:
-                indiv_modules.setdefault(s, set()).add(module)
+        # 个体 → (命中策展模块的 rdf:type 集合)：只保留策展领域个体
+        indiv_types = self._collect_domain_indiv_types(data, class_to_module)
+        anc_cache: dict = {}
         # 每个个体的工艺段（单值；无标注记为跨段 cross）
         def _segment_of(indiv) -> str:
             for _, _, seg in data.triples((indiv, self._SEGMENT_PRED, None)):
@@ -1402,18 +1447,21 @@ class SemiKbAdapter:
             return "cross"
 
         # 聚合：系统 → {total, segments{seg:n}, modules{stem:instances}}
+        # total/segments 按「最具体类型归属」的唯一源系统计（与 semantic_counts 的 system_* 严格对齐，
+        # 系统 total == system_<sys>）；modules 按个体命中的全部模块计，桥接个体在其各模块下均现身
+        # （模块清单是「哪些模块有内容」的展示口径，非分区，允许并集）。
         systems_agg: dict[str, dict] = {}
-        for indiv, modules in indiv_modules.items():
-            hit_systems = {module_to_system[m] for m in modules if m in module_to_system}
+        for indiv, types in indiv_types.items():
             seg = _segment_of(indiv)
-            for system in hit_systems:
+            system = self._resolve_individual_system(types, class_to_module, module_to_system, schema, anc_cache)
+            if system:
                 agg = systems_agg.setdefault(system, {"total": 0, "segments": {}, "modules": {}})
                 agg["total"] += 1
                 agg["segments"][seg] = agg["segments"].get(seg, 0) + 1
-            for m in modules:
-                system = module_to_system.get(m)
-                if system:
-                    agg = systems_agg.setdefault(system, {"total": 0, "segments": {}, "modules": {}})
+            for m in {class_to_module.get(t) for t in types}:
+                msys = module_to_system.get(m)
+                if msys:
+                    agg = systems_agg.setdefault(msys, {"total": 0, "segments": {}, "modules": {}})
                     agg["modules"][m] = agg["modules"].get(m, 0) + 1
         # 组装输出：系统按总量降序，模块按实例数降序；带中文标签与类数
         seg_labels = {"fab": "前段厂 (fab)", "ap": "后段厂 (ap)", "cross": "跨段通用"}

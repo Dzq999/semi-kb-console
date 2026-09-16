@@ -58,6 +58,7 @@ import {
 } from "./api";
 import { useAppStore } from "./store";
 import OntologyGraph from "./OntologyGraph";
+import Governance from "./Governance";
 
 type User = {
   id: number;
@@ -132,6 +133,7 @@ const nav = [
   ["/orchestrator", "任务编排", Bot],
   ["/ontology", "本体中心", Network],
   ["/ontology-graph", "关系图谱", Share2],
+  ["/governance", "本体治理", ShieldCheck],
   ["/knowledge", "知识库", Database],
   ["/imports", "素材导入", Upload],
   ["/business", "经营模型", Gauge],
@@ -255,7 +257,7 @@ function AuthScreen({
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            minLength={10}
+            minLength={4}
             required
           />
         </label>
@@ -332,6 +334,7 @@ function Layout({
           />
           <Route path="/ontology" element={<Ontology />} />
           <Route path="/ontology-graph" element={<OntologyGraph />} />
+          <Route path="/governance" element={<Governance />} />
           <Route path="/knowledge" element={<Knowledge />} />
           <Route path="/imports" element={<ImportsPage />} />
           <Route path="/business" element={<Business />} />
@@ -4395,7 +4398,7 @@ function SettingsPage({
     },
   });
   const labels: Record<string, string> = {
-    llm_api_key: "4SAPI API Key",
+    llm_api_key: "API Key",
     wecom_webhook_key: "企业微信 Webhook Key",
     qq_smtp_auth_code: "QQ SMTP 授权码",
     wechat_app_id: "公众号 AppID",

@@ -28,10 +28,11 @@ from sqlalchemy.orm import Session
 from .config import settings
 from .db import Base, SessionLocal, engine, get_db
 from .migrations import upgrade_database
-from .models import AgentIteration, AgentRun, Article, ArticleAsset, ArticleRevision, ArticleSetting, ArticleTopic, BusinessBaselineSchedule, BusinessDraft, DailyReport, DailyReportRevision, EncryptedCredential, ExportJob, ImportJob, LoopSetting, NotificationRecord, QaConversation, QaMessage, ReportSetting, Run, RunEvent, RunRound, User, UserPreference
-from .schemas import ArticleGenerateRequest, ArticleSettingsUpdate, ArticleUpdate, BaselineScheduleUpdate, BatchApproveRequest, BusinessDraftRequest, CredentialUpdate, DefaultModelUpdate, ExportCreate, ImportAnalyzeRequest, ImportMappingUpdate, LlmEndpointUpdate, LoginRequest, LoopUpdate, QaAskRequest, QaConversationCreate, ReportContentUpdate, ReportSettingsUpdate, RunCreate, RunResumeRequest, SetupRequest
+from .models import AgentIteration, AgentRun, Article, ArticleAsset, ArticleRevision, ArticleSetting, ArticleTopic, BusinessBaselineSchedule, BusinessDraft, DailyReport, DailyReportRevision, EncryptedCredential, ExportJob, GovernanceCandidate, GovernanceJob, GovernanceSchedule, ImportJob, LoopSetting, NotificationRecord, QaConversation, QaMessage, ReportSetting, Run, RunEvent, RunRound, User, UserPreference
+from .schemas import ArticleGenerateRequest, ArticleSettingsUpdate, ArticleUpdate, BaselineScheduleUpdate, BatchApproveRequest, BusinessDraftRequest, CredentialUpdate, DefaultModelUpdate, ExportCreate, GovernanceDeprecateRequest, GovernanceRunRequest, GovernanceScheduleUpdate, ImportAnalyzeRequest, ImportMappingUpdate, LlmEndpointUpdate, LoginRequest, LoopUpdate, QaAskRequest, QaConversationCreate, ReportContentUpdate, ReportSettingsUpdate, RunCreate, RunResumeRequest, SetupRequest
 from .security import decrypt_secret, encrypt_secret, hash_password, new_session_token, verify_password
 from .services.exports import create_export, recover_export_jobs
+from .services.ontology_governance import candidate_view as governance_candidate_view, deprecate_candidates, governance_kpis, recover_governance_jobs, run_merge_job, run_scan_job
 from .services.llm import ExternalServiceError, llm_service, user_api_key, user_llm_endpoint
 from .services.notifications import NotificationError, send_email_reminder, send_wecom
 from .services.wechat_publisher import WechatPublisherError, wechat_publisher
@@ -102,6 +103,7 @@ async def lifespan(_app: FastAPI):
     with SessionLocal() as db:
         recover_ids = prepare_recoverable_runs(db)
         export_ids = recover_export_jobs(db)
+        recover_governance_jobs(db)
         ensure_article_settings(db)
     scheduler.add_job(scheduler_tick, "interval", seconds=60, id="scheduler-tick", max_instances=1, coalesce=True, replace_existing=True)
     scheduler.start()
@@ -372,10 +374,41 @@ async def baseline_batch_job(user_id: int, count: int, model_id: str, generation
                 db.commit()
 
 
+def _governance_next_run(cron: str, tz: str) -> datetime | None:
+    """用 APScheduler CronTrigger 从当前时刻算下次触发（UTC aware）。非法表达式回 None。"""
+    try:
+        from apscheduler.triggers.cron import CronTrigger
+        trigger = CronTrigger.from_crontab(cron, timezone=ZoneInfo(tz))
+        nxt = trigger.get_next_fire_time(None, datetime.now(ZoneInfo(tz)))
+        return nxt.astimezone(timezone.utc) if nxt else None
+    except Exception:  # noqa: BLE001
+        return None
+
+
+async def governance_scheduled_scan(user_id: int, auto_deprecate: bool, grace_days: int) -> None:
+    """定时治理扫描（trigger=cron）。只扫描+可选自动标记 deprecated，绝不自动合并。"""
+    with SessionLocal() as db:
+        job = GovernanceJob(id="gov-scan-cron-" + uuid.uuid4().hex[:12], user_id=user_id, kind="scan", trigger="cron")
+        db.add(job); db.commit()
+        await run_scan_job(db, job, auto_deprecate=auto_deprecate, grace_days=grace_days)
+
+
 async def scheduler_tick() -> None:
     zone = ZoneInfo(settings.timezone)
     now = datetime.now(zone)
     with SessionLocal() as db:
+        # 本体治理定时扫描（Cron 表达式驱动）——到点触发 scan，永不触发 merge。
+        for gs in db.scalars(select(GovernanceSchedule).where(GovernanceSchedule.enabled.is_(True))).all():
+            if gs.next_run_at is None:
+                gs.next_run_at = _governance_next_run(gs.cron, gs.timezone)
+                db.commit()
+                continue
+            next_run = gs.next_run_at if gs.next_run_at.tzinfo else gs.next_run_at.replace(tzinfo=timezone.utc)
+            if next_run <= datetime.now(timezone.utc):
+                gs.last_run_at = datetime.now(timezone.utc)
+                gs.next_run_at = _governance_next_run(gs.cron, gs.timezone)
+                db.commit()
+                asyncio.create_task(governance_scheduled_scan(gs.user_id, gs.auto_deprecate, gs.grace_days))
         for row in db.scalars(select(ReportSetting).where(ReportSetting.enabled.is_(True))).all():
             if row.generate_time == now.strftime("%H:%M"):
                 date_text = now.date().isoformat()
@@ -1834,6 +1867,102 @@ def download_export(job_id: str, user: User = Depends(current_user), db: Session
     if not path.is_file() or path.parent.resolve() != (settings.data_dir / "artifacts").resolve():
         raise HTTPException(status_code=404, detail="导出文件不存在")
     return FileResponse(path, filename=path.name, media_type="application/zip")
+
+
+# --------------------------------------------------------------------------- 本体治理（Track C）
+def _governance_job_view(job: GovernanceJob) -> dict:
+    return {"id": job.id, "kind": job.kind, "trigger": job.trigger, "status": job.status,
+            "progress": job.progress, "stage": job.stage, "error": job.error,
+            "audit_path": job.audit_path, "output": job.output,
+            "created_at": job.created_at, "started_at": job.started_at, "completed_at": job.completed_at}
+
+
+async def governance_scan_task(job_id: str, auto_deprecate: bool = False, grace_days: int = 14) -> None:
+    with SessionLocal() as db:
+        job = db.get(GovernanceJob, job_id)
+        if job:
+            await run_scan_job(db, job, auto_deprecate=auto_deprecate, grace_days=grace_days)
+
+
+async def governance_merge_task(job_id: str, candidate_ids: list[int]) -> None:
+    with SessionLocal() as db:
+        job = db.get(GovernanceJob, job_id)
+        if job:
+            await run_merge_job(db, job, candidate_ids)
+
+
+@app.post("/api/governance/runs", status_code=202)
+async def start_governance_run(payload: GovernanceRunRequest, user: User = Depends(current_user), db: Session = Depends(get_db)) -> dict:
+    job = GovernanceJob(id=f"gov-{payload.kind}-" + uuid.uuid4().hex[:14], user_id=user.id, kind=payload.kind, trigger="manual")
+    db.add(job); db.commit()
+    if payload.kind == "scan":
+        asyncio.create_task(governance_scan_task(job.id))
+    else:  # merge —— 不可逆，只在人工确认后触发
+        if not payload.candidate_ids:
+            db.delete(job); db.commit()
+            raise HTTPException(status_code=400, detail="合并作业须指定要合并的候选 candidate_ids")
+        asyncio.create_task(governance_merge_task(job.id, payload.candidate_ids))
+    return _governance_job_view(job)
+
+
+@app.get("/api/governance/runs")
+def list_governance_runs(limit: int = Query(30, ge=1, le=100), user: User = Depends(current_user), db: Session = Depends(get_db)) -> dict:
+    jobs = db.scalars(select(GovernanceJob).order_by(GovernanceJob.created_at.desc()).limit(limit)).all()
+    return {"items": [_governance_job_view(j) for j in jobs]}
+
+
+@app.get("/api/governance/runs/{job_id}")
+def get_governance_run(job_id: str, user: User = Depends(current_user), db: Session = Depends(get_db)) -> dict:
+    job = db.get(GovernanceJob, job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="治理作业不存在")
+    return _governance_job_view(job)
+
+
+@app.get("/api/governance/candidates")
+def list_governance_candidates(status: str | None = Query(None), user: User = Depends(current_user), db: Session = Depends(get_db)) -> dict:
+    stmt = select(GovernanceCandidate)
+    if status:
+        stmt = stmt.where(GovernanceCandidate.status == status)
+    rows = db.scalars(stmt.order_by(GovernanceCandidate.status, GovernanceCandidate.canonical)).all()
+    return {"items": [governance_candidate_view(r) for r in rows]}
+
+
+@app.post("/api/governance/candidates/deprecate")
+def deprecate_governance_candidates(payload: GovernanceDeprecateRequest, user: User = Depends(current_user), db: Session = Depends(get_db)) -> dict:
+    count = deprecate_candidates(db, payload.candidate_ids, payload.grace_days)
+    return {"deprecated": count}
+
+
+@app.get("/api/governance/kpis")
+def get_governance_kpis(user: User = Depends(current_user), db: Session = Depends(get_db)) -> dict:
+    return governance_kpis(db)
+
+
+@app.get("/api/governance/schedule")
+def get_governance_schedule(user: User = Depends(current_user), db: Session = Depends(get_db)) -> dict:
+    row = db.get(GovernanceSchedule, user.id)
+    if row is None:
+        row = GovernanceSchedule(user_id=user.id)
+        db.add(row); db.commit()
+    return {"enabled": row.enabled, "cron": row.cron, "timezone": row.timezone,
+            "auto_deprecate": row.auto_deprecate, "grace_days": row.grace_days,
+            "next_run_at": row.next_run_at, "last_run_at": row.last_run_at}
+
+
+@app.put("/api/governance/schedule")
+def update_governance_schedule(payload: GovernanceScheduleUpdate, user: User = Depends(current_user), db: Session = Depends(get_db)) -> dict:
+    row = db.get(GovernanceSchedule, user.id) or GovernanceSchedule(user_id=user.id)
+    row.enabled = payload.enabled
+    row.cron = payload.cron
+    row.auto_deprecate = payload.auto_deprecate
+    row.grace_days = payload.grace_days
+    # cron 变更后重算下次触发时刻（None → 让 tick 首次遇到时即算）。
+    row.next_run_at = _governance_next_run(row.cron, row.timezone)
+    db.add(row); db.commit()
+    return {"enabled": row.enabled, "cron": row.cron, "timezone": row.timezone,
+            "auto_deprecate": row.auto_deprecate, "grace_days": row.grace_days,
+            "next_run_at": row.next_run_at, "last_run_at": row.last_run_at}
 
 
 # 静态文件服务：提供前端构建产物

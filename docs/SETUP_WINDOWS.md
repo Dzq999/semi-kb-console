@@ -115,8 +115,12 @@ SEMI_KB_DB_NAME=semi_kb_console
 SEMI_KB_DB_USER=semi_kb_console
 # 密码从环境变量 SEMI_KB_DB_PASSWORD 读取，不要写在这里
 
-# 可选：LLM API 配置（首次启动后也可在前端"系统设置"页录入）
-# ANTHROPIC_API_KEY=sk-ant-...
+# LLM API 配置（DeepSeek 官方，OpenAI 兼容）。API Key 放环境变量 DS_API_KEY，不要写在这里
+LLM_BASE_URL=https://api.deepseek.com/v1
+MODEL_CATALOG_URL=https://api.deepseek.com/v1/models
+LLM_API_STYLE=openai
+LLM_API_KEY_ENV=DS_API_KEY
+LLM_MAX_TOKENS=8192
 ```
 
 **警告**：不要把密码、API Key 等敏感信息直接写入 `.env` 文件并提交到版本控制！
@@ -175,9 +179,9 @@ psql -U semi_kb_console -h localhost -d semi_kb_console < backup.sql
 ### 5. 首次设置
 
 1. 浏览器打开 http://127.0.0.1:5173
-2. 首次进入会提示创建管理员账号，设置用户名和密码
+2. 首次进入会提示创建管理员账号，设置用户名和密码（密码至少 4 位）
 3. 登录后，进入"系统设置"页面，录入：
-   - **LLM API Key**（Anthropic API Key，必需，用于问答和智能编排）
+   - **API Key**（DeepSeek 官方 API Key，必需，用于问答和智能编排；也可用环境变量 DS_API_KEY 提供）
    - **企业微信机器人凭据**（可选，如需接入企微群问答）
    - **QQ 邮箱 SMTP 授权码**（可选，如需自动发送日报邮件）
 

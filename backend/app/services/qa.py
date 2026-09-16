@@ -65,7 +65,8 @@ def build_grounding_context() -> dict:
     """把可作答的库内知识聚合成接地上下文（全程只读，任一源失败都降级为空、不抛出）。"""
     context: dict = {}
     try:
-        business = semi_kb.business_context()
+        # QA 为单次交互、无并发/超时压力，保留全量经营模型以不牺牲作答广度（编排侧才做采样截断）。
+        business = semi_kb.business_context(model_limit=0)
         # 只取经营模型正文与少量示例场景，控制体积。
         context["business_models"] = [
             {"path": item["path"], "document": item["document"]}
