@@ -57,23 +57,29 @@ def _filter_semantic_ttl(source_path: Path, filtered: bool, scope: str = "all") 
 
         # 加载本体 schema，获取 class -> module 映射（含 subClassOf 祖先归属增强）
         from .semi_kb import semi_kb
-        _, class_to_module, _ = semi_kb._load_schema_graph()
+        schema, class_to_module, _ = semi_kb._load_schema_graph()
 
-        # 噪声类型：与 semi_kb 头部计数/领域拆分共用同一口径
-        noise_types = semi_kb._INSTANCE_NOISE_TYPES
+        # 模块 → 源系统 反查（一个模块只属一个源系统）；源系统一级维度子图
+        module_to_system = {
+            module: system
+            for system, modules in semi_kb._SOURCE_SYSTEM_MODULES.items()
+            for module in modules
+        }
+        system_scope = scope if scope in semi_kb._SOURCE_SYSTEM_MODULES else None  # None=全部策展模块
 
-        # scope→允许的模块集合（None=全部策展模块）；源系统一级维度子图
-        allowed_modules = semi_kb._SOURCE_SYSTEM_MODULES.get(scope) if scope in semi_kb._SOURCE_SYSTEM_MODULES else None
-
-        # 找出策展模块个体
+        # 找出策展模块个体，并把每个体归到唯一源系统（最具体类型归属，与读侧计数同口径）。
+        # scope="manufacturing"/"erp" 只保留解析结果 == 该系统的个体；每个体恰归一个系统，
+        # 故两子图严格正交、并集 == all，桥接个体（多模块 rdf:type）不会同时落两个子图。
+        indiv_types = semi_kb._collect_domain_indiv_types(data, class_to_module)
+        anc_cache: dict = {}
         curated_individuals = set()
-        for s, _, o in data.triples((None, RDF.type, None)):
-            if o in noise_types:
+        for s, types in indiv_types.items():
+            if system_scope is None:
+                curated_individuals.add(s)  # all：全部策展个体
                 continue
-            module = class_to_module.get(o)
-            if module and module in semi_kb._DOMAIN_MODULE_LABELS:
-                if allowed_modules is not None and module not in allowed_modules:
-                    continue
+            system = semi_kb._resolve_individual_system(
+                types, class_to_module, module_to_system, schema, anc_cache)
+            if system == system_scope:
                 curated_individuals.add(s)
 
         # 创建过滤后的图
