@@ -300,11 +300,15 @@ class RunOrchestrator:
                         else:
                             async with self.provider_semaphore:
                                 timeout_s = int(agent_config.get("timeout_seconds", 300))
+                                # 编排 agent 的 JSON 产物极少超 8K token；把输出预算从全局 16384 收到 8192，
+                                # 直接砍掉推理模型的长思维链尾巴 → 流时长减半 → 中转对长连接的掐断概率大降
+                                # （RemoteProtocolError 主因）。可经 agent_config.max_tokens 覆写；QA 路径不受影响。
+                                out_tokens = int(agent_config.get("max_tokens", 8192))
                                 if stream_mode:
                                     # 流式聚合：保持连接活性，规避中转对长响应的空闲掐断；截断会显式上抛按网络重试。
-                                    text = await llm_service.complete_via_stream(api_key, agent.model_id, system, prompt, timeout_seconds=timeout_s, endpoint=endpoint)
+                                    text = await llm_service.complete_via_stream(api_key, agent.model_id, system, prompt, timeout_seconds=timeout_s, max_tokens=out_tokens, endpoint=endpoint)
                                 else:
-                                    text = await llm_service.complete(api_key, agent.model_id, system, prompt, timeout_seconds=timeout_s, endpoint=endpoint)
+                                    text = await llm_service.complete(api_key, agent.model_id, system, prompt, timeout_seconds=timeout_s, max_tokens=out_tokens, endpoint=endpoint)
                             raw_path.write_text(text, encoding="utf-8")
                         parsed = _json_object(text)
                         output = validate_and_store_agent_output(

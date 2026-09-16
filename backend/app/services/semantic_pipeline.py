@@ -140,6 +140,12 @@ def _normalize_semantic_candidate(candidate: dict[str, Any]) -> tuple[dict[str, 
             if field in item and not isinstance(item[field], list):
                 item[field] = _as_list(item[field])
                 warnings.append(f"已将对象属性 {item.get('iri')} 的 {field} 规范化为数组")
+        # inverse_of 是可选项：模型常回空串/None 表示"无逆属性"，但 schema 的 pattern 只认合法 IRI，
+        # 空串会整条 agent 输出校验失败（曾致 FAC 研究整轮丢弃）。空值即视为未声明、直接剔除。
+        inv = item.get("inverse_of")
+        if "inverse_of" in item and (not isinstance(inv, str) or not inv.strip()):
+            item.pop("inverse_of", None)
+            warnings.append(f"已剔除对象属性 {item.get('iri')} 的空 inverse_of")
     for item in additions["datatype_properties"]:
         if "domain" in item and not isinstance(item["domain"], list):
             item["domain"] = _as_list(item["domain"])
