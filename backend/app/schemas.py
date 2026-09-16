@@ -31,7 +31,7 @@ class SystemFocus(BaseModel):
 
 class SetupRequest(BaseModel):
     username: str = Field(min_length=3, max_length=80)
-    password: str = Field(min_length=10, max_length=200)
+    password: str = Field(min_length=4, max_length=200)
 
 
 class LoginRequest(SetupRequest):
