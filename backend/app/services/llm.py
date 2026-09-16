@@ -40,6 +40,23 @@ class LlmEndpoint:
     api_style: str
 
 
+# DeepSeek 官方稳定别名：deepseek-chat（非推理）/ deepseek-reasoner（推理），二者当前都路由到
+# 底层同族模型、仅切换是否开思维链。官方 /v1/models 目录只枚举底层型号（如 deepseek-flash /
+# deepseek-v4-pro，均默认开推理），不列这两个别名；但别名实测可用且是官方文档指定入口。因此在
+# DeepSeek 目录里补登这两个稳定别名，让 run 启动校验(main.py)与前端下拉都能选到——尤其保住用户
+# 明确选择的非推理 deepseek-chat（避开长推理流被中途掐断的失败根因）。仅对 DeepSeek 官方 host 生效。
+_DEEPSEEK_STABLE_ALIASES = ("deepseek-chat", "deepseek-reasoner")
+
+
+def _is_deepseek_official_host(url: str) -> bool:
+    """判断目录地址是否指向 DeepSeek 官方 host（精确匹配主机名，不用子串，防 evil-deepseek.com 之类仿冒）。"""
+    try:
+        host = (urlparse(url).hostname or "").casefold()
+    except ValueError:
+        return False
+    return host == "api.deepseek.com" or host.endswith(".api.deepseek.com")
+
+
 def _default_endpoint() -> LlmEndpoint:
     return LlmEndpoint(base_url=settings.llm_base_url, catalog_url=settings.model_catalog_url, api_style=settings.llm_api_style)
 
@@ -111,6 +128,13 @@ class LlmService:
         payload = response.json()
         raw = payload.get("data", payload if isinstance(payload, list) else [])
         models = [{"id": str(item.get("id", "")), "owned_by": item.get("owned_by"), "available": True} for item in raw if isinstance(item, dict) and item.get("id")]
+        # DeepSeek 官方目录不枚举 deepseek-chat/deepseek-reasoner 稳定别名，补登进目录（不重复已有项），
+        # 使启动校验与前端下拉可选到它们。仅对 DeepSeek 官方 host 生效，不影响其它 provider 目录。
+        if _is_deepseek_official_host(endpoint.catalog_url):
+            existing_ids = {item["id"] for item in models}
+            for alias in _DEEPSEEK_STABLE_ALIASES:
+                if alias not in existing_ids:
+                    models.append({"id": alias, "owned_by": "deepseek", "available": True})
         if search:
             needle = search.casefold()
             models = [item for item in models if needle in item["id"].casefold()]

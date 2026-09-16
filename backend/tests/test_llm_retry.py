@@ -270,3 +270,71 @@ async def test_stream_openai_length_finish_is_cut(monkeypatch):
     _install_stream(monkeypatch, [list(cut) for _ in range(_HTTP_RETRIES + 1)])
     with pytest.raises(ExternalServiceError):
         await LlmService().complete_via_stream("key", "model", "sys", "user", endpoint=ep)
+
+
+# ---- list_models：DeepSeek 官方目录补登稳定别名 deepseek-chat/deepseek-reasoner ----
+
+class _CatalogResponse:
+    def __init__(self, ids: list[str], status_code: int = 200):
+        self.status_code = status_code
+        self._ids = ids
+
+    def json(self):
+        return {"object": "list", "data": [{"id": i, "object": "model", "owned_by": "deepseek"} for i in self._ids]}
+
+
+class _CatalogClient:
+    """替身 httpx.AsyncClient：list_models 走 .get()，回放一个固定目录响应。"""
+
+    ids: list[str] = []
+
+    def __init__(self, *args, **kwargs):
+        pass
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc):
+        return False
+
+    async def get(self, *args, **kwargs):
+        return _CatalogResponse(type(self).ids)
+
+
+def _install_catalog(monkeypatch, ids):
+    _CatalogClient.ids = ids
+    monkeypatch.setattr(httpx, "AsyncClient", _CatalogClient)
+
+
+@pytest.mark.asyncio
+async def test_deepseek_official_catalog_injects_stable_aliases(monkeypatch):
+    # 官方目录只枚举底层型号；deepseek-chat/deepseek-reasoner 被补登，且原型号保留。
+    from app.services.llm import LlmEndpoint
+    _install_catalog(monkeypatch, ["deepseek-flash", "deepseek-v4-pro"])
+    ep = LlmEndpoint(base_url="https://api.deepseek.com/v1", catalog_url="https://api.deepseek.com/v1/models", api_style="openai")
+    ids = {m["id"] for m in await LlmService().list_models("key", endpoint=ep)}
+    assert {"deepseek-chat", "deepseek-reasoner", "deepseek-flash", "deepseek-v4-pro"} <= ids
+
+
+@pytest.mark.asyncio
+async def test_deepseek_alias_not_duplicated_when_already_listed(monkeypatch):
+    # 若某天官方目录自己也列了 deepseek-chat，则不重复追加。
+    from app.services.llm import LlmEndpoint
+    _install_catalog(monkeypatch, ["deepseek-chat", "deepseek-flash"])
+    ep = LlmEndpoint(base_url="https://api.deepseek.com/v1", catalog_url="https://api.deepseek.com/v1/models", api_style="openai")
+    models = await LlmService().list_models("key", endpoint=ep)
+    assert [m["id"] for m in models].count("deepseek-chat") == 1
+
+
+@pytest.mark.asyncio
+async def test_non_deepseek_catalog_left_untouched(monkeypatch):
+    # 非 DeepSeek host（含仿冒域名）绝不注入别名，避免污染其它 provider 目录。
+    from app.services.llm import LlmEndpoint
+    _install_catalog(monkeypatch, ["gpt-x", "claude-y"])
+    ep = LlmEndpoint(base_url="https://4sapi.org/v1", catalog_url="https://4sapi.org/v1/models", api_style="openai")
+    ids = {m["id"] for m in await LlmService().list_models("key", endpoint=ep)}
+    assert ids == {"gpt-x", "claude-y"}
+    spoof = LlmEndpoint(base_url="https://api.deepseek.com.evil.com/v1", catalog_url="https://api.deepseek.com.evil.com/v1/models", api_style="openai")
+    _install_catalog(monkeypatch, ["gpt-x"])
+    ids2 = {m["id"] for m in await LlmService().list_models("key", endpoint=spoof)}
+    assert ids2 == {"gpt-x"}
